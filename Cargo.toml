@@ -1,0 +1,19 @@
+[package]
+name = "slog"
+version = "0.1.0"
+readme = "README.md"
+license = "MIT"
+edition = "2024"
+
+include = [
+  "Cargo.toml",
+  "LICENSE",
+  "src/**/*",
+]
+
+[lib]
+name = "slog"
+path = "src/lib.rs"
+
+[dependencies]
+# no external dependencies FTW
