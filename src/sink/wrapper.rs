@@ -1,3 +1,4 @@
+use std::io;
 use std::sync::LazyLock;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -60,18 +61,20 @@ impl Sink for AsyncSink {
 		self.name.as_str()
 	}
 
-	fn write(&mut self, update: &LogUpdate) {
+	fn log(&mut self, update: &LogUpdate) -> io::Result<()> {
 		match self.tx.send(AsyncSinkOp::Write { update: update.clone() }) {
 			Ok(_) => (),
-			Err(e) => panic!("failed to send update to log sink \"{name}\": {e}", name = self.name),
+			Err(e) => panic!("failed to queue update for log sink \"{name}\": {e}", name = self.name),
 		};
+		Ok(())
 	}
 
-	fn flush(&mut self) {
+	fn flush(&mut self) -> io::Result<()> {
 		match self.tx.send(AsyncSinkOp::Flush) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to send flush to log sink \"{name}\": {e}", name = self.name),
+			Ok(_) => {}
+			Err(e) => panic!("failed to queue flush for log sink \"{name}\": {e}", name = self.name),
 		};
+		Ok(())
 	}
 
 	fn drop(&self) {

@@ -10,7 +10,7 @@ const BENCHMARK_LOG_ITEMS: u32 = 1000000;
 const BENCHMARK_MAX_NESTING: u32 = 50;
 
 #[cfg(test)]
-mod benchmark_tests {
+mod benchmarks {
 	use super::*;
 
 	#[test]

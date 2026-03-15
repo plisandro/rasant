@@ -16,7 +16,7 @@ impl Default for StdoutConfig {
 		Self {
 			name: String::from("STDOUT"),
 			formatter_cfg: format::FormatterConfig {
-				output: format::OutputFormat::ColorCompact,
+				format: format::OutputFormat::ColorCompact,
 				..format::FormatterConfig::default()
 			},
 			delimiter: "\n".into(),
@@ -33,7 +33,7 @@ pub fn new(conf: StdoutConfig) -> IO {
 		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
-		writer: Some(io::stdout()),
+		out: Some(io::stdout()),
 	})
 }
 

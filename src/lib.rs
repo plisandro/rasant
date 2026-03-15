@@ -103,9 +103,7 @@ impl<'s> Slog<'s> {
 	}
 
 	/*
-	fn all_sinks(
-		&self,
-	) -> Chain<Iter<'_, Arc<Mutex<Box<dyn Sink>>>>, Iter<'_, Arc<Mutex<Box<dyn Sink>>>>> {
+	fn all_sinks(&self) -> Chain<Iter<'_, Arc<Mutex<Box<dyn Sink>>>>, Iter<'_, Arc<Mutex<Box<dyn Sink>>>>> {
 		self.parent_sinks.iter().chain(self.sinks.iter())
 	}
 	*/
@@ -158,27 +156,15 @@ impl<'s> Slog<'s> {
 			None
 		} else {
 			let formatter = sink::format::Formatter::new(format::FormatterConfig::default());
-			Some(formatter.format(&update))
+			Some(formatter.as_string(&update))
 		};
 
-		/*
-		for sink in self.all_sinks() {
-			let mut bsink = sink.lock().unwrap();
-			if !bsink.receives_all_levels() && self.level.covers(&level) {
-				bsink.write(&update);
-			}
-		}
-		*/
-		for sink in &self.parent_sinks {
-			let mut bsink = sink.lock().unwrap();
-			if !bsink.receives_all_levels() && self.level.covers(&level) {
-				bsink.write(&update);
-			}
-		}
-		for sink in &self.sinks {
-			let mut bsink = sink.lock().unwrap();
-			if !bsink.receives_all_levels() && self.level.covers(&level) {
-				bsink.write(&update);
+		for sink in self.parent_sinks.iter().chain(self.sinks.iter()) {
+			let mut sink = sink.lock().unwrap();
+			if !sink.receives_all_levels() && self.level.covers(&level) {
+				if let Err(e) = sink.log(&update) {
+					panic!("failed to log update {update:?} on sink {name}: {e}", name = sink.name());
+				}
 			}
 		}
 
@@ -264,16 +250,11 @@ impl<'s> Slog<'s> {
 	}
 
 	pub fn flush(&self) -> &Self {
-		/*
-		for sink in self.all_sinks() {
-			sink.lock().unwrap().flush();
-		}
-		*/
-		for sink in &self.parent_sinks {
-			sink.lock().unwrap().flush();
-		}
-		for sink in &self.sinks {
-			sink.lock().unwrap().flush();
+		for sink in self.parent_sinks.iter().chain(self.sinks.iter()) {
+			let mut sink = sink.lock().unwrap();
+			if let Err(e) = sink.flush() {
+				panic!("failed to flush sink {name}: {e}", name = sink.name());
+			}
 		}
 
 		self

@@ -1,11 +1,12 @@
 mod c_bindings;
 mod constant;
-mod format;
+pub mod format;
 mod parts;
 
 use core::ops::Sub;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::fmt;
+use std::io;
 use std::time;
 
 use constant::{TIMEZONE_UTC, U128_MILLIS_IN_SECOND, U128_NANOS_IN_MILLI, U128_NANOS_IN_SECOND};
@@ -93,7 +94,11 @@ impl Timestamp {
 	}
 
 	pub fn as_string(&self, format: &StringFormat) -> String {
-		format.timestamp_as_string(self)
+		format.as_string(self)
+	}
+
+	pub fn write<T: io::Write>(&self, out: &mut T, format: &StringFormat) -> io::Result<()> {
+		format.write(out, self)
 	}
 
 	pub fn add_duration(&mut self, d: &Duration) -> &Self {

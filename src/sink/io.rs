@@ -3,13 +3,13 @@ use std::io;
 use crate::sink;
 use crate::sink::format;
 
-pub struct IOConfig<W: io::Write> {
+pub struct IOConfig<T: io::Write> {
 	pub name: String,
 	pub formatter_cfg: format::FormatterConfig,
 	pub delimiter: String,
 	pub buffered: bool,
 	pub flush_on_write: bool,
-	pub writer: Option<W>,
+	pub out: Option<T>,
 }
 
 impl<W: io::Write> Default for IOConfig<W> {
@@ -20,7 +20,7 @@ impl<W: io::Write> Default for IOConfig<W> {
 			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
-			writer: None,
+			out: None,
 		}
 	}
 }
@@ -30,22 +30,22 @@ pub struct IO {
 	formatter: format::Formatter,
 	delimiter: String,
 	flush_on_write: bool,
-	writer: Box<dyn io::Write>,
+	out: Box<dyn io::Write>,
 }
 
 impl IO {
 	pub fn new<T: io::Write + 'static>(conf: IOConfig<T>) -> Self {
-		let Some(cwriter): Option<T> = conf.writer else {
+		let Some(cout): Option<T> = conf.out else {
 			panic!("missing io::Write output for I/O sink");
 		};
-		let writer: Box<dyn io::Write> = if conf.buffered { Box::new(io::BufWriter::new(cwriter)) } else { Box::new(cwriter) };
+		let out: Box<dyn io::Write> = if conf.buffered { Box::new(io::BufWriter::new(cout)) } else { Box::new(cout) };
 
 		Self {
 			name: conf.name,
 			formatter: format::Formatter::new(conf.formatter_cfg),
 			delimiter: conf.delimiter,
 			flush_on_write: conf.flush_on_write,
-			writer: writer,
+			out: out,
 		}
 	}
 }
@@ -55,24 +55,16 @@ impl sink::Sink for IO {
 		self.name.as_str()
 	}
 
-	fn write(&mut self, update: &sink::LogUpdate) {
-		let mut out = self.formatter.format(&update);
-		out.push_str(&self.delimiter);
-
-		match self.writer.write(out.as_bytes()) {
-			Err(e) => panic!("failed to write to log sink {name}: {e:?}", name = self.name, e = e),
-			Ok(_) => {}
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
+		self.formatter.write(&mut self.out, &update)?;
+		if let Err(e) = self.out.write(self.delimiter.as_bytes()) {
+			return Err(e);
 		}
-		if self.flush_on_write {
-			self.flush();
-		}
+		Ok(())
 	}
 
-	fn flush(&mut self) {
-		match self.writer.flush() {
-			Err(e) => panic!("failed to flush log sink {name}: {e:?}", name = self.name, e = e),
-			Ok(_) => {}
-		}
+	fn flush(&mut self) -> io::Result<()> {
+		self.out.flush()
 	}
 
 	fn drop(&self) {}

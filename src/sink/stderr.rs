@@ -30,7 +30,7 @@ pub fn new(conf: StderrConfig) -> IO {
 		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
-		writer: Some(io::stderr()),
+		out: Some(io::stderr()),
 	})
 }
 

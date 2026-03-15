@@ -1,3 +1,4 @@
+use std::io;
 use std::string;
 
 use crate::sink::format;
@@ -65,7 +66,7 @@ impl sink::Sink for String<'_> {
 		self.name.as_str()
 	}
 
-	fn write(&mut self, update: &sink::LogUpdate) {
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		let mut out = match self.out.lock() {
 			Ok(s) => s,
 			Err(e) => {
@@ -75,9 +76,9 @@ impl sink::Sink for String<'_> {
 
 		let line: string::String;
 		if let Some(now) = &self.frozen_now {
-			line = self.formatter.format(&(update.with_when(now)));
+			line = self.formatter.as_string(&(update.with_when(now)));
 		} else {
-			line = self.formatter.format(&update);
+			line = self.formatter.as_string(&update);
 		}
 
 		if !out.is_empty() {
@@ -90,9 +91,13 @@ impl sink::Sink for String<'_> {
 				now.add_duration(&tick);
 			}
 		}
+
+		Ok(())
 	}
 
-	fn flush(&mut self) {}
+	fn flush(&mut self) -> io::Result<()> {
+		Ok(())
+	}
 
 	fn drop(&self) {}
 }

@@ -1,3 +1,6 @@
+use std::fmt;
+use std::io;
+
 use crate::console::Color;
 use crate::level::Level;
 use crate::sink::LogUpdate;
@@ -13,65 +16,63 @@ pub enum OutputFormat {
 }
 
 pub struct FormatterConfig {
-	pub output: OutputFormat,
+	pub format: OutputFormat,
 	pub time_format: time::StringFormat,
 }
 
 impl FormatterConfig {
 	pub fn default() -> Self {
 		Self {
-			output: OutputFormat::Compact,
+			format: OutputFormat::Compact,
 			time_format: time::StringFormat::LocalMillisDateTime,
 		}
 	}
 
 	pub fn json() -> Self {
 		Self {
-			output: OutputFormat::Json,
+			format: OutputFormat::Json,
 			time_format: time::StringFormat::TimestampSeconds,
 		}
 	}
 }
 
 pub struct Formatter {
-	output: OutputFormat,
+	format: OutputFormat,
+	time_key: String,
 	time_format: time::StringFormat,
+	output_buffer: io::Cursor<Vec<u8>>,
 }
 
 impl Formatter {
 	pub fn new(conf: FormatterConfig) -> Self {
 		Self {
-			output: conf.output,
+			format: conf.format,
+			time_key: match &conf.time_format {
+				time::StringFormat::TimestampSeconds | time::StringFormat::TimestampMilliseconds => String::from(KEY_TIMESTAMP),
+				_ => String::from(KEY_TIME),
+			},
 			time_format: conf.time_format,
+			output_buffer: io::Cursor::new(Vec::new()),
 		}
 	}
 
-	fn time_kv(&self, update: &LogUpdate) -> (&str, String) {
-		let time_key = match self.time_format {
-			time::StringFormat::TimestampSeconds | time::StringFormat::TimestampMilliseconds => KEY_TIMESTAMP,
-			_ => KEY_TIME,
-		};
-		let time_str = update.when.as_string(&self.time_format);
-
-		(time_key, time_str)
-	}
-
-	fn format_compact(&self, update: &LogUpdate) -> String {
-		let (_, time_str) = self.time_kv(update);
+	fn format_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
 
 		// build output header
-		let mut out = format!("{time_str} [{level}] {msg}", time_str = time_str, level = update.level.as_short_str(), msg = update.msg);
+		update.when.write(out, &self.time_format)?;
+		write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
 
 		// append fields
 		for k in update.attributes.keys() {
-			out += format!(" {key}={val}", key = k, val = update.attributes.get_as_quoted_string(k),).as_str();
+			write!(out, " {key}={val}", key = k, val = update.attributes.get_as_quoted_string(k),)?;
 		}
 
-		out
+		Ok(())
 	}
 
-	fn format_color_compact(&self, update: &LogUpdate) -> String {
-		let (_, time_str) = self.time_kv(update);
+	fn format_color_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
 
 		// build output header
 		let msg = if Level::Debug.includes(&update.level) {
@@ -81,12 +82,8 @@ impl Formatter {
 			&Color::BrightWhite.paint(update.msg.as_str())
 		};
 
-		let mut out = format!(
-			"{time_str} {level} {msg}",
-			time_str = Color::BrightBlack.paint(time_str.as_str()),
-			level = update.level.as_color_short_str(),
-			msg = msg,
-		);
+		update.when.write(out, &self.time_format)?;
+		write!(out, " {level} {msg}", level = update.level.as_color_short_str(), msg = msg,)?;
 
 		// append fields
 		for k in update.attributes.keys() {
@@ -97,46 +94,57 @@ impl Formatter {
 				update.attributes.get_as_quoted_string(k)
 			};
 
-			out += format!(" {key}={val}", key = Color::Cyan.paint(k), val = val,).as_str();
+			write!(out, " {key}={val}", key = Color::Cyan.paint(k), val = val,)?;
 		}
 
-		out
+		Ok(())
 	}
 
-	fn format_json(&self, update: &LogUpdate) -> String {
-		let (time_key, mut time_str) = self.time_kv(update);
-
-		if !self.time_format.is_numeric() {
-			time_str.insert_str(0, "\"");
-			time_str.push_str("\"");
-		}
+	fn format_json<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+		// "{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}"
 
 		// build output header
-		let mut out: String = format!(
-			"{{\"{time_key}\":{time_str},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
-			time_key = time_key,
-			time_str = time_str,
+		write!(
+			out,
+			"{{\"{time_key}\":{time_delimiter}",
+			time_key = self.time_key,
+			time_delimiter = if self.time_format.is_numeric() { "" } else { "\"" },
+		)?;
+		update.when.write(out, &self.time_format)?;
+		write!(
+			out,
+			"{time_delimiter},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
+			time_delimiter = if self.time_format.is_numeric() { "" } else { "\"" },
 			level = update.level.as_str(),
 			msg_key = KEY_MESSAGE,
 			msg = update.msg,
-		);
+		)?;
 
 		// append fields
 		for k in update.attributes.keys() {
-			out += format!(",\"{key}\":{val}", key = k, val = update.attributes.get_as_json_string(k)).as_str();
+			write!(out, ",\"{key}\":{val}", key = k, val = update.attributes.get_as_json_string(k))?;
 		}
-		out += "}";
+		write!(out, "}}")?;
 
-		out
+		Ok(())
 	}
 
-	// TODO: replace string output with buffer writes for performance
-	pub fn format(&self, update: &LogUpdate) -> String {
-		match self.output {
-			OutputFormat::Compact => self.format_compact(update),
-			OutputFormat::ColorCompact => self.format_color_compact(update),
+	pub fn write<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+		match self.format {
+			OutputFormat::Compact => self.format_compact(out, update),
+			OutputFormat::ColorCompact => self.format_color_compact(out, update),
 			//OutputFormat::Long => self.format_long(update),
-			OutputFormat::Json => self.format_json(&update),
+			OutputFormat::Json => self.format_json(out, &update),
+		}
+	}
+
+	pub fn as_string(&self, update: &LogUpdate) -> String {
+		let mut out = io::Cursor::new(Vec::new());
+		self.write(&mut out, update);
+
+		match String::from_utf8(out.into_inner()) {
+			Ok(s) => s,
+			Err(e) => panic!("failed to convert log update {update:?} to string: {e}"),
 		}
 	}
 }

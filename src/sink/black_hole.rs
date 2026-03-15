@@ -1,3 +1,4 @@
+use std::io;
 use std::string;
 
 use crate::sink;
@@ -11,7 +12,7 @@ impl Default for BlackHoleConfig {
 	fn default() -> Self {
 		Self {
 			formatter_cfg: format::FormatterConfig {
-				output: format::OutputFormat::Compact,
+				format: format::OutputFormat::Compact,
 				..format::FormatterConfig::default()
 			},
 		}
@@ -22,6 +23,7 @@ impl Default for BlackHoleConfig {
 pub struct BlackHole {
 	name: string::String,
 	formatter: format::Formatter,
+	out: io::Empty,
 }
 
 impl BlackHole {
@@ -29,6 +31,7 @@ impl BlackHole {
 		Self {
 			name: "black hole NULL logger".into(),
 			formatter: format::Formatter::new(conf.formatter_cfg),
+			out: io::empty(),
 		}
 	}
 }
@@ -38,12 +41,13 @@ impl sink::Sink for BlackHole {
 		self.name.as_str()
 	}
 
-	fn write(&mut self, update: &sink::LogUpdate) {
-		let out = self.formatter.format(&update);
-		drop(out);
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
+		self.formatter.write(&mut self.out, &update)
 	}
 
-	fn flush(&mut self) {}
+	fn flush(&mut self) -> io::Result<()> {
+		Ok(())
+	}
 
 	fn drop(&self) {}
 }

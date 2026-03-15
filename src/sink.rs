@@ -8,6 +8,8 @@ pub mod stdout;
 pub mod string;
 pub mod wrapper;
 
+use std::io as std_io;
+
 use crate::attributes;
 use crate::level;
 use crate::time;
@@ -50,8 +52,8 @@ impl LogUpdate {
 pub trait Sink {
 	fn name(&self) -> &str;
 	// TODO: take ownership of LogUpdate here.
-	fn write(&mut self, update: &LogUpdate);
-	fn flush(&mut self);
+	fn log(&mut self, update: &LogUpdate) -> std_io::Result<()>;
+	fn flush(&mut self) -> std_io::Result<()>;
 	fn drop(&self);
 
 	fn receives_all_levels(&self) -> bool {

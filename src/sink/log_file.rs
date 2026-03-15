@@ -63,7 +63,7 @@ pub fn default() -> IO {
 pub fn default_json() -> IO {
 	new(LogFileConfig {
 		formatter_cfg: format::FormatterConfig {
-			output: format::OutputFormat::Json,
+			format: format::OutputFormat::Json,
 			..format::FormatterConfig::default()
 		},
 		..LogFileConfig::default()

@@ -46,6 +46,6 @@ pub fn new(conf: FileConfig) -> IO {
 		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
-		writer: Some(fh),
+		out: Some(fh),
 	})
 }

@@ -13,6 +13,7 @@ pub const KEY_TIMESTAMP: &str = "timestamp";
 pub const PRIORITY_KEYS: [&str; 2] = [KEY_MESSAGE, KEY_ERROR];
 pub const RESTRICTED_KEYS: [&str; 3] = [KEY_LEVEL, KEY_TIME, KEY_TIMESTAMP];
 
+// TODO: make me zero allocation on reads.
 #[derive(Debug)]
 pub struct Map {
 	data: HashMap<String, Value>,
