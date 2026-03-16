@@ -36,7 +36,7 @@ mod benchmarks {
 			);
 		};
 
-		for (log_level, op) in [(Level::Info, "wrote"), (Level::Debug, "skipped")] {
+		for (log_level, op) in [(Level::Info, "wrote"), (Level::Warning, "skipped")] {
 			for log_format in [OutputFormat::Compact, OutputFormat::Json] {
 				do_log(op, log_level, log_format);
 			}
@@ -72,7 +72,7 @@ mod benchmarks {
 			);
 		};
 
-		for (log_level, op) in [(Level::Info, "wrote"), (Level::Debug, "skipped")] {
+		for (log_level, op) in [(Level::Info, "wrote"), (Level::Warning, "skipped")] {
 			for log_format in [OutputFormat::Compact, OutputFormat::Json] {
 				do_log(op, log_level, log_format);
 			}
@@ -110,7 +110,7 @@ mod benchmarks {
 			);
 		};
 
-		for (log_level, op) in [(Level::Info, "wrote"), (Level::Debug, "skipped")] {
+		for (log_level, op) in [(Level::Info, "wrote"), (Level::Warning, "skipped")] {
 			for log_format in [OutputFormat::Compact, OutputFormat::Json] {
 				do_log(op, log_level, log_format);
 			}

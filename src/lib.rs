@@ -26,6 +26,7 @@ pub struct Slog<'s> {
 	attributes: attributes::Map,
 	sinks: Vec<Arc<Mutex<Box<dyn Sink + 's>>>>,
 	parent_sinks: Vec<Arc<Mutex<Box<dyn Sink + 's>>>>,
+	has_levelless_sinks: bool,
 }
 
 impl<'s> Slog<'s> {
@@ -37,6 +38,7 @@ impl<'s> Slog<'s> {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			parent_sinks: Vec::new(),
+			has_levelless_sinks: false,
 		}
 	}
 
@@ -64,6 +66,7 @@ impl<'s> Slog<'s> {
 			attributes: self.attributes.clone(),
 			sinks: Vec::new(),
 			parent_sinks: parent_sinks,
+			has_levelless_sinks: self.has_levelless_sinks,
 		}
 	}
 
@@ -106,6 +109,7 @@ impl<'s> Slog<'s> {
 	pub fn add_sink<T: sink::Sink + 's>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
+		let receives_all_levels = sink.receives_all_levels();
 
 		let bsink: Box<dyn Sink>;
 		if self.async_writes {
@@ -114,11 +118,17 @@ impl<'s> Slog<'s> {
 			bsink = Box::new(sink);
 		}
 		self.sinks.push(Arc::new(Mutex::new(bsink)));
+		self.has_levelless_sinks |= receives_all_levels;
 
 		self.log_with(
 			level::Level::Debug,
 			"added new log sink",
-			[("name", Value::from(name)), ("id", Value::from(thread::current().id())), ("async", Value::from(self.async_writes))],
+			[
+				("name", Value::from(name)),
+				("id", Value::from(thread::current().id())),
+				("async", Value::from(self.async_writes)),
+				("logs_all_levels", Value::from(receives_all_levels)),
+			],
 		);
 
 		self
@@ -133,14 +143,10 @@ impl<'s> Slog<'s> {
 		if self.parent_sinks.is_empty() && self.sinks.is_empty() {
 			panic!("tried to log without sinks configured");
 		}
-
-		// TODO: bail out early on negative log requests
-		/*
-		let always_log = self.parent_sinks.iter().chain(self.sinks.iter()).any(|s| s.lock().unwrap().receives_all_levels());
-		if !always_log && !self.level.covers(&level) {
+		// bail out early on negative log requests
+		if !self.has_levelless_sinks && !self.level.covers(&level) {
 			return self;
 		}
-		*/
 
 		let mut nattrs = self.attributes.clone();
 		for a in attrs_1 {
@@ -163,7 +169,7 @@ impl<'s> Slog<'s> {
 
 		for sink in self.parent_sinks.iter().chain(self.sinks.iter()) {
 			let mut sink = sink.lock().unwrap();
-			if !sink.receives_all_levels() && self.level.covers(&level) {
+			if sink.receives_all_levels() || self.level.covers(&level) {
 				if let Err(e) = sink.log(&update) {
 					panic!("failed to log update {update:?} on sink {name}: {e}", name = sink.name());
 				}

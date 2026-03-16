@@ -84,7 +84,7 @@ fn formatted_output() {
 			nlog.set("number", 1);
 			nlog.info("first test info")
 				.warn("first test warn")
-				.debug("first test debug")
+				.debug("first test debug, ignore me")
 				.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 		}
 
