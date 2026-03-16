@@ -15,6 +15,17 @@ pub enum OutputFormat {
 	Json,
 }
 
+impl OutputFormat {
+	pub fn name(&self) -> String {
+		match self {
+			Self::Compact => "compact",
+			Self::ColorCompact => "compact (w/console color)",
+			Self::Json => "JSON",
+		}
+		.into()
+	}
+}
+
 pub struct FormatterConfig {
 	pub format: OutputFormat,
 	pub time_format: time::StringFormat,

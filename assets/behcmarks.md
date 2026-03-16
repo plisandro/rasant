@@ -9,7 +9,7 @@ All figures below were collected on 16-cre AMD Ryzen 9 5950X system with 64GB of
 
 ### Latest: 2026-03-15, version 0.1.0
 
-All log operations I/O perform streamed writes, with zero string allocation.
+All log operations I/O perform streamed writes, with minimal string allocation.
 
 ```
 ---- benchmarks::black_hole_single stdout ----

@@ -102,12 +102,6 @@ impl<'s> Slog<'s> {
 		self
 	}
 
-	/*
-	fn all_sinks(&self) -> Chain<Iter<'_, Arc<Mutex<Box<dyn Sink>>>>, Iter<'_, Arc<Mutex<Box<dyn Sink>>>>> {
-		self.parent_sinks.iter().chain(self.sinks.iter())
-	}
-	*/
-
 	// TODO: fix lifetime.
 	pub fn add_sink<T: sink::Sink + 's>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
@@ -139,6 +133,14 @@ impl<'s> Slog<'s> {
 		if self.parent_sinks.is_empty() && self.sinks.is_empty() {
 			panic!("tried to log without sinks configured");
 		}
+
+		// TODO: bail out early on negative log requests
+		/*
+		let always_log = self.parent_sinks.iter().chain(self.sinks.iter()).any(|s| s.lock().unwrap().receives_all_levels());
+		if !always_log && !self.level.covers(&level) {
+			return self;
+		}
+		*/
 
 		let mut nattrs = self.attributes.clone();
 		for a in attrs_1 {
