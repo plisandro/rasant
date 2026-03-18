@@ -1,4 +1,3 @@
-use std::fmt;
 use std::io;
 
 use crate::console::Color;
@@ -7,7 +6,7 @@ use crate::sink::LogUpdate;
 use crate::sink::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
 use crate::time;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum OutputFormat {
 	Compact,
 	ColorCompact,
@@ -51,7 +50,6 @@ pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
 	time_format: time::StringFormat,
-	output_buffer: io::Cursor<Vec<u8>>,
 }
 
 impl Formatter {
@@ -63,7 +61,6 @@ impl Formatter {
 				_ => String::from(KEY_TIME),
 			},
 			time_format: conf.time_format,
-			output_buffer: io::Cursor::new(Vec::new()),
 		}
 	}
 

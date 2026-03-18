@@ -26,7 +26,7 @@ impl Default for StdoutConfig {
 	}
 }
 
-pub fn new(conf: StdoutConfig) -> IO {
+pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
@@ -37,6 +37,6 @@ pub fn new(conf: StdoutConfig) -> IO {
 	})
 }
 
-pub fn default() -> IO {
+pub fn default<'f>() -> IO<'f> {
 	new(StdoutConfig::default())
 }

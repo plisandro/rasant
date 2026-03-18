@@ -1,4 +1,3 @@
-use std::fmt;
 use std::io;
 
 use crate::time::Timestamp;

@@ -31,7 +31,7 @@ impl Default for LogFileConfig {
 	}
 }
 
-pub fn new(conf: LogFileConfig) -> IO {
+pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	// TODO: resolve process name
 	let process_name = "process";
 	let log_file_name = path::PathBuf::from(format!(
@@ -56,11 +56,11 @@ pub fn new(conf: LogFileConfig) -> IO {
 	})
 }
 
-pub fn default() -> IO {
+pub fn default<'f>() -> IO<'f> {
 	new(LogFileConfig::default())
 }
 
-pub fn default_json() -> IO {
+pub fn default_json<'f>() -> IO<'f> {
 	new(LogFileConfig {
 		formatter_cfg: format::FormatterConfig {
 			format: format::OutputFormat::Json,

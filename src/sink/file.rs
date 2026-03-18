@@ -28,7 +28,7 @@ impl Default for FileConfig {
 	}
 }
 
-pub fn new(conf: FileConfig) -> IO {
+pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 	let Some(path) = conf.path else {
 		panic!("missing path for logfile sink");
 	};

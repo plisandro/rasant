@@ -10,6 +10,7 @@ pub const KEY_LEVEL: &str = "level";
 pub const KEY_MESSAGE: &str = "message";
 pub const KEY_TIME: &str = "time";
 pub const KEY_TIMESTAMP: &str = "timestamp";
+pub const KEY_LOGGER_ID: &str = "logger_id";
 pub const PRIORITY_KEYS: [&str; 2] = [KEY_MESSAGE, KEY_ERROR];
 pub const RESTRICTED_KEYS: [&str; 3] = [KEY_LEVEL, KEY_TIME, KEY_TIMESTAMP];
 

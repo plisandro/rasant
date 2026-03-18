@@ -7,6 +7,7 @@ use core::ops::Sub;
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::fmt;
 use std::io;
+use std::thread;
 use std::time;
 
 use constant::{TIMEZONE_UTC, U128_MILLIS_IN_SECOND, U128_NANOS_IN_MILLI, U128_NANOS_IN_SECOND};
@@ -127,7 +128,7 @@ impl Timestamp {
 		Ordering::Greater
 	}
 
-	fn diff_as_duration(&self, other: &Self) -> Duration {
+	pub fn diff_as_duration(&self, other: &Self) -> Duration {
 		let self_nanos = self.as_nanos();
 		let other_nanos = other.as_nanos();
 
@@ -163,6 +164,16 @@ impl Sub for Timestamp {
 	fn sub(self, other: Self) -> Self::Output {
 		self.diff_as_duration(&other)
 	}
+}
+
+/* ----------------------- Common use functions ----------------------- */
+
+pub fn sleep(duration: Duration) {
+	thread::sleep(duration);
+}
+
+pub fn sleep_millis(millis: u64) {
+	sleep(Duration::from_millis(millis));
 }
 
 /* ----------------------- Tests ----------------------- */

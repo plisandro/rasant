@@ -48,8 +48,6 @@ impl sink::Sink for BlackHole {
 	fn flush(&mut self) -> io::Result<()> {
 		Ok(())
 	}
-
-	fn drop(&self) {}
 }
 
 pub fn default() -> BlackHole {

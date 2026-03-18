@@ -23,7 +23,7 @@ impl Default for StderrConfig {
 	}
 }
 
-pub fn new(conf: StderrConfig) -> IO {
+pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
@@ -34,6 +34,6 @@ pub fn new(conf: StderrConfig) -> IO {
 	})
 }
 
-pub fn default() -> IO {
+pub fn default<'f>() -> IO<'f> {
 	new(StderrConfig::default())
 }
