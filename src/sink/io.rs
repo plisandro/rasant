@@ -35,8 +35,9 @@ pub struct IO<'s> {
 
 impl<'i> IO<'i> {
 	pub fn new<T: io::Write + Send + 'i>(conf: IOConfig<T>) -> Self {
-		let Some(cout): Option<T> = conf.out else {
-			panic!("missing io::Write output for I/O sink");
+		let cout = match conf.out {
+			Some(o) => o,
+			None => panic!("missing io::Write output for I/O sink"),
 		};
 		let out: Box<dyn io::Write + Send> = if conf.buffered { Box::new(io::BufWriter::new(cout)) } else { Box::new(cout) };
 

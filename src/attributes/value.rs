@@ -213,99 +213,104 @@ impl Value {
 
 /* ----------------------- Tests ----------------------- */
 
-#[test]
-fn type_to_value() {
-	assert_eq!(true.to_value(), Value::Bool(true));
-	assert_eq!("lalala".to_value(), Value::String("lalala".into()));
-	assert_eq!(String::from("lololo").to_value(), Value::String("lololo".into()));
-	assert_eq!((-12 as i8).to_value(), Value::Int(-12));
-	assert_eq!((345 as i16).to_value(), Value::Int(345));
-	assert_eq!((-678 as i32).to_value(), Value::Int(-678));
-	assert_eq!((9012 as i64).to_value(), Value::Int(9012));
-	assert_eq!((-3456 as i128).to_value(), Value::LongInt(-3456));
-	assert_eq!((7890 as isize).to_value(), Value::Size(7890));
-	assert_eq!((12 as u8).to_value(), Value::Uint(12));
-	assert_eq!((345 as u16).to_value(), Value::Uint(345));
-	assert_eq!((678 as u32).to_value(), Value::Uint(678));
-	assert_eq!((9012 as u64).to_value(), Value::Uint(9012));
-	assert_eq!((3456 as u128).to_value(), Value::LongUint(3456));
-	assert_eq!((7890 as usize).to_value(), Value::Usize(7890));
-	assert_eq!(
-		// yaay precision!
-		(-123.456 as f32).to_value(),
-		Value::Float(-123.45600128173828)
-	);
-	assert_eq!((789.012 as f64).to_value(), Value::Float(789.012));
-	assert_eq!(Duration::from_millis(12345).to_value(), Value::Uint(12));
-	assert_eq!((&Duration::from_millis(67890)).to_value(), Value::Uint(67));
-	assert_eq!(Timestamp::from_millis(12345).to_value(), Value::Uint(12));
-	assert_eq!((&Timestamp::from_millis(67890)).to_value(), Value::Uint(67));
-}
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-#[test]
-fn value_to_string() {
-	for tc in [
-		(Value::Bool(true), "true"),
-		(Value::Bool(false), "false"),
-		(Value::String("".into()), ""),
-		(Value::String("abcd 1234".into()), "abcd 1234"),
-		(Value::Int(-123), "-123"),
-		(Value::Int(456), "456"),
-		(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
-		(Value::LongInt(89801234567890123), "0x13f09bf3ecf84cb"),
-		(Value::Size(-12345678901234567), "-0x2bdc545d6b4b87"),
-		(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
-		(Value::Uint(123456), "123456"),
-		(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
-		(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
-		(Value::Float(-1.2345), "-1.2345"),
-		(Value::Float(6.78901), "6.78901"),
-	] {
-		let (v, want): (Value, &str) = tc;
-
-		assert_eq!(v.to_string(), String::from(want));
+	#[test]
+	fn type_to_value() {
+		assert_eq!(true.to_value(), Value::Bool(true));
+		assert_eq!("lalala".to_value(), Value::String("lalala".into()));
+		assert_eq!(String::from("lololo").to_value(), Value::String("lololo".into()));
+		assert_eq!((-12 as i8).to_value(), Value::Int(-12));
+		assert_eq!((345 as i16).to_value(), Value::Int(345));
+		assert_eq!((-678 as i32).to_value(), Value::Int(-678));
+		assert_eq!((9012 as i64).to_value(), Value::Int(9012));
+		assert_eq!((-3456 as i128).to_value(), Value::LongInt(-3456));
+		assert_eq!((7890 as isize).to_value(), Value::Size(7890));
+		assert_eq!((12 as u8).to_value(), Value::Uint(12));
+		assert_eq!((345 as u16).to_value(), Value::Uint(345));
+		assert_eq!((678 as u32).to_value(), Value::Uint(678));
+		assert_eq!((9012 as u64).to_value(), Value::Uint(9012));
+		assert_eq!((3456 as u128).to_value(), Value::LongUint(3456));
+		assert_eq!((7890 as usize).to_value(), Value::Usize(7890));
+		assert_eq!(
+			// yaay precision!
+			(-123.456 as f32).to_value(),
+			Value::Float(-123.45600128173828)
+		);
+		assert_eq!((789.012 as f64).to_value(), Value::Float(789.012));
+		assert_eq!(Duration::from_millis(12345).to_value(), Value::Uint(12));
+		assert_eq!((&Duration::from_millis(67890)).to_value(), Value::Uint(67));
+		assert_eq!(Timestamp::from_millis(12345).to_value(), Value::Uint(12));
+		assert_eq!((&Timestamp::from_millis(67890)).to_value(), Value::Uint(67));
 	}
-}
 
-#[test]
-fn value_to_quoted_string() {
-	for tc in [
-		(Value::Bool(true), "true"),
-		(Value::String("".into()), "\"\""),
-		(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-		(Value::Int(-123), "-123"),
-		(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
-		(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
-		(Value::Uint(123456), "123456"),
-		(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
-		(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
-		(Value::Float(-1.2345), "-1.2345"),
-	] {
-		let (v, want): (Value, &str) = tc;
+	#[test]
+	fn value_to_string() {
+		for tc in [
+			(Value::Bool(true), "true"),
+			(Value::Bool(false), "false"),
+			(Value::String("".into()), ""),
+			(Value::String("abcd 1234".into()), "abcd 1234"),
+			(Value::Int(-123), "-123"),
+			(Value::Int(456), "456"),
+			(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
+			(Value::LongInt(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Value::Size(-12345678901234567), "-0x2bdc545d6b4b87"),
+			(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Value::Uint(123456), "123456"),
+			(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
+			(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Value::Float(-1.2345), "-1.2345"),
+			(Value::Float(6.78901), "6.78901"),
+		] {
+			let (v, want): (Value, &str) = tc;
 
-		assert_eq!(v.to_quoted_string(), String::from(want));
+			assert_eq!(v.to_string(), String::from(want));
+		}
 	}
-}
 
-#[test]
-fn value_to_json_string() {
-	for tc in [
-		(Value::Bool(true), "true"),
-		(Value::String("".into()), "\"\""),
-		(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-		(Value::Int(-123), "-123"),
-		(Value::LongInt(-12345678901234567), "-12345678901234567"),
-		(Value::LongInt(89801234567890123), "89801234567890123"),
-		(Value::Size(-12345678901234567), "-12345678901234567"),
-		(Value::Size(89801234567890123), "89801234567890123"),
-		(Value::Uint(123456), "123456"),
-		(Value::LongUint(12345678901234567), "12345678901234567"),
-		(Value::Usize(89801234567890123), "89801234567890123"),
-		(Value::Float(-1234.56789012345), "-1.23456789012345e3"),
-		(Value::Float(5678901.2345), "5.6789012345e6"),
-	] {
-		let (v, want): (Value, &str) = tc;
+	#[test]
+	fn value_to_quoted_string() {
+		for tc in [
+			(Value::Bool(true), "true"),
+			(Value::String("".into()), "\"\""),
+			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
+			(Value::Int(-123), "-123"),
+			(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
+			(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Value::Uint(123456), "123456"),
+			(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
+			(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Value::Float(-1.2345), "-1.2345"),
+		] {
+			let (v, want): (Value, &str) = tc;
 
-		assert_eq!(v.to_json_string(), String::from(want));
+			assert_eq!(v.to_quoted_string(), String::from(want));
+		}
+	}
+
+	#[test]
+	fn value_to_json_string() {
+		for tc in [
+			(Value::Bool(true), "true"),
+			(Value::String("".into()), "\"\""),
+			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
+			(Value::Int(-123), "-123"),
+			(Value::LongInt(-12345678901234567), "-12345678901234567"),
+			(Value::LongInt(89801234567890123), "89801234567890123"),
+			(Value::Size(-12345678901234567), "-12345678901234567"),
+			(Value::Size(89801234567890123), "89801234567890123"),
+			(Value::Uint(123456), "123456"),
+			(Value::LongUint(12345678901234567), "12345678901234567"),
+			(Value::Usize(89801234567890123), "89801234567890123"),
+			(Value::Float(-1234.56789012345), "-1.23456789012345e3"),
+			(Value::Float(5678901.2345), "5.6789012345e6"),
+		] {
+			let (v, want): (Value, &str) = tc;
+
+			assert_eq!(v.to_json_string(), String::from(want));
+		}
 	}
 }

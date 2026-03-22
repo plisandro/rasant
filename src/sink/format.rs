@@ -72,8 +72,8 @@ impl Formatter {
 		write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
 
 		// append fields
-		for k in update.attributes.keys() {
-			write!(out, " {key}={val}", key = k, val = update.attributes.get_as_quoted_string(k),)?;
+		for (key, val) in update.attributes.into_iter() {
+			write!(out, " {key}={qval}", qval = val.to_quoted_string())?;
 		}
 
 		Ok(())
@@ -94,15 +94,15 @@ impl Formatter {
 		write!(out, " {level} {msg}", level = update.level.as_color_short_str(), msg = msg,)?;
 
 		// append fields
-		for k in update.attributes.keys() {
-			let val = if k == KEY_ERROR {
+		for (key, val) in update.attributes.into_iter() {
+			let qval = if key == KEY_ERROR {
 				// error attributes are highlighted in red
-				Color::BrightRed.paint(update.attributes.get_as_quoted_string(k).as_str())
+				Color::BrightRed.paint(val.to_quoted_string().as_str())
 			} else {
-				update.attributes.get_as_quoted_string(k)
+				val.to_quoted_string()
 			};
 
-			write!(out, " {key}={val}", key = Color::Cyan.paint(k), val = val,)?;
+			write!(out, " {pkey}={qval}", pkey = Color::Cyan.paint(key))?;
 		}
 
 		Ok(())
@@ -129,8 +129,8 @@ impl Formatter {
 		)?;
 
 		// append fields
-		for k in update.attributes.keys() {
-			write!(out, ",\"{key}\":{val}", key = k, val = update.attributes.get_as_json_string(k))?;
+		for (key, val) in update.attributes.into_iter() {
+			write!(out, ",\"{key}\":{jval}", jval = val.to_json_string())?;
 		}
 		write!(out, "}}")?;
 
