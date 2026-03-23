@@ -1,8 +1,12 @@
 pub mod value;
 
 use std::fmt;
+use std::io::Write;
 
-use crate::attributes::value::{ToValue, Value};
+use crate::{
+	attributes::value::{ToValue, Value},
+	types,
+};
 
 pub const KEY_ERROR: &str = "error";
 pub const KEY_LEVEL: &str = "level";
@@ -155,17 +159,19 @@ impl<'i> Iterator for MapIter<'i> {
 	}
 }
 
+// TODO: implement proper glue between io::Write and fmt::Write
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut out = types::StringWriter::new();
+
 		let mut first = true;
 		for (key, val) in self.into_iter() {
-			let res = write!(f, "{spacer}{key}={qval}", spacer = if first { "" } else { " " }, qval = val.to_quoted_string());
-			if res.is_err() {
-				return res;
-			}
+			write!(&mut out, "{spacer}{key}=", spacer = if first { "" } else { " " });
+			val.write_quoted(&mut out);
 			first = false;
 		}
-		Ok(())
+
+		write!(f, "{}", out.to_string().unwrap())
 	}
 }
 

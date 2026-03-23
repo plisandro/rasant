@@ -59,14 +59,6 @@ impl Level {
 			Self::Panic => "PNC",
 		}
 	}
-
-	pub fn as_color_str(&self) -> String {
-		self.color().paint(self.as_str())
-	}
-
-	pub fn as_color_short_str(&self) -> String {
-		self.color().paint(self.as_short_str())
-	}
 }
 
 impl ToString for Level {

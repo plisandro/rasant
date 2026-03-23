@@ -1,4 +1,5 @@
 use std::env;
+use std::io;
 use std::sync::LazyLock;
 
 pub enum Color {
@@ -102,8 +103,17 @@ impl Color {
 		}
 	}
 
-	pub fn paint(&self, msg: &str) -> String {
-		format!("{esc_open}{msg}{esc_close}", esc_open = self.to_escape_str(), msg = msg, esc_close = Self::Default.to_escape_str(),)
+	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		write!(out, "{}", self.to_escape_str())
+	}
+
+	pub fn write_bg<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		write!(out, "{}", self.to_escape_str())
+	}
+
+	pub fn write_reset<T: io::Write>(out: &mut T) -> io::Result<()> {
+		Self::Default.write(out)?;
+		Self::Default.write_bg(out)
 	}
 }
 

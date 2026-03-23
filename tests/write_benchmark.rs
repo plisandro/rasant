@@ -134,7 +134,7 @@ mod benchmark {
 			}
 
 			for h in handles {
-				h.join();
+				h.join().expect("failed to close benchmark logging thread");
 			}
 		}
 		let runtime = Timestamp::now() - start;

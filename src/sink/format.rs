@@ -73,7 +73,8 @@ impl Formatter {
 
 		// append fields
 		for (key, val) in update.attributes.into_iter() {
-			write!(out, " {key}={qval}", qval = val.to_quoted_string())?;
+			write!(out, " {key}=")?;
+			val.write_quoted(out)?;
 		}
 
 		Ok(())
@@ -82,27 +83,34 @@ impl Formatter {
 	fn format_color_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
 		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
 
-		// build output header
-		let msg = if Level::Debug.includes(&update.level) {
-			&update.msg
-		} else {
-			// update messages above debug are highlighted in white
-			&Color::BrightWhite.paint(update.msg.as_str())
-		};
+		// update messages above debug are highlighted in white
+		let msg_color = if Level::Debug.includes(&update.level) { Color::Default } else { Color::BrightWhite };
+		let level_color = update.level.color();
 
 		update.when.write(out, &self.time_format)?;
-		write!(out, " {level} {msg}", level = update.level.as_color_short_str(), msg = msg,)?;
+		write!(
+			out,
+			" {level_open}{level}{level_close} {msg_open}{msg}{msg_close}",
+			level_open = level_color.to_escape_str(),
+			level = update.level.as_short_str(),
+			level_close = Color::Default.to_escape_str(),
+			msg_open = msg_color.to_escape_str(),
+			msg = update.msg,
+			msg_close = Color::Default.to_escape_str(),
+		)?; // update messages above debug are highlighted in white
 
 		// append fields
 		for (key, val) in update.attributes.into_iter() {
-			let qval = if key == KEY_ERROR {
+			write!(
+				out,
+				" {key_open}{key}{key_close}={val_open}",
+				key_open = Color::Cyan.to_escape_str(),
+				key_close = Color::Default.to_escape_str(),
 				// error attributes are highlighted in red
-				Color::BrightRed.paint(val.to_quoted_string().as_str())
-			} else {
-				val.to_quoted_string()
-			};
-
-			write!(out, " {pkey}={qval}", pkey = Color::Cyan.paint(key))?;
+				val_open = if key == KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
+			)?;
+			val.write_quoted(out)?;
+			write!(out, "{val_close}", val_close = Color::Default.to_escape_str())?;
 		}
 
 		Ok(())
@@ -130,7 +138,8 @@ impl Formatter {
 
 		// append fields
 		for (key, val) in update.attributes.into_iter() {
-			write!(out, ",\"{key}\":{jval}", jval = val.to_json_string())?;
+			write!(out, ",\"{key}\":")?;
+			val.write_json(out)?;
 		}
 		write!(out, "}}")?;
 

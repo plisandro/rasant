@@ -5,6 +5,7 @@ mod queue;
 pub mod sink;
 pub mod sys;
 pub mod time;
+mod types;
 
 use level::Level;
 use std::error::Error;

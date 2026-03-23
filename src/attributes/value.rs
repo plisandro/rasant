@@ -1,6 +1,8 @@
 use std::fmt;
+use std::io;
 
 use crate::time::{Duration, Timestamp};
+use crate::types;
 use std::thread;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -15,6 +17,8 @@ pub enum Value {
 	Usize(usize),
 	Float(f64),
 }
+
+/* ----------------------- Casting helpers ----------------------- */
 
 pub trait ToValue {
 	fn to_value(&self) -> Value;
@@ -147,67 +151,61 @@ macro_rules! cast_float_to_value {
 cast_float_to_value!(f32);
 cast_float_to_value!(f64);
 
-impl fmt::Display for Value {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let s = match &self {
-			Self::Bool(b) => b.to_string(),
-			Self::String(s) => s.to_string(),
-			Self::Int(i) => i.to_string(),
+/* ----------------------- Value implementation ----------------------- */
+
+impl Value {
+	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match &self {
+			Self::Bool(b) => write!(out, "{}", b),
+			Self::String(s) => write!(out, "{}", s),
+			Self::Int(i) => write!(out, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
-					format!("-0x{:x}", -i)
+					write!(out, "-0x{:x}", -i)
 				} else {
-					format!("0x{:x}", i)
+					write!(out, "0x{:x}", i)
 				}
 			}
 			Self::Size(s) => {
 				if *s < 1 {
-					format!("-0x{:x}", -s)
+					write!(out, "-0x{:x}", -s)
 				} else {
-					format!("0x{:x}", s)
+					write!(out, "0x{:x}", s)
 				}
 			}
-			Self::Uint(i) => i.to_string(),
-			Self::LongUint(i) => format!("0x{:x}", i),
-			Self::Usize(u) => format!("0x{:x}", u),
-			Self::Float(f) => f.to_string(),
-		};
-		write!(f, "{}", s)
+			Self::Uint(i) => write!(out, "{}", i),
+			Self::LongUint(u) => write!(out, "0x{:x}", u),
+			Self::Usize(u) => write!(out, "0x{:x}", u),
+			Self::Float(f) => write!(out, "{}", f),
+		}
+	}
+
+	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match &self {
+			Self::String(s) => write!(out, "\"{}\"", s),
+			t => t.write(out),
+		}
+	}
+
+	pub fn write_json<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match &self {
+			Self::String(s) => write!(out, "\"{}\"", s),
+			Self::Float(f) => write!(out, "{0:e}", f),
+			Self::LongInt(i) => write!(out, "{}", i),
+			Self::Size(s) => write!(out, "{}", s),
+			Self::LongUint(u) => write!(out, "{}", u),
+			Self::Usize(s) => write!(out, "{}", s),
+			t => t.write(out),
+		}
 	}
 }
 
-impl Value {
-	pub fn to_quoted_string(&self) -> String {
-		match &self {
-			Self::String(s) => {
-				let mut q = s.to_string();
-				q.insert(0, '"');
-				q.push('"');
-
-				q
-			}
-			v => v.to_string(),
-		}
-	}
-
-	pub fn to_json_string(&self) -> String {
-		match &self {
-			Self::Bool(b) => b.to_string(),
-			Self::String(s) => {
-				let mut q = s.to_string();
-				q.insert(0, '"');
-				q.push('"');
-
-				q
-			}
-			Self::Int(i) => i.to_string(),
-			Self::LongInt(i) => i.to_string(),
-			Self::Size(s) => s.to_string(),
-			Self::Uint(i) => i.to_string(),
-			Self::LongUint(i) => i.to_string(),
-			Self::Usize(u) => u.to_string(),
-			Self::Float(f) => format!("{0:e}", f),
-		}
+// TODO: implement proper glue between io::Write and fmt::Write
+impl fmt::Display for Value {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut out = types::StringWriter::new();
+		self.write(&mut out);
+		write!(f, "{}", out.to_string().unwrap())
 	}
 }
 
@@ -247,7 +245,7 @@ mod tests {
 	}
 
 	#[test]
-	fn value_to_string() {
+	fn value_write() {
 		for tc in [
 			(Value::Bool(true), "true"),
 			(Value::Bool(false), "false"),
@@ -267,12 +265,16 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			assert_eq!(v.to_string(), String::from(want));
+			let mut out = types::StringWriter::new();
+			assert!(v.write(&mut out).is_ok());
+			let got = out.to_string().unwrap();
+
+			assert_eq!(got, String::from(want));
 		}
 	}
 
 	#[test]
-	fn value_to_quoted_string() {
+	fn value_write_quoted() {
 		for tc in [
 			(Value::Bool(true), "true"),
 			(Value::String("".into()), "\"\""),
@@ -287,12 +289,16 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			assert_eq!(v.to_quoted_string(), String::from(want));
+			let mut out = types::StringWriter::new();
+			assert!(v.write_quoted(&mut out).is_ok());
+			let got = out.to_string().unwrap();
+
+			assert_eq!(got, String::from(want));
 		}
 	}
 
 	#[test]
-	fn value_to_json_string() {
+	fn value_write_json() {
 		for tc in [
 			(Value::Bool(true), "true"),
 			(Value::String("".into()), "\"\""),
@@ -310,7 +316,11 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			assert_eq!(v.to_json_string(), String::from(want));
+			let mut out = types::StringWriter::new();
+			assert!(v.write_json(&mut out).is_ok());
+			let got = out.to_string().unwrap();
+
+			assert_eq!(got, String::from(want));
 		}
 	}
 }
