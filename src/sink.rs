@@ -22,25 +22,22 @@ pub struct LogUpdate {
 	level: level::Level,
 	depth: LogDepth,
 	msg: String,
-	attributes: attributes::Map,
 }
 
 impl LogUpdate {
-	pub fn new(now: time::Timestamp, level: level::Level, depth: LogDepth, msg: String, attributes: attributes::Map) -> Self {
+	pub fn new(now: time::Timestamp, level: level::Level, depth: LogDepth, msg: String) -> Self {
 		Self {
 			when: now,
 			level: level,
 			depth: depth,
 			msg: msg,
-			attributes: attributes,
 		}
 	}
 }
 
 pub trait Sink {
 	fn name(&self) -> &str;
-	// TODO: take ownership of LogUpdate here.
-	fn log(&mut self, update: &LogUpdate) -> std_io::Result<()>;
+	fn log(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> std_io::Result<()>;
 	fn flush(&mut self) -> std_io::Result<()>;
 
 	fn receives_all_levels(&self) -> bool {

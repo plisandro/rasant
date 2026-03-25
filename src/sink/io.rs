@@ -1,5 +1,6 @@
 use std::io;
 
+use crate::attributes;
 use crate::sink;
 use crate::sink::format;
 
@@ -56,8 +57,8 @@ impl<'i> sink::Sink for IO<'i> {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
-		self.formatter.write(&mut self.out, &update)?;
+	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
+		self.formatter.write(&mut self.out, update, attrs)?;
 		if let Err(e) = self.out.write(self.delimiter.as_bytes()) {
 			return Err(e);
 		}

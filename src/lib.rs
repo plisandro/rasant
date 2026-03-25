@@ -156,24 +156,26 @@ impl Slog {
 			return self;
 		}
 
-		let mut nattrs = self.attributes.clone();
-		for a in attrs_1 {
-			nattrs.insert_val(a.0, a.1);
-		}
-		for a in attrs_2 {
-			nattrs.insert_val(a.0, a.1);
+		let mut nattrs: Option<attributes::Map> = None;
+		if !attrs_1.is_empty() || !attrs_2.is_empty() {
+			nattrs = Some(self.attributes.clone());
+			for a in attrs_1 {
+				nattrs.as_mut().unwrap().insert_val(a.0, a.1);
+			}
+			for a in attrs_2 {
+				nattrs.as_mut().unwrap().insert_val(a.0, a.1);
+			}
 		}
 
-		let update = sink::LogUpdate::new(time::Timestamp::now(), level, self.depth, msg.into(), nattrs);
+		let mut update = sink::LogUpdate::new(time::Timestamp::now(), level, self.depth, msg.into());
+		let attrs = match nattrs.as_mut() {
+			Some(a) => a,
+			None => &self.attributes,
+		};
 
 		// if we're about to panic, parse the message before attempting to
 		// deliver the log update - and losing ownership.
-		let panic_msg: Option<String> = if level != Level::Panic {
-			None
-		} else {
-			let formatter = sink::format::Formatter::new(format::FormatterConfig::default());
-			Some(formatter.as_string(&update))
-		};
+		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update, attrs)) } else { None };
 
 		// TODO: we're locking twice on every sink just to check settings :( improve.
 		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
@@ -185,10 +187,10 @@ impl Slog {
 
 			let res = match self.async_writes {
 				true => {
-					queue::log(&asink, &update);
+					queue::log(&asink, &update, &attrs);
 					Ok(())
 				}
-				false => asink.lock().unwrap().log(&update),
+				false => asink.lock().unwrap().log(&update, &attrs),
 			};
 			if let Err(e) = res {
 				panic!("failed to log update {update:?} on sink {name}: {e}", name = asink.lock().unwrap().name());
@@ -341,7 +343,6 @@ mod basic {
 	}
 }
 
-/*
 #[cfg(test)]
 mod formatting {
 	use super::*;
@@ -365,7 +366,8 @@ mod formatting {
 2026-03-04 15:10:16.234 [WRN] root test warn
 2026-03-04 15:10:17.468 [INF] first test info number=1
 2026-03-04 15:10:18.702 [WRN] first test warn number=1
-2026-03-04 15:10:19.936 [ERR] something failed error=\"oh no\" number=1",
+2026-03-04 15:10:19.936 [DBG] first test debug number=1
+2026-03-04 15:10:21.170 [ERR] something failed error=\"oh no\" number=1",
 			},
 			TestCase {
 				name: "stdout with timestamps",
@@ -375,8 +377,23 @@ mod formatting {
 1772637016234000000 [WRN] root test warn
 1772637017468000000 [INF] first test info number=1
 1772637018702000000 [WRN] first test warn number=1
-1772637019936000000 [ERR] something failed error=\"oh no\" number=1",
+1772637019936000000 [DBG] first test debug number=1
+1772637021170000000 [ERR] something failed error=\"oh no\" number=1",
 			},
+			// TODO: force color even on terminals not supporting it
+			/*
+			TestCase {
+				name: "default stdout",
+				out_format: sink::format::OutputFormat::ColorCompact,
+				time_format: time::format::StringFormat::UtcMillisDateTime,
+				want: "2026-03-04 15:10:15.000 \u{1b}[32mINF\u{1b}[0m \u{1b}[97mroot test info\u{1b}[0m
+2026-03-04 15:10:16.234 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mroot test warn\u{1b}[0m
+2026-03-04 15:10:17.468 \u{1b}[32mINF\u{1b}[0m \u{1b}[97mfirst test info\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m
+2026-03-04 15:10:18.702 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mfirst test warn\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m
+2026-03-04 15:10:19.936 \u{1b}[36mDBG\u{1b}[0m \u{1b}[0mfirst test debug\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m
+2026-03-04 15:10:21.170 \u{1b}[31mERR\u{1b}[0m \u{1b}[97msomething failed\u{1b}[0m \u{1b}[36merror\u{1b}[0m=\u{1b}[91m\"oh no\"\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m",
+			},
+			*/
 			TestCase {
 				name: "JSON stdout",
 				out_format: sink::format::OutputFormat::Json,
@@ -385,7 +402,8 @@ mod formatting {
 {\"time\":\"2026-03-04 15:10:16\",\"level\":\"warning\",\"message\":\"root test warn\"}
 {\"time\":\"2026-03-04 15:10:17\",\"level\":\"info\",\"message\":\"first test info\",\"number\":1}
 {\"time\":\"2026-03-04 15:10:18\",\"level\":\"warning\",\"message\":\"first test warn\",\"number\":1}
-{\"time\":\"2026-03-04 15:10:19\",\"level\":\"error\",\"message\":\"something failed\",\"error\":\"oh no\",\"number\":1}",
+{\"time\":\"2026-03-04 15:10:19\",\"level\":\"debug\",\"message\":\"first test debug\",\"number\":1}
+{\"time\":\"2026-03-04 15:10:21\",\"level\":\"error\",\"message\":\"something failed\",\"error\":\"oh no\",\"number\":1}",
 			},
 			TestCase {
 				name: "JSON stdout with timestamps",
@@ -395,7 +413,8 @@ mod formatting {
 {\"timestamp\":1772637016234,\"level\":\"warning\",\"message\":\"root test warn\"}
 {\"timestamp\":1772637017468,\"level\":\"info\",\"message\":\"first test info\",\"number\":1}
 {\"timestamp\":1772637018702,\"level\":\"warning\",\"message\":\"first test warn\",\"number\":1}
-{\"timestamp\":1772637019936,\"level\":\"error\",\"message\":\"something failed\",\"error\":\"oh no\",\"number\":1}",
+{\"timestamp\":1772637019936,\"level\":\"debug\",\"message\":\"first test debug\",\"number\":1}
+{\"timestamp\":1772637021170,\"level\":\"error\",\"message\":\"something failed\",\"error\":\"oh no\",\"number\":1}",
 			},
 		];
 
@@ -419,10 +438,11 @@ mod formatting {
 				log.info("root test info").warn("root test warn").debug("root test debug");
 
 				let mut nlog = log.clone();
-				nlog.set("number", 1);
+				nlog.set_level(Level::Debug).set("number", 1);
 				nlog.info("first test info")
 					.warn("first test warn")
-					.debug("first test debug, ignore me")
+					.debug("first test debug")
+					.trace("trace log to be ignored")
 					.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
 				got = string_sink_output.lock().unwrap().clone();
@@ -432,6 +452,8 @@ mod formatting {
 		}
 	}
 
+	// TODO: make me deterministic
+	/*
 	#[test]
 	fn async_formatted_output() {
 		let string_sink_output: Arc<Mutex<String>>;
@@ -470,5 +492,5 @@ mod formatting {
 
 		assert_eq!(got, want);
 	}
+	*/
 }
-*/

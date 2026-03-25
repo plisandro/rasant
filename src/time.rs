@@ -86,11 +86,11 @@ impl Timestamp {
 		(self.seconds as u128) * U128_NANOS_IN_SECOND + self.nanoseconds as u128
 	}
 
-	pub fn as_utc_parts(&self) -> TimestampParts {
+	pub fn as_utc_parts(&self) -> TimestampParts<'_> {
 		TimestampParts::utc(self.seconds, self.nanoseconds)
 	}
 
-	pub fn as_local_parts(&self) -> TimestampParts {
+	pub fn as_local_parts(&self) -> TimestampParts<'_> {
 		TimestampParts::local(self.seconds, self.nanoseconds)
 	}
 

@@ -1,6 +1,7 @@
 use std::io;
 use std::string;
 
+use crate::attributes;
 use crate::sink;
 use crate::sink::format;
 
@@ -41,8 +42,8 @@ impl sink::Sink for BlackHole {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
-		self.formatter.write(&mut self.out, &update)
+	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
+		self.formatter.write(&mut self.out, update, attrs)
 	}
 
 	fn flush(&mut self) -> io::Result<()> {

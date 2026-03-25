@@ -74,7 +74,7 @@ impl sink::Sink for String {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
+	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		let mut out = match self.out.lock() {
 			Ok(s) => s,
 			Err(e) => {
@@ -84,19 +84,29 @@ impl sink::Sink for String {
 
 		let line = if self.frozen_now.is_some() || self.frozen_logger_id.is_some() {
 			// apply mocks
-			let mut mock_update = update.clone();
-			if let Some(t) = &mut (self.frozen_now) {
-				mock_update.when = t.clone();
+			let mut nupdate = update.clone();
+			let mut mock_attrs: Option<attributes::Map> = None;
+
+			if let Some(t) = self.frozen_now.as_mut() {
+				nupdate.when = t.clone();
 			}
 			if let Some(id) = self.frozen_logger_id {
-				if mock_update.attributes.has(attributes::KEY_LOGGER_ID) {
-					mock_update.attributes.insert(attributes::KEY_LOGGER_ID, id);
+				if attrs.has(attributes::KEY_LOGGER_ID) {
+					mock_attrs = Some(attrs.clone());
+					mock_attrs.as_mut().unwrap().insert(attributes::KEY_LOGGER_ID, id);
 					self.frozen_logger_id = Some(id + 1);
 				};
 			}
-			self.formatter.as_string(&mock_update)
+
+			self.formatter.as_string(
+				&nupdate,
+				match mock_attrs.as_ref() {
+					Some(a) => a,
+					None => attrs,
+				},
+			)
 		} else {
-			self.formatter.as_string(&update)
+			self.formatter.as_string(update, attrs)
 		};
 
 		if !out.is_empty() {

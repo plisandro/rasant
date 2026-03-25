@@ -1,5 +1,6 @@
 use std::io;
 
+use crate::attributes;
 use crate::console::Color;
 use crate::level::Level;
 use crate::sink::LogUpdate;
@@ -64,7 +65,7 @@ impl Formatter {
 		}
 	}
 
-	fn format_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+	fn format_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
 
 		// build output header
@@ -72,7 +73,7 @@ impl Formatter {
 		write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
 
 		// append fields
-		for (key, val) in update.attributes.into_iter() {
+		for (key, val) in attrs.into_iter() {
 			write!(out, " {key}=")?;
 			val.write_quoted(out)?;
 		}
@@ -80,7 +81,7 @@ impl Formatter {
 		Ok(())
 	}
 
-	fn format_color_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+	fn format_color_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
 
 		// update messages above debug are highlighted in white
@@ -100,7 +101,7 @@ impl Formatter {
 		)?; // update messages above debug are highlighted in white
 
 		// append fields
-		for (key, val) in update.attributes.into_iter() {
+		for (key, val) in attrs.into_iter() {
 			write!(
 				out,
 				" {key_open}{key}{key_close}={val_open}",
@@ -116,7 +117,7 @@ impl Formatter {
 		Ok(())
 	}
 
-	fn format_json<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+	fn format_json<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		// "{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}"
 
 		// build output header
@@ -137,7 +138,7 @@ impl Formatter {
 		)?;
 
 		// append fields
-		for (key, val) in update.attributes.into_iter() {
+		for (key, val) in attrs.into_iter() {
 			write!(out, ",\"{key}\":")?;
 			val.write_json(out)?;
 		}
@@ -146,22 +147,29 @@ impl Formatter {
 		Ok(())
 	}
 
-	pub fn write<T: io::Write>(&self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+	pub fn write<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		match self.format {
-			OutputFormat::Compact => self.format_compact(out, update),
-			OutputFormat::ColorCompact => self.format_color_compact(out, update),
-			//OutputFormat::Long => self.format_long(update),
-			OutputFormat::Json => self.format_json(out, &update),
+			OutputFormat::Compact => self.format_compact(out, update, attrs),
+			OutputFormat::ColorCompact => self.format_color_compact(out, update, attrs),
+			OutputFormat::Json => self.format_json(out, &update, attrs),
 		}
 	}
 
-	pub fn as_string(&self, update: &LogUpdate) -> String {
+	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
 		let mut out = io::Cursor::new(Vec::new());
-		self.write(&mut out, update);
+		self.write(&mut out, update, attrs);
 
 		match String::from_utf8(out.into_inner()) {
 			Ok(s) => s,
 			Err(e) => panic!("failed to convert log update {update:?} to string: {e}"),
 		}
 	}
+}
+
+pub fn as_panic_string(update: &LogUpdate, attrs: &attributes::Map) -> String {
+	let formatter = Formatter::new(FormatterConfig {
+		format: OutputFormat::Compact,
+		..FormatterConfig::default()
+	});
+	formatter.as_string(update, attrs)
 }

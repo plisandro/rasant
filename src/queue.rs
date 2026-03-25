@@ -3,6 +3,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use crate::attributes;
 use crate::sink::{LogUpdate, Sink};
 use crate::time::{Duration, Timestamp, sleep};
 
@@ -13,8 +14,14 @@ static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncSinkHandler>> = Mutex::new(None);
 static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u32> = Mutex::new(0);
 
 enum AsyncSinkOp {
-	Log { sink: Arc<Mutex<Box<dyn Sink + Send>>>, update: LogUpdate },
-	FlushSink { sink: Arc<Mutex<Box<dyn Sink + Send>>> },
+	Log {
+		sink: Arc<Mutex<Box<dyn Sink + Send>>>,
+		update: LogUpdate,
+		attrs: attributes::Map,
+	},
+	FlushSink {
+		sink: Arc<Mutex<Box<dyn Sink + Send>>>,
+	},
 }
 
 struct AsyncSinkHandler {
@@ -32,8 +39,8 @@ impl AsyncSinkHandler {
 		let rx_handler = thread::spawn(move || {
 			while let Ok(cmd) = rx.recv() {
 				match cmd {
-					AsyncSinkOp::Log { sink, update } => match sink.lock() {
-						Ok(mut s) => match s.log(&update) {
+					AsyncSinkOp::Log { sink, update, attrs } => match sink.lock() {
+						Ok(mut s) => match s.log(&update, &attrs) {
 							Ok(_) => (),
 							Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
 						},
@@ -71,9 +78,13 @@ impl AsyncSinkHandler {
 		*(self.size.lock().unwrap())
 	}
 
-	fn log(&self, sink: Arc<Mutex<Box<dyn Sink + Send>>>, update: LogUpdate) {
+	fn log(&self, sink: Arc<Mutex<Box<dyn Sink + Send>>>, update: LogUpdate, attrs: attributes::Map) {
 		*(self.size.lock().unwrap()) += 1;
-		match self.tx.send(AsyncSinkOp::Log { sink: sink, update: update }) {
+		match self.tx.send(AsyncSinkOp::Log {
+			sink: sink,
+			update: update,
+			attrs: attrs,
+		}) {
 			Ok(_) => (),
 			Err(e) => panic!("failed to queue log update: {e}"),
 		};
@@ -161,8 +172,8 @@ pub fn flush() {
 	};
 }
 
-pub fn log(sink: &Arc<Mutex<Box<dyn Sink + Send>>>, update: &LogUpdate) {
-	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().log(sink.clone(), update.clone())
+pub fn log(sink: &Arc<Mutex<Box<dyn Sink + Send>>>, update: &LogUpdate, attrs: &attributes::Map) {
+	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().log(sink.clone(), update.clone(), attrs.clone())
 }
 
 pub fn flush_sink(sink: &Arc<Mutex<Box<dyn Sink + Send>>>) {
