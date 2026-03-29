@@ -1,5 +1,5 @@
 [package]
-name = "slog"
+name = "rasant"
 version = "0.2.0"
 readme = "README.md"
 license = "MIT"
@@ -12,7 +12,7 @@ include = [
 ]
 
 [lib]
-name = "slog"
+name = "rasant"
 path = "src/lib.rs"
 
 [dependencies]
@@ -21,4 +21,3 @@ path = "src/lib.rs"
 [features]
 # TODO: use "cargo bench" once that feature finally becomes stable >:(
 benchmark = []
-with-bench = []

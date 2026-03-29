@@ -1,7 +1,7 @@
-use slog;
-use slog::level::Level;
-use slog::sink;
-use slog::time;
+use rasant;
+use rasant::level::Level;
+use rasant::sink;
+use rasant::time;
 
 use std::io::{Error, ErrorKind};
 
@@ -69,7 +69,7 @@ fn sync_output() {
 		let string_sink_output = string_sink.output();
 
 		{
-			let mut log = slog::Slog::new();
+			let mut log = rasant::Logger::new();
 			log.add_sink(string_sink).set_level(Level::Info);
 
 			log.info("root test info").warn("root test warn").debug("root test debug");
@@ -97,7 +97,7 @@ fn sync_trace() {
 	let string_sink_output = string_sink.output();
 
 	{
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.set_level(Level::Trace).add_sink(string_sink);
 
 		log.info("root test info").warn("root test warn").debug("root test debug");

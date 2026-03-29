@@ -6,21 +6,22 @@
 mod benchmark {
 	use super::*;
 
-	use slog::attributes::value::ToValue;
-	use slog::level::Level;
-	use slog::sink::black_hole;
-	use slog::sink::format::{FormatterConfig, OutputFormat};
-	use slog::time::{Duration, Timestamp};
+	use rasant::attributes::value::ToValue;
+	use rasant::level::Level;
+	use rasant::sink::black_hole;
+	use rasant::sink::format::{FormatterConfig, OutputFormat};
+	use rasant::time::{Duration, StringFormat, Timestamp};
 	use std::thread;
 
 	const BENCHMARK_LOG_ITEMS: u32 = 1000000;
 	const BENCHMARK_MAX_NESTING: u32 = 50;
 
 	pub fn black_hole_single(async_writes: bool, skip_all: bool, log_format: OutputFormat) -> (u32, Duration) {
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
+				time_format: StringFormat::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -41,10 +42,11 @@ mod benchmark {
 	}
 
 	pub fn black_hole_nested(async_writes: bool, skip_all: bool, log_format: OutputFormat) -> (u32, Duration) {
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
+				time_format: StringFormat::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -72,10 +74,11 @@ mod benchmark {
 	}
 
 	pub fn black_hole_nested_with_arguments(async_writes: bool, skip_all: bool, log_format: OutputFormat) -> (u32, Duration) {
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
+				time_format: StringFormat::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -105,10 +108,11 @@ mod benchmark {
 	}
 
 	pub fn black_hole_threaded(async_writes: bool, skip_all: bool, log_format: OutputFormat) -> (u32, Duration) {
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
+				time_format: StringFormat::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()

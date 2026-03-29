@@ -1,8 +1,8 @@
-use slog;
-use slog::attributes::value::ToValue;
-use slog::level::Level;
-use slog::sink;
-use slog::time;
+use rasant;
+use rasant::attributes::value::ToValue;
+use rasant::level::Level;
+use rasant::sink;
+use rasant::time;
 
 use std::io::{Error, ErrorKind};
 
@@ -16,7 +16,7 @@ fn async_trace() {
 	let string_sink_output = string_sink.output();
 
 	{
-		let mut log = slog::Slog::new();
+		let mut log = rasant::Logger::new();
 		log.set_level(Level::Trace).add_sink(string_sink).set_async(true);
 		log.info("root test info")
 			.warn("root test warn")

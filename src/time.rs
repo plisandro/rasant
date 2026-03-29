@@ -16,7 +16,7 @@ use parts::TimestampParts;
 pub use format::StringFormat;
 pub use time::Duration;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Timestamp {
 	seconds: u64,
 	nanoseconds: u32,

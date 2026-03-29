@@ -18,7 +18,7 @@ use crate::sink::format;
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
-pub struct Slog {
+pub struct Logger {
 	id: u32,
 	depth: sink::LogDepth,
 	level: level::Level,
@@ -29,7 +29,7 @@ pub struct Slog {
 	has_levelless_sinks: bool,
 }
 
-impl Slog {
+impl Logger {
 	fn next_uuid() -> u32 {
 		let mut next_id = GLOBAL_LOGGER_NEXT_UUID.lock().unwrap();
 		let id = *next_id;
@@ -299,7 +299,7 @@ impl Slog {
 	}
 }
 
-impl Drop for Slog {
+impl Drop for Logger {
 	fn drop(&mut self) {
 		self.flush();
 
@@ -321,14 +321,14 @@ mod basic {
 	#[test]
 	#[should_panic]
 	fn panic_no_sinks() {
-		let mut log = Slog::new();
+		let mut log = Logger::new();
 		log.set_level(Level::Info).info("this should explode");
 	}
 
 	#[test]
 	#[should_panic]
 	fn panic_log_panics() {
-		let mut log = Slog::new();
+		let mut log = Logger::new();
 		log.add_sink(sink::stdout::default()).set_level(Level::Info);
 
 		log.info("this should log fine");
@@ -337,7 +337,7 @@ mod basic {
 
 	#[test]
 	fn set_async_before_sinks() {
-		let mut log = Slog::new();
+		let mut log = Logger::new();
 		log.set_async(true).add_sink(sink::stdout::default());
 		log.info("this should log fine");
 	}
@@ -432,7 +432,7 @@ mod formatting {
 				});
 				let string_sink_output = string_sink.output();
 
-				let mut log = Slog::new();
+				let mut log = Logger::new();
 				log.add_sink(string_sink).set_level(Level::Info);
 
 				log.info("root test info").warn("root test warn").debug("root test debug");
@@ -465,7 +465,7 @@ mod formatting {
 			});
 			string_sink_output = string_sink.output();
 
-			let mut log = Slog::new();
+			let mut log = Rasant::new();
 			log.add_sink(string_sink).set_level(Level::Trace).set_async(true);
 
 			log.info("root test info").warn("root test warn").fatal_with("oh no something_horrible", [("why", "fire!".to_value())]);

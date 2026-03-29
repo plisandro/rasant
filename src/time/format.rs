@@ -62,7 +62,11 @@ impl StringFormat {
 	}
 
 	pub fn write<T: io::Write>(&self, out: &mut T, ts: &Timestamp) -> io::Result<()> {
-		//Result<(), io::Error> {
+		match self {
+			StringFormat::TimestampNanoseconds => return write!(out, "{}", ts.as_nanos()),
+			_ => (),
+		}
+
 		let parts = if self.is_utc() { ts.as_utc_parts() } else { ts.as_local_parts() };
 
 		match self {
