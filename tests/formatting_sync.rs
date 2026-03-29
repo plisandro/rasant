@@ -1,5 +1,4 @@
-use rasant;
-use rasant::level::Level;
+use rasant::Level;
 use rasant::sink;
 use rasant::time;
 

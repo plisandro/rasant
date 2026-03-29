@@ -3,10 +3,7 @@ pub mod value;
 use std::fmt;
 use std::io::Write;
 
-use crate::{
-	attributes::value::{ToValue, Value},
-	types,
-};
+use crate::attributes::value::{ToValue, Value};
 
 pub const KEY_ERROR: &str = "error";
 pub const KEY_LEVEL: &str = "level";
@@ -76,7 +73,7 @@ impl Map {
 		self.key_to_idx(key).is_some()
 	}
 
-	pub fn into_iter(&self) -> MapIter {
+	pub fn into_iter(&self) -> MapIter<'_> {
 		MapIter::new(self)
 	}
 
@@ -162,16 +159,26 @@ impl<'i> Iterator for MapIter<'i> {
 // TODO: implement proper glue between io::Write and fmt::Write
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let mut out = types::StringWriter::new();
+		let mut out = Vec::new();
 
 		let mut first = true;
 		for (key, val) in self.into_iter() {
-			write!(&mut out, "{spacer}{key}=", spacer = if first { "" } else { " " });
-			val.write_quoted(&mut out);
+			match write!(&mut out, "{spacer}{key}=", spacer = if first { "" } else { " " }) {
+				Ok(_) => (),
+				Err(e) => panic!("failed to serialize key for attributes string: {e}"),
+			}
+			match val.write_quoted(&mut out) {
+				Ok(_) => (),
+				Err(e) => panic!("failed to serialize value for attributes string: {e}"),
+			}
 			first = false;
 		}
 
-		write!(f, "{}", out.to_string().unwrap())
+		let s = match String::from_utf8(out) {
+			Ok(s) => s,
+			Err(e) => panic!("failed to convert attributes to UTF8: {e}"),
+		};
+		write!(f, "{}", s)
 	}
 }
 

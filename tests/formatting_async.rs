@@ -1,6 +1,5 @@
-use rasant;
-use rasant::attributes::value::ToValue;
-use rasant::level::Level;
+use rasant::Level;
+use rasant::ToValue;
 use rasant::sink;
 
 use std::io::{Error, ErrorKind};

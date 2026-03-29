@@ -2,7 +2,6 @@ use std::fmt;
 use std::io;
 
 use crate::time::{Duration, Timestamp};
-use crate::types;
 use std::thread;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -203,9 +202,18 @@ impl Value {
 // TODO: implement proper glue between io::Write and fmt::Write
 impl fmt::Display for Value {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let mut out = types::StringWriter::new();
-		self.write(&mut out);
-		write!(f, "{}", out.to_string().unwrap())
+		let mut out = Vec::new();
+
+		match self.write(&mut out) {
+			Ok(_) => (),
+			Err(e) => panic!("failed to convert value to string buffer: {e}"),
+		};
+		let s = match String::from_utf8(out) {
+			Ok(s) => s,
+			Err(e) => panic!("failed to convert value to UTF8: {e}"),
+		};
+
+		write!(f, "{}", s)
 	}
 }
 
@@ -265,11 +273,9 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			let mut out = types::StringWriter::new();
+			let mut out = Vec::new();
 			assert!(v.write(&mut out).is_ok());
-			let got = out.to_string().unwrap();
-
-			assert_eq!(got, String::from(want));
+			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
 
@@ -289,11 +295,9 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			let mut out = types::StringWriter::new();
+			let mut out = Vec::new();
 			assert!(v.write_quoted(&mut out).is_ok());
-			let got = out.to_string().unwrap();
-
-			assert_eq!(got, String::from(want));
+			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
 
@@ -316,11 +320,9 @@ mod tests {
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			let mut out = types::StringWriter::new();
+			let mut out = Vec::new();
 			assert!(v.write_json(&mut out).is_ok());
-			let got = out.to_string().unwrap();
-
-			assert_eq!(got, String::from(want));
+			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
 }

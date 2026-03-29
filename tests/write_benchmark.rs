@@ -4,10 +4,8 @@
 // launch them in sequence below.
 #[cfg(all(test, feature = "benchmark"))]
 mod benchmark {
-	use super::*;
-
-	use rasant::attributes::value::ToValue;
-	use rasant::level::Level;
+	use rasant::Level;
+	use rasant::ToValue;
 	use rasant::sink::black_hole;
 	use rasant::sink::format::{FormatterConfig, OutputFormat};
 	use rasant::time::{Duration, StringFormat, Timestamp};

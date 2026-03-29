@@ -11,6 +11,9 @@ include = [
   "src/**/*",
 ]
 
+[lints.rust]
+warnings = "deny"
+
 [lib]
 name = "rasant"
 path = "src/lib.rs"

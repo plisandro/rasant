@@ -20,16 +20,17 @@ pub const MAX_LOGDEPTH: u16 = 100;
 pub struct LogUpdate {
 	when: time::Timestamp,
 	level: level::Level,
-	depth: LogDepth,
+	// TODO: use me for fancy hierarchic log output
+	//depth: LogDepth,
 	msg: String,
 }
 
 impl LogUpdate {
-	pub fn new(now: time::Timestamp, level: level::Level, depth: LogDepth, msg: String) -> Self {
+	pub fn new(now: time::Timestamp, level: level::Level, msg: String) -> Self {
 		Self {
 			when: now,
 			level: level,
-			depth: depth,
+			//depth: depth,
 			msg: msg,
 		}
 	}

@@ -156,12 +156,15 @@ impl Formatter {
 	}
 
 	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
-		let mut out = io::Cursor::new(Vec::new());
-		self.write(&mut out, update, attrs);
+		let mut out = Vec::new();
 
-		match String::from_utf8(out.into_inner()) {
+		match self.write(&mut out, update, attrs) {
+			Ok(_) => (),
+			Err(e) => panic!("failed to convert log update {update:?} to string buffer: {e}"),
+		};
+		match String::from_utf8(out) {
 			Ok(s) => s,
-			Err(e) => panic!("failed to convert log update {update:?} to string: {e}"),
+			Err(e) => panic!("failed to convert log update {update:?} to UTF8: {e}"),
 		}
 	}
 }

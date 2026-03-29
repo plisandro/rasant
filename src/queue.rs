@@ -158,12 +158,14 @@ pub fn dec_refcount() {
 	}
 }
 
+/*
 pub fn size() -> usize {
 	match GLOBAL_ASYNC_HANDLER.lock().unwrap().as_ref() {
 		Some(h) => h.queue_size(),
 		None => 0,
 	}
 }
+*/
 
 pub fn flush() {
 	match GLOBAL_ASYNC_HANDLER.lock().unwrap().as_ref() {
