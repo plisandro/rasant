@@ -7,7 +7,61 @@ Basic benchmark tests, intended to gauge performance progress across versions, l
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
 
-### Latest: 2026-03-21, version 0.2.0
+### Version 0.3.0 (2026-03-30)
+
+Remove all `String` generation from logging codepaths, optimize attribute maps.
+
+```
+--- Benchmark: single logger ---
+[sync]
+	wrote 1000000 compact log entries in 95.061682ms, average 95ns/op
+	wrote 1000000 JSON log entries in 90.353409ms, average 90ns/op
+	skipped 1000000 compact log entries in 2.174012ms, average 2ns/op
+	skipped 1000000 JSON log entries in 2.151221ms, average 2ns/op
+[async]
+	wrote 1000000 compact log entries in 834.480707ms, average 834ns/op
+	wrote 1000000 JSON log entries in 812.074815ms, average 812ns/op
+	skipped 1000000 compact log entries in 2.448651ms, average 2ns/op
+	skipped 1000000 JSON log entries in 2.836612ms, average 2ns/op
+
+--- Benchmark: 50 nested loggers ---
+[sync]
+	wrote 1000000 compact log entries in 190.387245ms, average 190ns/op
+	wrote 1000000 JSON log entries in 184.887471ms, average 184ns/op
+	skipped 1000000 compact log entries in 2.529951ms, average 2ns/op
+	skipped 1000000 JSON log entries in 2.524952ms, average 2ns/op
+[async]
+	wrote 1000000 compact log entries in 1.244251002s, average 1.244µs/op
+	wrote 1000000 JSON log entries in 1.231142195s, average 1.231µs/op
+	skipped 1000000 compact log entries in 53.021519ms, average 53ns/op
+	skipped 1000000 JSON log entries in 52.989749ms, average 52ns/op
+
+--- Benchmark: 50 nested loggers with increasing arguments ---
+[sync]
+	wrote 1000000 compact log entries in 351.532583ms, average 351ns/op
+	wrote 1000000 JSON log entries in 309.24519ms, average 309ns/op
+	skipped 1000000 compact log entries in 2.607461ms, average 2ns/op
+	skipped 1000000 JSON log entries in 2.746852ms, average 2ns/op
+[async]
+	wrote 1000000 compact log entries in 1.763556557s, average 1.763µs/op
+	wrote 1000000 JSON log entries in 1.638452428s, average 1.638µs/op
+	skipped 1000000 compact log entries in 53.294039ms, average 53ns/op
+	skipped 1000000 JSON log entries in 53.30402ms, average 53ns/op
+
+--- Benchmark: 50 multi-threaded nested loggers ---
+[sync]
+	wrote 1000000 compact log entries in 161.860448ms, average 161ns/op
+	wrote 1000000 JSON log entries in 153.897705ms, average 153ns/op
+	skipped 1000000 compact log entries in 1.377991ms, average 1ns/op
+	skipped 1000000 JSON log entries in 1.22438ms, average 1ns/op
+[async]
+	wrote 1000000 compact log entries in 1.037478419s, average 1.037µs/op
+	wrote 1000000 JSON log entries in 1.040988431s, average 1.04µs/op
+	skipped 1000000 compact log entries in 1.455561ms, average 1ns/op
+	skipped 1000000 JSON log entries in 1.503211ms, average 1ns/op
+```
+
+### Version 0.2.0 (2026-03-21)
 
 Full async logging support.
 
@@ -61,7 +115,7 @@ Full async logging support.
 	skipped 1000000 JSON log entries in 1.54654ms, average 1ns/op
 ```
 
-### Version 0.1.0
+### Version 0.1.0 (2026-03-15)
 
 All log operations I/O perform streamed writes, with minimal string allocation.
 
@@ -88,7 +142,7 @@ All log operations I/O perform streamed writes, with minimal string allocation.
   skipped 1000000 JSON log entries in 2.999489397s, average 2.999µs/op
 ```
 
-### Version 0.0.1
+### Version 0.0.1 (2026-03-11)
 
 Initial proof-of-concept implementation, without async support.
 
