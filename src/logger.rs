@@ -224,8 +224,8 @@ impl Logger {
 		self.log_with(Level::Error, msg, [(attributes::KEY_ERROR, error.to_string().to_value())])
 	}
 
-	pub fn error_with<T: Error + ToValue, const L: usize>(&mut self, msg: &str, error: T, attrs: [(&str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Error, msg, attrs, [(attributes::KEY_ERROR, error.to_value())])
+	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+		self.log_with_two(Level::Error, msg, attrs, [(attributes::KEY_ERROR, error.to_string().to_value())])
 	}
 
 	pub fn fatal(&mut self, msg: &str) -> &mut Self {
