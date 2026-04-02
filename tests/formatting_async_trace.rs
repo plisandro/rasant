@@ -1,7 +1,7 @@
+use ntime;
 use rasant::Level;
 use rasant::ToValue;
 use rasant::sink;
-use rasant::time;
 
 use std::io::{Error, ErrorKind};
 
@@ -26,7 +26,7 @@ fn async_trace() {
 		nlog.info("first test info").warn("first test warn").error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
 		// give a little time for all logs to flush before we drop loggers, which produce traces
-		time::sleep_millis(10);
+		ntime::sleep_millis(10);
 	}
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise

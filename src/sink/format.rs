@@ -1,3 +1,4 @@
+use ntime;
 use std::io;
 
 use crate::attributes;
@@ -5,7 +6,6 @@ use crate::console::Color;
 use crate::level::Level;
 use crate::sink::LogUpdate;
 use crate::sink::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
-use crate::time;
 
 #[derive(Clone, Debug)]
 pub enum OutputFormat {
@@ -28,21 +28,21 @@ impl OutputFormat {
 
 pub struct FormatterConfig {
 	pub format: OutputFormat,
-	pub time_format: time::StringFormat,
+	pub time_format: ntime::Format,
 }
 
 impl FormatterConfig {
 	pub fn default() -> Self {
 		Self {
 			format: OutputFormat::Compact,
-			time_format: time::StringFormat::LocalMillisDateTime,
+			time_format: ntime::Format::LocalMillisDateTime,
 		}
 	}
 
 	pub fn json() -> Self {
 		Self {
 			format: OutputFormat::Json,
-			time_format: time::StringFormat::TimestampSeconds,
+			time_format: ntime::Format::TimestampSeconds,
 		}
 	}
 }
@@ -50,7 +50,7 @@ impl FormatterConfig {
 pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
-	time_format: time::StringFormat,
+	time_format: ntime::Format,
 }
 
 impl Formatter {
@@ -58,7 +58,7 @@ impl Formatter {
 		Self {
 			format: conf.format,
 			time_key: match &conf.time_format {
-				time::StringFormat::TimestampSeconds | time::StringFormat::TimestampMilliseconds => String::from(KEY_TIMESTAMP),
+				ntime::Format::TimestampSeconds | ntime::Format::TimestampMilliseconds => String::from(KEY_TIMESTAMP),
 				_ => String::from(KEY_TIME),
 			},
 			time_format: conf.time_format,
@@ -121,21 +121,27 @@ impl Formatter {
 		// "{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}"
 
 		// build output header
-		write!(
-			out,
-			"{{\"{time_key}\":{time_delimiter}",
-			time_key = self.time_key,
-			time_delimiter = if self.time_format.is_numeric() { "" } else { "\"" },
-		)?;
-		update.when.write(out, &self.time_format)?;
-		write!(
-			out,
-			"{time_delimiter},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
-			time_delimiter = if self.time_format.is_numeric() { "" } else { "\"" },
-			level = update.level.as_str(),
-			msg_key = KEY_MESSAGE,
-			msg = update.msg,
-		)?;
+		match self.time_format.as_integer(&update.when) {
+			Some(timestamp_int) => write!(
+				out,
+				"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
+				time_key = self.time_key,
+				level = update.level.as_str(),
+				msg_key = KEY_MESSAGE,
+				msg = update.msg,
+			)?,
+			None => {
+				write!(out, "{{\"{time_key}\":\"", time_key = self.time_key)?;
+				update.when.write(out, &self.time_format)?;
+				write!(
+					out,
+					"\",\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
+					level = update.level.as_str(),
+					msg_key = KEY_MESSAGE,
+					msg = update.msg,
+				)?;
+			}
+		}
 
 		// append fields
 		for (key, val) in attrs.into_iter() {

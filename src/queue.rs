@@ -1,3 +1,4 @@
+use ntime::{Duration, Timestamp, sleep};
 use std::hint;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -5,7 +6,6 @@ use std::thread;
 
 use crate::attributes;
 use crate::sink::{LogUpdate, Sink};
-use crate::time::{Duration, Timestamp, sleep};
 
 const ASYNC_HANDLER_OP_TIMEOUT: Duration = Duration::from_secs(10);
 const ASYNC_HANDLER_SPINLOCK_WAIT: Duration = Duration::from_millis(50);

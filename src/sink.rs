@@ -7,18 +7,18 @@ pub mod stderr;
 pub mod stdout;
 pub mod string;
 
+use ntime;
 use std::io as std_io;
 
 use crate::attributes;
 use crate::level;
-use crate::time;
 
 pub type LogDepth = u16;
 pub const MAX_LOGDEPTH: u16 = 100;
 
 #[derive(Clone, Debug)]
 pub struct LogUpdate {
-	when: time::Timestamp,
+	when: ntime::Timestamp,
 	level: level::Level,
 	// TODO: use me for fancy hierarchic log output
 	//depth: LogDepth,
@@ -26,7 +26,7 @@ pub struct LogUpdate {
 }
 
 impl LogUpdate {
-	pub fn new(now: time::Timestamp, level: level::Level, msg: String) -> Self {
+	pub fn new(now: ntime::Timestamp, level: level::Level, msg: String) -> Self {
 		Self {
 			when: now,
 			level: level,

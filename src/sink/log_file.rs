@@ -1,3 +1,4 @@
+use ntime;
 use std::env;
 use std::path;
 use std::process;
@@ -5,7 +6,6 @@ use std::process;
 use crate::sink::file;
 use crate::sink::format;
 use crate::sink::io::IO;
-use crate::time::{StringFormat, Timestamp};
 
 pub struct LogFileConfig {
 	pub log_directory: path::PathBuf,
@@ -38,7 +38,7 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 		"{process_name}_{time}_{pid}.log",
 		process_name = process_name,
 		// TODO: change to local
-		time = Timestamp::now().as_string(&StringFormat::UtcFileName),
+		time = ntime::Timestamp::now().as_string(&ntime::Format::UtcFileName),
 		pid = process::id(),
 	));
 

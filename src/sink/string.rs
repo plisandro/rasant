@@ -1,11 +1,12 @@
+use ntime;
 use std::io;
 use std::string;
 use std::sync::Arc;
 
 use crate::attributes;
 use crate::attributes::value::ToValue;
+use crate::sink;
 use crate::sink::format;
-use crate::{sink, time};
 
 use std::sync::Mutex;
 
@@ -22,7 +23,7 @@ impl Default for StringConfig {
 		Self {
 			type_str: "default".into(),
 			formatter_cfg: format::FormatterConfig {
-				time_format: time::StringFormat::UtcMillisDateTime,
+				time_format: ntime::Format::UtcMillisDateTime,
 				..format::FormatterConfig::default()
 			},
 			line_delimiter: "\n".into(),
@@ -39,8 +40,8 @@ pub struct String {
 	line_delimiter: string::String,
 	out: Arc<Mutex<string::String>>,
 	frozen_logger_id: Option<u32>,
-	frozen_now: Option<time::Timestamp>,
-	frozen_now_tick: Option<time::Duration>,
+	frozen_now: Option<ntime::Timestamp>,
+	frozen_now_tick: Option<ntime::Duration>,
 }
 
 impl String {
@@ -53,11 +54,11 @@ impl String {
 			frozen_logger_id: if conf.mock_logger_id { Some(100 as u32) } else { None },
 			frozen_now: if conf.mock_time {
 				// 2026-03-04 15:10:15 GMT
-				Some(time::Timestamp::from_secs(1772637015))
+				Some(ntime::Timestamp::from_secs(1772637015))
 			} else {
 				None
 			},
-			frozen_now_tick: if conf.mock_time { Some(time::Duration::from_millis(1234)) } else { None },
+			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
 		}
 	}
 

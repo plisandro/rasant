@@ -5,8 +5,6 @@ mod logger;
 mod macros;
 mod queue;
 pub mod sink;
-// TODO: replace me with ntime
-pub mod time;
 
 //#![deny(missing_docs)]
 //#![allow(dead_code)]

@@ -1,7 +1,6 @@
+use ntime::{Duration, Timestamp};
 use std::fmt;
 use std::io;
-
-use crate::time::{Duration, Timestamp};
 use std::thread;
 
 #[derive(Clone, Debug, PartialEq)]

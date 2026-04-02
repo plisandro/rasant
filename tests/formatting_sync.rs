@@ -1,6 +1,6 @@
+use ntime;
 use rasant::Level;
 use rasant::sink;
-use rasant::time;
 
 use std::io::{Error, ErrorKind};
 
@@ -9,7 +9,7 @@ fn sync_output() {
 	struct TestCase<'t> {
 		name: &'t str,
 		out_format: sink::format::OutputFormat,
-		time_format: time::StringFormat,
+		time_format: ntime::Format,
 		want: &'t str,
 	}
 
@@ -17,7 +17,7 @@ fn sync_output() {
 		TestCase {
 			name: "default stdout",
 			out_format: sink::format::OutputFormat::Compact,
-			time_format: time::format::StringFormat::UtcMillisDateTime,
+			time_format: ntime::Format::UtcMillisDateTime,
 			want: "2026-03-04 15:10:15.000 [INF] root test info
 2026-03-04 15:10:16.234 [WRN] root test warn
 2026-03-04 15:10:17.468 [INF] first test info number=1
@@ -27,7 +27,7 @@ fn sync_output() {
 		TestCase {
 			name: "stdout with timestamps",
 			out_format: sink::format::OutputFormat::Compact,
-			time_format: time::format::StringFormat::TimestampNanoseconds,
+			time_format: ntime::Format::TimestampNanoseconds,
 			want: "1772637015000000000 [INF] root test info
 1772637016234000000 [WRN] root test warn
 1772637017468000000 [INF] first test info number=1
@@ -37,7 +37,7 @@ fn sync_output() {
 		TestCase {
 			name: "JSON stdout",
 			out_format: sink::format::OutputFormat::Json,
-			time_format: time::format::StringFormat::UtcDateTime,
+			time_format: ntime::Format::UtcDateTime,
 			want: "{\"time\":\"2026-03-04 15:10:15\",\"level\":\"info\",\"message\":\"root test info\"}
 {\"time\":\"2026-03-04 15:10:16\",\"level\":\"warning\",\"message\":\"root test warn\"}
 {\"time\":\"2026-03-04 15:10:17\",\"level\":\"info\",\"message\":\"first test info\",\"number\":1}
@@ -47,7 +47,7 @@ fn sync_output() {
 		TestCase {
 			name: "JSON stdout with timestamps",
 			out_format: sink::format::OutputFormat::Json,
-			time_format: time::format::StringFormat::TimestampMilliseconds,
+			time_format: ntime::Format::TimestampMilliseconds,
 			want: "{\"timestamp\":1772637015000,\"level\":\"info\",\"message\":\"root test info\"}
 {\"timestamp\":1772637016234,\"level\":\"warning\",\"message\":\"root test warn\"}
 {\"timestamp\":1772637017468,\"level\":\"info\",\"message\":\"first test info\",\"number\":1}

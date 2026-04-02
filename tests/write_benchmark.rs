@@ -4,11 +4,11 @@
 // launch them in sequence below.
 #[cfg(all(test, feature = "benchmark"))]
 mod benchmark {
+	use ntime::{Duration, Format, Timestamp};
 	use rasant::Level;
 	use rasant::ToValue;
 	use rasant::sink::black_hole;
 	use rasant::sink::format::{FormatterConfig, OutputFormat};
-	use rasant::time::{Duration, StringFormat, Timestamp};
 	use std::thread;
 
 	const BENCHMARK_LOG_ITEMS: u32 = 1000000;
@@ -19,7 +19,7 @@ mod benchmark {
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
-				time_format: StringFormat::TimestampNanoseconds,
+				time_format: Format::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -44,7 +44,7 @@ mod benchmark {
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
-				time_format: StringFormat::TimestampNanoseconds,
+				time_format: Format::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -76,7 +76,7 @@ mod benchmark {
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
-				time_format: StringFormat::TimestampNanoseconds,
+				time_format: Format::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
@@ -110,7 +110,7 @@ mod benchmark {
 		log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 			formatter_cfg: FormatterConfig {
 				format: log_format,
-				time_format: StringFormat::TimestampNanoseconds,
+				time_format: Format::TimestampNanoseconds,
 				..FormatterConfig::default()
 			},
 			..black_hole::BlackHoleConfig::default()
