@@ -3,6 +3,7 @@ use std::string;
 use std::sync::Arc;
 
 use crate::attributes;
+use crate::attributes::value::ToValue;
 use crate::sink::format;
 use crate::{sink, time};
 
@@ -93,7 +94,7 @@ impl sink::Sink for String {
 			if let Some(id) = self.frozen_logger_id {
 				if attrs.has(attributes::KEY_LOGGER_ID) {
 					mock_attrs = Some(attrs.clone());
-					mock_attrs.as_mut().unwrap().insert(attributes::KEY_LOGGER_ID, id);
+					mock_attrs.as_mut().unwrap().insert_ephemeral(attributes::KEY_LOGGER_ID, id.to_value());
 					self.frozen_logger_id = Some(id + 1);
 				};
 			}

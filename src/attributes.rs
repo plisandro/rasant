@@ -3,7 +3,7 @@ pub mod value;
 use std::fmt;
 use std::io::Write;
 
-use crate::attributes::value::{ToValue, Value};
+use crate::attributes::value::Value;
 
 pub const KEY_ERROR: &str = "error";
 pub const KEY_LEVEL: &str = "level";
@@ -11,18 +11,33 @@ pub const KEY_MESSAGE: &str = "message";
 pub const KEY_TIME: &str = "time";
 pub const KEY_TIMESTAMP: &str = "timestamp";
 pub const KEY_LOGGER_ID: &str = "logger_id";
-pub const PRIORITY_KEYS: [&str; 2] = [KEY_MESSAGE, KEY_ERROR];
-pub const RESTRICTED_KEYS: [&str; 3] = [KEY_LEVEL, KEY_TIME, KEY_TIMESTAMP];
+
+macro_rules! check_match {
+	($a:ident, $( $b:ident ),*) => {
+	    {
+	        $( if $a == $b { return true; } )*
+			false
+		}
+	};
+}
+
+fn is_key_priority(key: &str) -> bool {
+	check_match!(key, KEY_MESSAGE, KEY_ERROR)
+}
+
+fn is_key_restricted(key: &str) -> bool {
+	check_match!(key, KEY_LEVEL, KEY_TIME, KEY_TIMESTAMP)
+}
 
 #[derive(Clone, Debug)]
-pub struct Map {
+struct KvStore {
 	keys: String,
 	values: Vec<Value>,
 	key_idxs: Vec<(usize, usize)>,
 }
 
-impl Map {
-	pub fn new() -> Self {
+impl KvStore {
+	fn new() -> Self {
 		Self {
 			keys: String::new(),
 			values: Vec::new(),
@@ -30,19 +45,16 @@ impl Map {
 		}
 	}
 
-	fn is_key_restricted(&self, key: &str) -> bool {
-		RESTRICTED_KEYS.iter().find(|&&pk| pk == key).is_some()
-	}
-
-	fn is_key_priority(&self, key: &str) -> bool {
-		PRIORITY_KEYS.iter().find(|&&pk| pk == key).is_some()
+	fn clear(&mut self) {
+		self.keys.clear();
+		self.values.clear();
+		self.key_idxs.clear();
 	}
 
 	fn key_to_idx(&self, key: &str) -> Option<usize> {
 		let key_size = key.len();
-		let res = self.key_idxs.iter().enumerate().find(|&x| {
-			let key_start = x.1.0;
-			let key_end = x.1.1;
+		let res = self.key_idxs.iter().enumerate().find(|(_, (key_start, key_end))| {
+			let (key_start, key_end) = (*key_start, *key_end);
 			if (key_end - key_start + 1) != key_size {
 				return false;
 			}
@@ -65,33 +77,33 @@ impl Map {
 		}
 	}
 
-	pub fn len(&self) -> usize {
+	fn value_by_idx(&self, i: usize) -> &Value {
+		&self.values[i]
+	}
+
+	fn len(&self) -> usize {
 		self.key_idxs.len()
 	}
 
-	pub fn has(&self, key: &str) -> bool {
+	fn has(&self, key: &str) -> bool {
 		self.key_to_idx(key).is_some()
 	}
 
-	pub fn into_iter(&self) -> MapIter<'_> {
-		MapIter::new(self)
-	}
-
-	pub fn get(&self, key: &str) -> Option<&Value> {
+	fn get(&self, key: &str) -> Option<&Value> {
 		match self.key_to_idx(key) {
 			Some(i) => Some(&self.values[i]),
 			None => None,
 		}
 	}
 
-	pub fn insert_val(&mut self, key: &str, val: Value) {
+	fn set(&mut self, key: &str, val: Value) {
 		if key.len() == 0 {
 			panic!("empty log attribute key {{\"\" -> {val}}}");
 		}
 		if key.chars().any(|c| c.is_whitespace()) {
 			panic!("invalid log attribute key {{\"{key}\" -> {val}}}");
 		}
-		if self.is_key_restricted(key) {
+		if is_key_restricted(key) {
 			panic!("cannot use restricted log attribute key {{\"{key}\" -> {val}}}");
 		}
 
@@ -103,8 +115,8 @@ impl Map {
 			None => {
 				// new key
 				let key_len = key.len();
-				if self.is_key_priority(key) {
-					// insert new key first
+				if is_key_priority(key) {
+					// insert new priority key first
 					for (key_start, key_end) in self.key_idxs.iter_mut() {
 						*key_start += key_len;
 						*key_end += key_len;
@@ -121,22 +133,86 @@ impl Map {
 					self.values.push(val);
 				};
 			}
-		};
+		}
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct Map {
+	main: KvStore,
+	ephemeral_new: KvStore,
+	ephemeral_priority: KvStore,
+	ephemeral_overlap: KvStore,
+}
+
+impl Map {
+	pub fn new() -> Self {
+		Self {
+			main: KvStore::new(),
+			ephemeral_new: KvStore::new(),
+			ephemeral_priority: KvStore::new(),
+			ephemeral_overlap: KvStore::new(),
+		}
 	}
 
-	pub fn insert<T: ToValue>(&mut self, key: &str, raw: T) {
-		self.insert_val(key, raw.to_value());
+	pub fn into_iter(&self) -> MapIter<'_> {
+		MapIter::new(self)
+	}
+
+	pub fn len(&self) -> usize {
+		self.main.len() + self.ephemeral_new.len() + self.ephemeral_priority.len()
+	}
+
+	pub fn has(&self, key: &str) -> bool {
+		self.main.has(key) || self.ephemeral_new.has(key) || self.ephemeral_priority.has(key)
+	}
+
+	pub fn get(&self, key: &str) -> Option<&Value> {
+		if let Some(val) = self.ephemeral_new.get(key) {
+			return Some(val);
+		}
+		if let Some(val) = self.ephemeral_priority.get(key) {
+			return Some(val);
+		}
+		self.main.get(key)
+	}
+
+	pub fn insert(&mut self, key: &str, val: Value) {
+		_ = self.main.set(key, val);
+	}
+
+	pub fn clear_ephemeral(&mut self) {
+		self.ephemeral_new.clear();
+		self.ephemeral_priority.clear();
+		self.ephemeral_overlap.clear();
+	}
+
+	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
+		match self.main.has(key) {
+			false => match is_key_priority(key) {
+				true => self.ephemeral_priority.set(key, val),
+				false => self.ephemeral_new.set(key, val),
+			},
+			true => self.ephemeral_overlap.set(key, val),
+		}
 	}
 }
 
 pub struct MapIter<'s> {
 	map: &'s Map,
-	idx: usize,
+	main_idx: usize,
+	ephemeral_new_idx: usize,
+	ephemeral_priority_idx: usize,
 }
 
 impl<'i> MapIter<'i> {
 	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
+		Self {
+			map: map,
+			main_idx: 0,
+			ephemeral_new_idx: 0,
+			ephemeral_priority_idx: 0,
+		}
 	}
 }
 
@@ -145,13 +221,38 @@ impl<'i> Iterator for MapIter<'i> {
 	type Item = (&'i str, &'i Value);
 
 	fn next(&mut self) -> Option<Self::Item> {
-		match self.map.key_by_idx(self.idx) {
+		// iterate over priority ephemeral KVs
+		match self.map.ephemeral_priority.key_by_idx(self.ephemeral_priority_idx) {
+			None => (),
 			Some(key) => {
-				let res = (key, &self.map.values[self.idx]);
-				self.idx += 1;
-				Some(res)
+				let val = self.map.ephemeral_priority.value_by_idx(self.ephemeral_priority_idx);
+				self.ephemeral_priority_idx += 1;
+				return Some((key, val));
 			}
+		}
+
+		// iterate over main KV and ephemeral value overlaps
+		match self.map.main.key_by_idx(self.main_idx) {
+			None => (),
+			Some(key) => {
+				let val = match self.map.ephemeral_overlap.get(key) {
+					Some(v) => v,
+					None => self.map.main.value_by_idx(self.main_idx),
+				};
+
+				self.main_idx += 1;
+				return Some((key, val));
+			}
+		}
+
+		// iterate over the rest of ephemeral KVs
+		match self.map.ephemeral_new.key_by_idx(self.ephemeral_new_idx) {
 			None => None,
+			Some(key) => {
+				let val = self.map.ephemeral_new.value_by_idx(self.ephemeral_new_idx);
+				self.ephemeral_new_idx += 1;
+				Some((key, val))
+			}
 		}
 	}
 }
@@ -185,64 +286,136 @@ impl fmt::Display for Map {
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
-mod tests {
+mod kv_store_tests {
 	use super::*;
+	use crate::attributes::value::ToValue;
 
 	#[test]
 	fn indexed_keys_order() {
-		let mut map = Map::new();
+		let mut kv = KvStore::new();
 
-		map.insert("key_a", 123);
-		map.insert("key_b", 456);
-		map.insert("key_c", 789);
-		map.insert("key_b", "overwrites should not change key order");
-		map.insert("error", "priority keys should go first");
+		kv.set("key_a", 123.to_value());
+		kv.set("key_b", 456.to_value());
+		kv.set("key_c", 789.to_value());
+		kv.set("key_b", "overwrites should not change key order".to_value());
+		kv.set("error", "priority keys should go first".to_value());
 
-		assert_eq!(map.len(), 4);
-		assert_eq!(map.key_to_idx("error"), Some(0));
-		assert_eq!(map.key_to_idx("key_a"), Some(1));
-		assert_eq!(map.key_to_idx("key_b"), Some(2));
-		assert_eq!(map.key_to_idx("key_c"), Some(3));
-		assert_eq!(map.key_to_idx("bad_key"), None);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.key_to_idx("error"), Some(0));
+		assert_eq!(kv.key_to_idx("key_a"), Some(1));
+		assert_eq!(kv.key_to_idx("key_b"), Some(2));
+		assert_eq!(kv.key_to_idx("key_c"), Some(3));
+		assert_eq!(kv.key_to_idx("bad_key"), None);
 	}
 
 	#[test]
 	fn basic_operations() {
-		let mut map = Map::new();
+		let mut kv = KvStore::new();
 
-		assert_eq!(map.len(), 0);
+		assert_eq!(kv.len(), 0);
 
-		map.insert("c", -5678);
-		map.insert("d", 9012.3456);
-		map.insert("b", 1234);
+		kv.set("c", (-5678).to_value());
+		kv.set("d", (9012.3456).to_value());
+		kv.set("b", (1234).to_value());
 		// overwrite existing key
-		map.insert("d", 7890.1234);
-		map.insert("error", "first!");
-		map.insert_val("e", Value::Size(77889900));
-		map.insert("a", "lalala");
+		kv.set("d", (7890.1234).to_value());
+		kv.set("error", "first!".to_value());
+		kv.set("e", Value::Size(77889900));
+		kv.set("a", "lalala".to_value());
 
-		assert_eq!(map.len(), 6);
-		assert_eq!(map.to_string(), "error=\"first!\" c=-5678 d=7890.1234 b=1234 e=0x4a4816c a=\"lalala\"");
+		assert_eq!(kv.len(), 6);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_key() {
-		let mut map = Map::new();
-		map.insert("", "oh no");
+		KvStore::new().set("", "oh no".to_value());
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_invalid_key() {
-		let mut map = Map::new();
-		map.insert("no\twhitespace\tin\tkeys", "please!");
+		KvStore::new().set("no\twhitespace\tin\tkeys", "please!".to_value());
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_restricted_key() {
-		let mut map = Map::new();
-		map.insert("level", 55555);
+		KvStore::new().set("level", 55555i32.to_value());
+	}
+}
+
+#[cfg(test)]
+mod map_tests {
+	use super::*;
+	use crate::attributes::value::ToValue;
+
+	#[test]
+	fn indexed_keys_order() {
+		let mut attr = Map::new();
+
+		attr.insert("key_a", 123.to_value());
+		attr.insert("key_b", 456.to_value());
+		attr.insert("key_c", 789.to_value());
+		attr.insert("key_b", "overwrites should not change key order".to_value());
+		attr.insert("error", "priority keys should go first".to_value());
+
+		assert_eq!(attr.len(), 4);
+		assert_eq!(
+			attr.to_string(),
+			"error=\"priority keys should go first\" key_a=123 key_b=\"overwrites should not change key order\" key_c=789"
+		);
+	}
+
+	#[test]
+	fn ephemeral_attributes() {
+		let mut attr = Map::new();
+
+		attr.insert("key_a", 123.to_value());
+		attr.insert("key_b", 456.to_value());
+		attr.insert("key_c", 789.to_value());
+		attr.insert("error", "first error".to_value());
+
+		attr.insert_ephemeral("key_b", "overwrites should not change key order".to_value());
+		attr.insert_ephemeral("key_d", "new key".to_value());
+		attr.insert_ephemeral("error", "new error".to_value());
+
+		assert_eq!(attr.len(), 5);
+		assert_eq!(attr.main.len(), 4);
+		assert_eq!(attr.ephemeral_new.len(), 1);
+		assert_eq!(attr.ephemeral_priority.len(), 0);
+		assert_eq!(attr.ephemeral_overlap.len(), 2);
+		assert_eq!(
+			attr.to_string(),
+			"error=\"new error\" key_a=123 key_b=\"overwrites should not change key order\" key_c=789 key_d=\"new key\"",
+		);
+
+		attr.clear_ephemeral();
+
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.main.len(), 4);
+		assert_eq!(attr.ephemeral_new.len(), 0);
+		assert_eq!(attr.ephemeral_priority.len(), 0);
+		assert_eq!(attr.ephemeral_overlap.len(), 0);
+		assert_eq!(attr.to_string(), "error=\"first error\" key_a=123 key_b=456 key_c=789",);
+	}
+
+	#[test]
+	fn ephemeral_new_priority_keys() {
+		let mut attr = Map::new();
+
+		attr.insert("key_a", 123.to_value());
+		attr.insert("key_b", 456.to_value());
+		attr.insert("key_c", 789.to_value());
+
+		attr.insert_ephemeral("error", "oh no!".to_value());
+		attr.insert_ephemeral("key_d", "new key".to_value());
+
+		assert_eq!(attr.len(), 5);
+		assert_eq!(attr.main.len(), 3);
+		assert_eq!(attr.ephemeral_new.len(), 1);
+		assert_eq!(attr.ephemeral_priority.len(), 1);
+		assert_eq!(attr.ephemeral_overlap.len(), 0);
+		assert_eq!(attr.to_string(), "error=\"oh no!\" key_a=123 key_b=456 key_c=789 key_d=\"new key\"",);
 	}
 }

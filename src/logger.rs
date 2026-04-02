@@ -109,35 +109,29 @@ impl Logger {
 	}
 
 	pub fn set<T: ToValue>(&mut self, key: &str, v: T) -> &mut Self {
-		self.attributes.insert(key, v);
+		self.attributes.insert(key, v.to_value());
 		self
 	}
 
 	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &str, attrs_1: [(&str, Value); X], attrs_2: [(&str, Value); Y]) -> &mut Self {
 		if !self.has_sinks() {
-			panic!("tried to log without sinks configured");
+			panic!("tried to log without sinks configured for logger {id}", id = self.id);
 		}
 		// bail out early on negative log requests
 		if !self.has_levelless_sinks && !self.level.covers(&level) {
 			return self;
 		}
 
-		let mut nattrs: Option<attributes::Map> = None;
-		if !attrs_1.is_empty() || !attrs_2.is_empty() {
-			nattrs = Some(self.attributes.clone());
-			for a in attrs_1 {
-				nattrs.as_mut().unwrap().insert_val(a.0, a.1);
-			}
-			for a in attrs_2 {
-				nattrs.as_mut().unwrap().insert_val(a.0, a.1);
-			}
+		self.attributes.clear_ephemeral();
+		for (k, v) in attrs_1 {
+			self.attributes.insert_ephemeral(k, v);
+		}
+		for (k, v) in attrs_2 {
+			self.attributes.insert_ephemeral(k, v);
 		}
 
 		let update = sink::LogUpdate::new(Timestamp::now(), level, msg.into());
-		let attrs = match nattrs.as_mut() {
-			Some(a) => a,
-			None => &self.attributes,
-		};
+		let attrs = &self.attributes;
 
 		// if we're about to panic, parse the message before attempting to
 		// deliver the log update - and losing ownership.
@@ -159,7 +153,7 @@ impl Logger {
 				false => asink.lock().unwrap().log(&update, &attrs),
 			};
 			if let Err(e) = res {
-				panic!("failed to log update {update:?} on sink {name}: {e}", name = asink.lock().unwrap().name());
+				panic!("failed to log update {update:?} on sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
 			}
 		}
 
@@ -257,7 +251,7 @@ impl Logger {
 				false => asink.lock().unwrap().flush(),
 			};
 			if let Err(e) = res {
-				panic!("failed to flush sink {name}: {e}", name = asink.lock().unwrap().name());
+				panic!("failed to flush sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
 			}
 		}
 
@@ -268,7 +262,7 @@ impl Logger {
 impl Clone for Logger {
 	fn clone(&self) -> Self {
 		if self.depth >= sink::MAX_LOGDEPTH {
-			panic!("maximum log depth of {} exceeded", sink::MAX_LOGDEPTH);
+			panic!("maximum log depth of {max_depth} exceeded by logger {id}", max_depth = sink::MAX_LOGDEPTH, id = self.id);
 		}
 
 		let mut parent_sinks: Vec<Arc<Mutex<Box<dyn Sink + Send>>>> = Vec::new();
