@@ -1,6 +1,5 @@
-use rasant::Level;
+use rasant as r;
 use rasant::sink;
-use rasant::*;
 
 use std::io::{Error, ErrorKind};
 
@@ -15,21 +14,20 @@ fn macro_logging() {
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Trace).add_sink(string_sink);
+		log.set_level(rasant::Level::Trace).add_sink(string_sink);
 
-		//log.info("root test info").warn("root test warn").debug("root test debug");
-		info!(log, "root test, info without args");
-		info!(log, "root test, info with args", "first" = 1234, "second" = "lala");
-		warn!(log, "root test, warn");
-		debug!(log, "root test, debug", "a_float" = 3.1415926);
+		r::info!(log, "root test, info without args");
+		r::info!(log, "root test, info with args", first = 1234, second = "lala");
+		r::warn!(log, "root test, warn");
+		r::debug!(log, "root test, debug", a_float = 3.1415926);
 
 		let mut nlog = log.clone();
-		nlog.set("number", 1);
-		info!(nlog, "first test info");
-		warn!(nlog, "first test warn", "waring" = "fire!");
-		debug!(nlog, "first test debug");
-		error!(nlog, Error::new(ErrorKind::NotFound, "oh no"), "something failed");
-		error!(nlog, Error::new(ErrorKind::InvalidInput, "again!"), "another error", "with" = "attributes");
+		r::set!(nlog, number = 1);
+		r::info!(nlog, "first test info");
+		r::warn!(nlog, "first test warn", warning = "fire!");
+		r::debug!(nlog, "first test debug");
+		r::error!(nlog, Error::new(ErrorKind::NotFound, "oh no"), "something failed");
+		r::error!(nlog, Error::new(ErrorKind::InvalidInput, "again!"), "another error", with = "attributes");
 	}
 
 	let got = string_sink_output.lock().unwrap().clone();
@@ -39,10 +37,20 @@ fn macro_logging() {
 2026-03-04 15:10:18.702 [WRN] root test, warn
 2026-03-04 15:10:19.936 [DBG] root test, debug a_float=3.1415926
 2026-03-04 15:10:21.170 [INF] first test info number=1
-2026-03-04 15:10:22.404 [WRN] first test warn number=1 waring=\"fire!\"
+2026-03-04 15:10:22.404 [WRN] first test warn number=1 warning=\"fire!\"
 2026-03-04 15:10:23.638 [DBG] first test debug number=1
 2026-03-04 15:10:24.872 [ERR] something failed error=\"oh no\" number=1
 2026-03-04 15:10:26.106 [ERR] another error error=\"again!\" number=1 with=\"attributes\"";
 
 	assert_eq!(got, want);
+}
+
+#[test]
+#[should_panic]
+fn panic_logging() {
+	let mut log = rasant::Logger::new();
+	log.add_sink(sink::stdout::default()).set_level(rasant::Level::Info);
+
+	r::info!(log, "this should work");
+	r::panic!(log, "and this should panic!");
 }

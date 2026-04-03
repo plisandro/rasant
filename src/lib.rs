@@ -10,6 +10,6 @@ mod queue;
 pub mod sink;
 
 // Public exported symbols
-pub use attributes::value::ToValue;
+pub use attributes::value::{ToValue, Value};
 pub use level::Level;
 pub use logger::Logger;

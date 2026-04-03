@@ -112,6 +112,11 @@ impl Logger {
 		self
 	}
 
+	pub fn set_value(&mut self, key: &str, val: Value) -> &mut Self {
+		self.attributes.insert(key, val);
+		self
+	}
+
 	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &str, attrs_1: [(&str, Value); X], attrs_2: [(&str, Value); Y]) -> &mut Self {
 		if !self.has_sinks() {
 			panic!("tried to log without sinks configured for logger {id}", id = self.id);
@@ -237,7 +242,6 @@ impl Logger {
 		self.log_with(Level::Panic, msg, attrs)
 	}
 
-	// TODO: fix me so drop flushes only affect owned sinks.
 	pub fn flush(&mut self) -> &Self {
 		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
 			// TODO: fix logging.

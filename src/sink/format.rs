@@ -39,10 +39,17 @@ impl FormatterConfig {
 		}
 	}
 
+	pub fn color() -> Self {
+		Self {
+			format: OutputFormat::ColorCompact,
+			time_format: ntime::Format::LocalMillisDateTime,
+		}
+	}
+
 	pub fn json() -> Self {
 		Self {
 			format: OutputFormat::Json,
-			time_format: ntime::Format::TimestampSeconds,
+			time_format: ntime::Format::TimestampMilliseconds,
 		}
 	}
 }
