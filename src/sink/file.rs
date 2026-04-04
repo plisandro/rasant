@@ -2,7 +2,8 @@
 //!
 //! Built around [`IO`], so it inherits pretty much all of
 //! its configuration options.
-use std::fs::File;
+use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 use crate::format;
@@ -46,12 +47,22 @@ pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 		panic!("missing path for logfile sink");
 	};
 
-	let fh = match File::options().create(true).write(true).append(conf.append).truncate(!conf.append).open(&path) {
+	let exists = match fs::exists(&path) {
+		Ok(b) => b,
+		Err(e) => panic!("failed to check if log file for \"{name}\" at {path} exists: {e}", name = &conf.name, path = path.display()),
+	};
+	let mut fh = match fs::File::options().create(true).write(true).append(conf.append).truncate(!conf.append).open(&path) {
 		Ok(fh) => fh,
 		Err(e) => {
-			panic!("failed to open log file for \"{name}\" at {path}: {e:?}", name = &conf.name, path = path.display(), e = e);
+			panic!("failed to open log file for \"{name}\" at {path}: {e:?}", name = &conf.name, path = path.display());
 		}
 	};
+	if exists {
+		match fh.write(conf.delimiter.as_bytes()) {
+			Ok(_) => (),
+			Err(e) => panic!("failed to insert append delimiter for \"{name}\" at {path}: {e}", name = &conf.name, path = path.display()),
+		};
+	}
 
 	IO::new(IOConfig {
 		name: conf.name,

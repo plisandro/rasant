@@ -43,6 +43,7 @@ pub struct IO<'s> {
 	name: String,
 	formatter: format::Formatter,
 	delimiter: String,
+	written_to: bool,
 	flush_on_write: bool,
 	out: Box<dyn io::Write + Send + 's>,
 }
@@ -60,6 +61,7 @@ impl<'i> IO<'i> {
 			name: conf.name,
 			formatter: format::Formatter::new(conf.formatter_cfg),
 			delimiter: conf.delimiter,
+			written_to: false,
 			flush_on_write: conf.flush_on_write,
 			out: out,
 		}
@@ -72,10 +74,14 @@ impl<'i> sink::Sink for IO<'i> {
 	}
 
 	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		self.formatter.write(&mut self.out, update, attrs)?;
-		if let Err(e) = self.out.write(self.delimiter.as_bytes()) {
-			return Err(e);
+		if self.written_to {
+			if let Err(e) = self.out.write(self.delimiter.as_bytes()) {
+				return Err(e);
+			}
 		}
+
+		self.formatter.write(&mut self.out, update, attrs)?;
+		self.written_to = true;
 
 		match self.flush_on_write {
 			true => self.flush(),

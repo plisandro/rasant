@@ -87,7 +87,7 @@ r::debug!(log, "and i'm ignored :(");
 ### Stacking
 
 Any initialized logger can be cheaply cloned, inheriting all settings from its parent - including
-levels, sinks and fixed attributes, allowing for very flexible setups. For example, to have all
+levels, sinks and fixed attributes - allowing for very flexible setups. For example, to have all
 errors (or higher) within a thread logged to `stderr`:
 
 ```rust

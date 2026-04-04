@@ -8,8 +8,8 @@ use crate::console::Color;
 use crate::level::Level;
 use crate::sink::LogUpdate;
 
-#[derive(Clone, Debug)]
 /// Supported log output format for all sinks.
+#[derive(Clone, Debug)]
 pub enum OutputFormat {
 	/// A compact string: `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`
 	Compact,
@@ -32,6 +32,7 @@ impl OutputFormat {
 }
 
 /// Configuration struct for output formatting.
+// TODO: derive Clone and Debug once ntime does for Format.
 pub struct FormatterConfig {
 	/// Output formatting configuration.
 	pub format: OutputFormat,
@@ -66,6 +67,7 @@ impl FormatterConfig {
 }
 
 /// Serializes and writes log updates + attributes.
+// TODO: derive Clone and Debug once ntime does for Format.
 pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
