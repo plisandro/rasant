@@ -1,6 +1,7 @@
 use ntime;
 use rasant::Level;
 use rasant::sink;
+use rasant::{FormatterConfig, OutputFormat};
 
 use std::io::{Error, ErrorKind};
 
@@ -8,7 +9,7 @@ use std::io::{Error, ErrorKind};
 fn sync_output() {
 	struct TestCase<'t> {
 		name: &'t str,
-		out_format: sink::format::OutputFormat,
+		out_format: OutputFormat,
 		time_format: ntime::Format,
 		want: &'t str,
 	}
@@ -16,7 +17,7 @@ fn sync_output() {
 	let test_cases: [TestCase; _] = [
 		TestCase {
 			name: "default stdout",
-			out_format: sink::format::OutputFormat::Compact,
+			out_format: OutputFormat::Compact,
 			time_format: ntime::Format::UtcMillisDateTime,
 			want: "2026-03-04 15:10:15.000 [INF] root test info
 2026-03-04 15:10:16.234 [WRN] root test warn
@@ -26,7 +27,7 @@ fn sync_output() {
 		},
 		TestCase {
 			name: "stdout with timestamps",
-			out_format: sink::format::OutputFormat::Compact,
+			out_format: OutputFormat::Compact,
 			time_format: ntime::Format::TimestampNanoseconds,
 			want: "1772637015000000000 [INF] root test info
 1772637016234000000 [WRN] root test warn
@@ -36,7 +37,7 @@ fn sync_output() {
 		},
 		TestCase {
 			name: "JSON stdout",
-			out_format: sink::format::OutputFormat::Json,
+			out_format: OutputFormat::Json,
 			time_format: ntime::Format::UtcDateTime,
 			want: "{\"time\":\"2026-03-04 15:10:15\",\"level\":\"info\",\"message\":\"root test info\"}
 {\"time\":\"2026-03-04 15:10:16\",\"level\":\"warning\",\"message\":\"root test warn\"}
@@ -46,7 +47,7 @@ fn sync_output() {
 		},
 		TestCase {
 			name: "JSON stdout with timestamps",
-			out_format: sink::format::OutputFormat::Json,
+			out_format: OutputFormat::Json,
 			time_format: ntime::Format::TimestampMilliseconds,
 			want: "{\"timestamp\":1772637015000,\"level\":\"info\",\"message\":\"root test info\"}
 {\"timestamp\":1772637016234,\"level\":\"warning\",\"message\":\"root test warn\"}
@@ -59,7 +60,7 @@ fn sync_output() {
 	for tc in test_cases {
 		let string_sink = sink::string::String::new(sink::string::StringConfig {
 			mock_time: true,
-			formatter_cfg: sink::format::FormatterConfig {
+			formatter_cfg: FormatterConfig {
 				format: tc.out_format,
 				time_format: tc.time_format,
 			},

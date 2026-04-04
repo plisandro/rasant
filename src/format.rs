@@ -3,10 +3,10 @@ use ntime;
 use std::io;
 
 use crate::attributes;
+use crate::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
 use crate::console::Color;
 use crate::level::Level;
 use crate::sink::LogUpdate;
-use crate::sink::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
 
 #[derive(Clone, Debug)]
 /// Supported log output format for all sinks.
@@ -15,7 +15,7 @@ pub enum OutputFormat {
 	Compact,
 	/// A compact colored string, for terminals supporting standard [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code): `2026-01-02 15:16:17.890 INF some log message key_1=value_1 key2=value_2`
 	ColorCompact,
-	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`.
+	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
 	Json,
 }
 
@@ -31,7 +31,7 @@ impl OutputFormat {
 	}
 }
 
-/// Configuration struct for output [`Formatter`]s.
+/// Configuration struct for output formatting.
 pub struct FormatterConfig {
 	/// Output formatting configuration.
 	pub format: OutputFormat,

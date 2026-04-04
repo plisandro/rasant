@@ -6,8 +6,8 @@
 use std::io;
 
 use crate::attributes;
+use crate::format;
 use crate::sink;
-use crate::sink::format;
 
 /// Configuration struct for an [`IO`] [sink][`sink::Sink`].
 pub struct IOConfig<T: io::Write + Send> {

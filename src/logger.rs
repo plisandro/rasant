@@ -4,11 +4,11 @@ use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::value::{ToValue, Value};
+use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
 use crate::sink::Sink;
-use crate::sink::format;
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
@@ -311,7 +311,7 @@ impl Logger {
 impl Clone for Logger {
 	fn clone(&self) -> Self {
 		if self.depth >= sink::MAX_LOGDEPTH {
-			panic!("maximum log depth of {max_depth} exceeded by logger {id}", max_depth = sink::MAX_LOGDEPTH, id = self.id);
+			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = sink::MAX_LOGDEPTH, id = self.id);
 		}
 
 		let mut parent_sinks: Vec<Arc<Mutex<Box<dyn Sink + Send>>>> = Vec::new();
@@ -356,6 +356,8 @@ impl Drop for Logger {
 
 #[cfg(test)]
 mod basic {
+	use crate::sink::MAX_LOGDEPTH;
+
 	use super::*;
 
 	#[test]
@@ -381,6 +383,15 @@ mod basic {
 		log.set_async(true).add_sink(sink::stdout::default());
 		log.info("this should log fine");
 	}
+
+	#[test]
+	#[should_panic]
+	fn max_depth_exceeded() {
+		let mut log = Logger::new();
+		for _ in 0..MAX_LOGDEPTH + 1 {
+			log = log.clone();
+		}
+	}
 }
 
 #[cfg(test)]
@@ -393,7 +404,7 @@ mod formatting {
 	fn sync_formatted_output() {
 		struct TestCase<'t> {
 			name: &'t str,
-			out_format: sink::format::OutputFormat,
+			out_format: format::OutputFormat,
 			time_format: ntime::Format,
 			want: &'t str,
 		}
@@ -401,7 +412,7 @@ mod formatting {
 		let test_cases: [TestCase; _] = [
 			TestCase {
 				name: "default stdout",
-				out_format: sink::format::OutputFormat::Compact,
+				out_format: format::OutputFormat::Compact,
 				time_format: ntime::Format::UtcMillisDateTime,
 				want: "2026-03-04 15:10:15.000 [INF] root test info
 2026-03-04 15:10:16.234 [WRN] root test warn
@@ -412,7 +423,7 @@ mod formatting {
 			},
 			TestCase {
 				name: "stdout with timestamps",
-				out_format: sink::format::OutputFormat::Compact,
+				out_format: format::OutputFormat::Compact,
 				time_format: ntime::Format::TimestampNanoseconds,
 				want: "1772637015000000000 [INF] root test info
 1772637016234000000 [WRN] root test warn
@@ -437,7 +448,7 @@ mod formatting {
 			*/
 			TestCase {
 				name: "JSON stdout",
-				out_format: sink::format::OutputFormat::Json,
+				out_format: format::OutputFormat::Json,
 				time_format: ntime::Format::UtcDateTime,
 				want: "{\"time\":\"2026-03-04 15:10:15\",\"level\":\"info\",\"message\":\"root test info\"}
 {\"time\":\"2026-03-04 15:10:16\",\"level\":\"warning\",\"message\":\"root test warn\"}
@@ -448,7 +459,7 @@ mod formatting {
 			},
 			TestCase {
 				name: "JSON stdout with timestamps",
-				out_format: sink::format::OutputFormat::Json,
+				out_format: format::OutputFormat::Json,
 				time_format: ntime::Format::TimestampMilliseconds,
 				want: "{\"timestamp\":1772637015000,\"level\":\"info\",\"message\":\"root test info\"}
 {\"timestamp\":1772637016234,\"level\":\"warning\",\"message\":\"root test warn\"}
@@ -465,7 +476,7 @@ mod formatting {
 			{
 				let string_sink = sink::string::String::new(sink::string::StringConfig {
 					mock_time: true,
-					formatter_cfg: sink::format::FormatterConfig {
+					formatter_cfg: format::FormatterConfig {
 						format: tc.out_format,
 						time_format: tc.time_format,
 					},

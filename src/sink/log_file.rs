@@ -7,8 +7,8 @@ use std::env;
 use std::path;
 use std::process;
 
+use crate::format;
 use crate::sink::file;
-use crate::sink::format;
 use crate::sink::io::IO;
 
 /// Configuration struct for an [`IO`] log file [sink][`crate::sink::Sink`].

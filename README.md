@@ -40,8 +40,8 @@ Latest stable release is **v0.3.0**. To use it, add the `rasant` crate to your `
 rasant = "0.3.0"
 ```
 
-Rasant is under active development and underway to a v1.0.0. You may see small public API
-changes until then, but the library is otherwise stable and fully functional.
+Rasant is under active development and on track for a v1.0.0 release. You may see small public
+API changes until then, but the library is otherwise stable and fully functional.
 
 ## Getting started
 

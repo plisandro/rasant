@@ -12,4 +12,4 @@ Full async logging support.
 
 ## Version 0.1.0 (2026-03-15)
 
-First relasable version, with all log operations I/O perform streamed writes and minimal string allocation.
+First working , with all log operations I/O perform streamed writes and minimal string allocation.

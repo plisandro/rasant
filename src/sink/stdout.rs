@@ -1,7 +1,7 @@
 //! A [stdout](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink::Sink`] module.
 use std::io;
 
-use crate::sink::format;
+use crate::format;
 use crate::sink::io::{IO, IOConfig};
 
 /// Configuration struct for an `stdout` [sink][`crate::sink::Sink`].

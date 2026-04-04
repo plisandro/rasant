@@ -6,8 +6,8 @@ use std::io;
 use std::string;
 
 use crate::attributes;
+use crate::format;
 use crate::sink;
-use crate::sink::format;
 
 /// Configuration struct for an [`BlackHole`] [sink][`sink::Sink`].
 pub struct BlackHoleConfig {

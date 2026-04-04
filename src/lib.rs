@@ -93,10 +93,10 @@
 //! let mut log = r::Logger::new();
 //! log.set_level(r::Level::Info).add_sink(
 //!     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
-//! 		formatter_cfg: r::sink::format::FormatterConfig {
-//! 			format: r::sink::format::OutputFormat::Json,
+//! 		formatter_cfg: r::FormatterConfig {
+//! 			format: r::OutputFormat::Json,
 //! 			time_format: ntime::Format::UtcNanosDateTime,
-//! 			..r::sink::format::FormatterConfig::default()
+//! 			..r::FormatterConfig::default()
 //! 		},
 //! 		..r::sink::stdout::StdoutConfig::default()
 //! 	})
@@ -133,7 +133,7 @@
 //! # Concepts
 //!
 //! Rasant is a structured logging library: it logs messages with a set of associated key-[`Value`]
-//! pairs, in formats (f.ex. [JSON][`sink::format::OutputFormat::Json`]) which are intended to
+//! pairs, in formats (f.ex. [JSON][`OutputFormat::Json`]) which are intended to
 //! be easily machine-readable.
 //!
 //! ## Methodology
@@ -204,13 +204,15 @@
 
 mod attributes;
 mod console;
+mod format;
 mod level;
 mod logger;
 mod macros;
 mod queue;
-pub mod sink;
 
 // Public exported symbols
+pub mod sink;
 pub use attributes::value::{ToValue, Value};
+pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
 pub use logger::Logger;

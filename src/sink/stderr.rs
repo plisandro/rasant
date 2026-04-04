@@ -1,7 +1,7 @@
-//! A `stderr` [sink][`crate::sink::Sink`] module.
+//! A [stderr](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink::Sink`] module.
 use std::io;
 
-use crate::sink::format;
+use crate::format;
 use crate::sink::io::{IO, IOConfig};
 
 /// Configuration struct for an `stderr` [sink][`crate::sink::Sink`].

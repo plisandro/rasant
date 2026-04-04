@@ -20,8 +20,8 @@ use std::sync::Arc;
 
 use crate::attributes;
 use crate::attributes::value::ToValue;
+use crate::format;
 use crate::sink;
-use crate::sink::format;
 
 use std::sync::Mutex;
 

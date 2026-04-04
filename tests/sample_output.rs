@@ -1,8 +1,8 @@
 use ntime::sleep_millis;
 use rasant as r;
+use rasant::FormatterConfig;
 use rasant::Level;
 use rasant::sink;
-use rasant::sink::format::FormatterConfig;
 
 /// A Q&D dumb test to render a sample output for README.md.
 #[test]

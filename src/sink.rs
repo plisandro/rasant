@@ -4,7 +4,6 @@
 //! exports all available sink types.
 pub mod black_hole;
 pub mod file;
-pub mod format;
 pub mod io;
 pub mod log_file;
 pub mod stderr;
@@ -25,11 +24,14 @@ pub const MAX_LOGDEPTH: u16 = 1024;
 /// Encapsulates a single log update, without attributes.
 #[derive(Clone, Debug)]
 pub struct LogUpdate {
-	when: ntime::Timestamp,
-	level: level::Level,
+	/// [Timestamp][`ntime::Timestamp`] for the log update.
+	pub when: ntime::Timestamp,
+	/// [Level][`level::Level`] for the log update.
+	pub level: level::Level,
 	// TODO: use me for fancy hierarchic log output
 	//depth: LogDepth,
-	msg: String,
+	/// Message for the log update.
+	pub msg: String,
 }
 
 impl LogUpdate {

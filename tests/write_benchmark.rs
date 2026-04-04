@@ -8,7 +8,7 @@ mod benchmark {
 	use rasant::Level;
 	use rasant::ToValue;
 	use rasant::sink::black_hole;
-	use rasant::sink::format::{FormatterConfig, OutputFormat};
+	use rasant::{FormatterConfig, OutputFormat};
 	use std::thread;
 
 	const BENCHMARK_LOG_ITEMS: u32 = 1000000;

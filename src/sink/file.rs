@@ -1,11 +1,11 @@
 //! Generic file logging log [sink][`crate::sink::Sink`] module.
 //!
-//! Based on [`IO`], so it inherits pretty much all of
+//! Built around [`IO`], so it inherits pretty much all of
 //! its configuration options.
 use std::fs::File;
 use std::path::PathBuf;
 
-use crate::sink::format;
+use crate::format;
 use crate::sink::io::{IO, IOConfig};
 
 /// Configuration struct for a file [`IO`] log sink.
@@ -40,7 +40,7 @@ impl Default for FileConfig {
 	}
 }
 
-/// Initializes a file log sink from a [`FileConfig`].
+/// Initializes a file log [sink][`crate::sink::Sink`] from a [`FileConfig`].
 pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 	let Some(path) = conf.path else {
 		panic!("missing path for logfile sink");
