@@ -2,28 +2,29 @@
 
 <p>
     <picture>
-      <source media="(prefers-color-scheme: light)" srcset="assets/rasant_title_light_horizontal.png" width="250px">
-      <source media="(prefers-color-scheme: dark)" srcset="assets/rasant_title_dark_horizontal.png" width="250px">
-      <img src="assets/rasant_title_light_horizontal.png" width="250px" />
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/plisandro/rasant/raw/HEAD/assets/rasant_title_light_horizontal.png" width="350px">
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/plisandro/rasant/raw/HEAD/assets/rasant_title_dark_horizontal.png" width="350px">
+      <img src="https://github.com/plisandro/rasant/raw/HEAD/assets/rasant_title_light_horizontal.png" width="350px" />
     </picture>
     <br>
-    [![](https://img.shields.io/crates/v/rasant.svg)][crates-io]
-    [![](https://docs.rs/rasant/badge.svg)][api-docs]
 </p>
+
+[![](https://img.shields.io/crates/v/rasant.svg)][crates-io]
+[![](https://docs.rs/rasant/badge.svg)][api-docs]
 
 Rasant is a lightweight, high performance and flexible Rust library for structured logging,
 inspired by the likes of [zap](https://github.com/uber-go/zap) and [zerolog](https://github.com/rs/zerolog).
 
-It offers nanosecond precision, stackable logging and [outstanding performance][assets/benchmarks.md]: on
+It offers nanosecond precision, stackable logging and [outstanding performance](assets/benchmarks.md): on
 modern systems, Rasant can process and dispatch logs to multiple sinks in tens of nanoseconds, being
-normally bottlenecked by I/O operations. Can't wait that long? There's built-in [async support][#asynchronous-logging]!
+normally bottlenecked by I/O operations. Can't wait that long? There's built-in [async support](#asynchronous-logging)!
 
 ![Sample log output image](assets/sample_output.png)
 
 ## Main Features
 
   - Minimal dependencies.
-  - [Blazing fast](benchmarks) performance, with zero allocations on most operations.
+  - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
   - Leveled, structured contextual logging with nanosecond precision.
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
   - Thread safe.
@@ -33,11 +34,11 @@ normally bottlenecked by I/O operations. Can't wait that long? There's built-in 
 
 ## Usage 
 
-Latest stable release is **v0.4.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v0.4.1**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.4.0"
+rasant = "0.4.1"
 ```
 
 Rasant is under active development and on track for a v1.0.0 release. You may see small public
@@ -134,11 +135,11 @@ r::info!(log, "hello!");
 ```
 
 ### Asynchronous Logging
+Any logger, cloned or not, can dynamically enable/disable async writes.
 
-Any logger, cloned or not, can dynamically enable/disable async writes. When
-in async mode, log operations have a slightly longer (as details are copied
-into a queue) _but fixed_ lock time, making it ideal f.ex. for logging into
-slow storage without compromising overall performance.
+When in async mode, log operations have a slightly longer (as details are
+copied into a queue) _but fixed_ lock time, making it ideal f.ex. for
+logging into slow storage without compromising overall performance.
 
 ```rust
 use rasant as r;
