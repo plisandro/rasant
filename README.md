@@ -19,7 +19,9 @@ It offers nanosecond precision, stackable logging and [outstanding performance](
 modern systems, Rasant can process and dispatch logs to multiple sinks in tens of nanoseconds, being
 normally bottlenecked by I/O operations. Can't wait that long? There's built-in [async support](#asynchronous-logging)!
 
-![Sample log output image](assets/sample_output.png)
+![Sample text output image](assets/sample_output_text.png)
+
+![Sample JSON output image](assets/sample_output_json.png)
 
 ## Main Features
 
