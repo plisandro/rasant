@@ -2,6 +2,10 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 0.4.0 (2026-04-04)
+
+Initial public release. Optimized attributes maps making most operations zero allocation.
+
 ## Version 0.3.0 (2026-03-30)
 
 Removed all `String` generation from logging codepaths, optimize attribute maps.
@@ -12,4 +16,4 @@ Full async logging support.
 
 ## Version 0.1.0 (2026-03-15)
 
-First working , with all log operations I/O perform streamed writes and minimal string allocation.
+First working prototype, with all log operations I/O perform streamed writes and minimal string allocation.

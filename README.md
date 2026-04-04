@@ -12,7 +12,7 @@
 </p>
 
 Rasant is a lightweight, high performance and flexible Rust library for structured logging,
-inspired by the likes of [zap][https://github.com/uber-go/zap] and [zerolog][https://github.com/rs/zerolog].
+inspired by the likes of [zap](https://github.com/uber-go/zap) and [zerolog](https://github.com/rs/zerolog).
 
 It offers nanosecond precision, stackable logging and [outstanding performance][assets/benchmarks.md]: on
 modern systems, Rasant can process and dispatch logs to multiple sinks in tens of nanoseconds, being
@@ -23,21 +23,21 @@ normally bottlenecked by I/O operations. Can't wait that long? There's built-in 
 ## Main Features
 
   - Minimal dependencies.
-  - [Blazing fast][assets/benchmarks.md] performance, with zero allocations on most operations.
+  - [Blazing fast](benchmarks) performance, with zero allocations on most operations.
   - Leveled, structured contextual logging with nanosecond precision.
-  - [Simple API][#basic-examples], with support for [stacked logging][#stacking].
+  - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
   - Thread safe.
-  - [Highly cconfigurable log sinks][#configuring-sinks].
+  - [Highly cconfigurable log sinks](#configuring-sinks).
   - Text and JSON log output.
-  - Support for [dynamic async logging][#asynchronous-logging] with constant lock time.
+  - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
 ## Usage 
 
-Latest stable release is **v0.3.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v0.4.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.3.0"
+rasant = "0.4.0"
 ```
 
 Rasant is under active development and on track for a v1.0.0 release. You may see small public
@@ -164,8 +164,8 @@ r::info!(log, "in order!");
 Rasant is under active development, with more features planned for future versions.
 
   - New output formants (hierarchical pretty print?)
-  - New sink types (f.ex. [syslog][https://en.wikipedia.org/wiki/Syslog])
-  - Binary output formats, such as [CBOR][https://cbor.io/] and [protobuf][https://protobuf.dev/].
+  - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
+  - Binary output formats, such as [CBOR](https://cbor.io/) and [protobuf](https://protobuf.dev/).
   - Configurable log filters.
 
 ## License
