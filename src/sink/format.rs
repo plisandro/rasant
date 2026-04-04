@@ -1,3 +1,4 @@
+//! Formatting module for log writes, given ([`LogUpdate`] + attributes).
 use ntime;
 use std::io;
 
@@ -8,14 +9,18 @@ use crate::sink::LogUpdate;
 use crate::sink::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
 
 #[derive(Clone, Debug)]
+/// Supported log output format for all sinks.
 pub enum OutputFormat {
+	/// A compact string: `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`
 	Compact,
+	/// A compact colored string, for terminals supporting standard [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code): `2026-01-02 15:16:17.890 INF some log message key_1=value_1 key2=value_2`
 	ColorCompact,
-	//Long,
+	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`.
 	Json,
 }
 
 impl OutputFormat {
+	/// Returns a name for an `OutputFormat`.
 	pub fn name(&self) -> String {
 		match self {
 			Self::Compact => "compact",
@@ -26,12 +31,16 @@ impl OutputFormat {
 	}
 }
 
+/// Configuration struct for output [`Formatter`]s.
 pub struct FormatterConfig {
+	/// Output formatting configuration.
 	pub format: OutputFormat,
+	/// Time format for log entries, as [`ntime::Format`].
 	pub time_format: ntime::Format,
 }
 
 impl FormatterConfig {
+	/// Returns a default [`FormatterConfig`] for text: [`OutputFormat::Compact`] with date/time + milliseconds in local timezone).
 	pub fn default() -> Self {
 		Self {
 			format: OutputFormat::Compact,
@@ -39,6 +48,7 @@ impl FormatterConfig {
 		}
 	}
 
+	/// Returns a default [`FormatterConfig`] for color text: [`OutputFormat::ColorCompact`] with date/time + milliseconds in local timezone.
 	pub fn color() -> Self {
 		Self {
 			format: OutputFormat::ColorCompact,
@@ -46,6 +56,7 @@ impl FormatterConfig {
 		}
 	}
 
+	/// Returns a default [`FormatterConfig`] for JSON: [`OutputFormat::Json`] with times as milliseconds since UNIX epoch.
 	pub fn json() -> Self {
 		Self {
 			format: OutputFormat::Json,
@@ -54,6 +65,7 @@ impl FormatterConfig {
 	}
 }
 
+/// Serializes and writes log updates + attributes.
 pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
@@ -61,6 +73,7 @@ pub struct Formatter {
 }
 
 impl Formatter {
+	/// Initializes a [`Formatter`] from a given [`FormatterConfig`]
 	pub fn new(conf: FormatterConfig) -> Self {
 		Self {
 			format: conf.format,
@@ -72,9 +85,8 @@ impl Formatter {
 		}
 	}
 
+	// Compact formatter: `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`
 	fn format_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
-
 		// build output header
 		update.when.write(out, &self.time_format)?;
 		write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
@@ -88,9 +100,8 @@ impl Formatter {
 		Ok(())
 	}
 
+	// Compact color formatter: `2026-01-02 15:16:17.890 INF some log message key_1=value_1 key2=value_2`
 	fn format_color_compact<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		// "2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2"
-
 		// update messages above debug are highlighted in white
 		let msg_color = if Level::Debug.includes(&update.level) { Color::Default } else { Color::BrightWhite };
 		let level_color = update.level.color();
@@ -124,9 +135,8 @@ impl Formatter {
 		Ok(())
 	}
 
+	// JSON formatter: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
 	fn format_json<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		// "{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}"
-
 		// build output header
 		match self.time_format.as_integer(&update.when) {
 			Some(timestamp_int) => write!(
@@ -160,6 +170,7 @@ impl Formatter {
 		Ok(())
 	}
 
+	/// Writes a formatted [`LogUpdate`] + attributes ['Map`] into a [`io::Write`].
 	pub fn write<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		match self.format {
 			OutputFormat::Compact => self.format_compact(out, update, attrs),
@@ -168,6 +179,7 @@ impl Formatter {
 		}
 	}
 
+	/// Serialies a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
 	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
 		let mut out = Vec::new();
 
@@ -182,6 +194,7 @@ impl Formatter {
 	}
 }
 
+/// Returns a formatted string for a [`LogUpdate`] + attributes ['Map`], suitable for use with ['panic!`].
 pub fn as_panic_string(update: &LogUpdate, attrs: &attributes::Map) -> String {
 	let formatter = Formatter::new(FormatterConfig {
 		format: OutputFormat::Compact,

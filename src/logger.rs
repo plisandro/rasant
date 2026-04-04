@@ -12,6 +12,7 @@ use crate::sink::format;
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
+/// Base logger structure for Rasant.
 pub struct Logger {
 	id: u32,
 	depth: sink::LogDepth,
@@ -32,6 +33,8 @@ impl Logger {
 		id
 	}
 
+	/// Creates a brand new [`Logger`] instance, with a default level of [`Level::Warning`]
+	/// and no associated sinks.
 	pub fn new() -> Self {
 		Self {
 			id: Self::next_uuid(),
@@ -45,6 +48,7 @@ impl Logger {
 		}
 	}
 
+	/// Returns `true` if this is a root [`Logger`] instance - i.e. it has no parents.
 	pub fn is_root(&self) -> bool {
 		return self.depth == 0;
 	}
@@ -53,10 +57,13 @@ impl Logger {
 		!self.parent_sinks.is_empty() || !self.sinks.is_empty()
 	}
 
+	/// Returns the log [`Level`] for this [`Logger`] instance.
 	pub fn level(&self) -> &Level {
 		return &self.level;
 	}
 
+	/// Sets log [`Level`] for this [`Logger`] instance. Log updates below the
+	/// given [`Level`] are ignored.
 	pub fn set_level(&mut self, level: Level) -> &mut Self {
 		self.level = level;
 		if self.has_sinks() {
@@ -66,6 +73,11 @@ impl Logger {
 		self
 	}
 
+	/// Enables/disables async mode for this [`Logger`].
+	///
+	/// When async mode is enabled, log updates return immediately but are queued to
+	/// write to the [`Sink`]s associated to the [`Logger`] by a separate worker thread.
+	/// Log updates for a given [`Logger`] are guaranteed to write in order.
 	pub fn set_async(&mut self, async_writes: bool) -> &mut Self {
 		if async_writes == self.async_writes {
 			return self;
@@ -87,6 +99,9 @@ impl Logger {
 		self
 	}
 
+	/// Adds a new logging [`Sink`] to the [`Logger`] instance.
+	///
+	/// At least one [`Sink`] is required for logging operations to succeed.
 	pub fn add_sink<T: sink::Sink + Send + 'static>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
@@ -107,11 +122,19 @@ impl Logger {
 		self
 	}
 
+	/// Sets an attribute value for a [`Logger`].
+	///
+	/// Attributes are key-value pairs of {attribute_name, [`Value`]}, and are attached
+	/// to all log operations performed by the [`Logger`]. If the attribute already exists,
+	/// it is overwritten.
+	///
+	/// The provided value must implement [`crate::ToValue`].
 	pub fn set<T: ToValue>(&mut self, key: &str, v: T) -> &mut Self {
 		self.attributes.insert(key, v.to_value());
 		self
 	}
 
+	/// Sets an attribute [`Value`] for a [`Logger`].
 	pub fn set_value(&mut self, key: &str, val: Value) -> &mut Self {
 		self.attributes.insert(key, val);
 		self
@@ -170,78 +193,101 @@ impl Logger {
 		self
 	}
 
+	/// Logs a message with a given level, and no additional attributes.
 	pub fn log(&mut self, level: Level, msg: &str) -> &mut Self {
 		self.log_with_two(level, msg, [], [])
 	}
 
+	/// Logs a message with a given level and additional attribute [`Value`]s.
 	pub fn log_with<const L: usize>(&mut self, level: Level, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with_two(level, msg, attrs, [])
 	}
 
+	/// Logs a [`Level::Trace`] message, with no additional attributes.
 	pub fn trace(&mut self, msg: &str) -> &mut Self {
 		self.trace_with(msg, [])
 	}
 
+	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
 	pub fn trace_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with_two(Level::Trace, msg, attrs, [(attributes::KEY_LOGGER_ID, Value::from(self.id))])
 	}
 
+	/// Logs a [`Level::Debug`] message, with no additional attributes.
 	pub fn debug(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Debug, msg)
 	}
 
+	/// Logs a [`Level::Debug`] message, with additional attribute [`Value`]s.
 	pub fn debug_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Debug, msg, attrs)
 	}
 
+	/// Logs a [`Level::Info`] message, with no additional attributes.
 	pub fn info(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Info, msg)
 	}
 
+	/// Logs a [`Level::Info`] message, with additional attribute [`Value`]s.
 	pub fn info_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Info, msg, attrs)
 	}
 
+	/// Logs a [`Level::Warning`] message, with no additional attributes.
 	pub fn warn(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Warning, msg)
 	}
 
+	/// Logs a [`Level::Warning`] message, with additional attribute [`Value`]s.
 	pub fn warn_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Warning, msg, attrs)
 	}
 
+	/// Logs a [`Level::Error`] message, with no additional attributes.
 	pub fn err(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Error, msg)
 	}
 
+	/// Logs a [`Level::Error`] message, with additional attribute [`Value`]s.
 	pub fn err_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Error, msg, attrs)
 	}
 
+	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
 	pub fn error<T: Error>(&mut self, error: T, msg: &str) -> &mut Self {
 		self.log_with(Level::Error, msg, [(attributes::KEY_ERROR, error.to_string().to_value())])
 	}
 
+	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
 	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with_two(Level::Error, msg, attrs, [(attributes::KEY_ERROR, error.to_string().to_value())])
 	}
 
+	/// Logs a [`Level::Fatal`] message, with no additional attributes.
 	pub fn fatal(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Fatal, msg)
 	}
 
+	/// Logs a [`Level::Fatal`] message, with additional attribute [`Value`]s.
 	pub fn fatal_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Fatal, msg, attrs)
 	}
 
+	/// Logs a [`Level::Panic`] message, with no additional attributes, and panics the current process.
 	pub fn panic(&mut self, msg: &str) -> &mut Self {
 		self.log(Level::Panic, msg)
 	}
 
+	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s.
 	pub fn panic_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
 		self.log_with(Level::Panic, msg, attrs)
 	}
 
+	/// Flushes all pending writes on [`Sink`]s for this [`Logger`].
+	///
+	/// If async mode is enabled, flushing is deferred via the same queue used to write
+	/// log messages. The method will not lock, and return immediately, but actual flushes
+	/// will materialize later.
 	pub fn flush(&mut self) -> &Self {
 		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
 			// TODO: fix logging.

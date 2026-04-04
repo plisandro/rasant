@@ -1,3 +1,18 @@
+//! String logging [sink][`sink::Sink`] module.
+//!
+//! String sinks are useful mostly for testing and, as a result, their focus is not
+//! performance,  but usability.
+//!
+//! This sink writes all log updates into a [`std::sync::Mutex`]ed [`String`], which
+//! can be accessed via public methods, and supports mocking a number of attributes
+//! which can cause non-deterministic test results:
+//!
+//!   - If `mock_time` is `true`, time is pinned to a fixed start value, and
+//!     increases monolithically with every log write.
+//!   - If `mock_logger_id` is `true`, the `logger_id` atttibute is pinned to a
+//!     fixed start value, and  increases monolithically with every log write.
+//!
+//! Unless you're writing tests, you _really_ want to use another [sink][`sink::Sink`] type :)
 use ntime;
 use std::io;
 use std::string;
@@ -10,11 +25,17 @@ use crate::sink::format;
 
 use std::sync::Mutex;
 
+/// Configuration struct for an [`String`] [sink][`sink::Sink`].
 pub struct StringConfig {
+	/// A type string, used to define the sink's name.
 	pub type_str: string::String,
+	/// String delimiter, inserted between log writes.
 	pub line_delimiter: string::String,
+	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
+	/// Whether to mock log update times.
 	pub mock_time: bool,
+	/// Whether to mock logger IDs.
 	pub mock_logger_id: bool,
 }
 
@@ -33,7 +54,7 @@ impl Default for StringConfig {
 	}
 }
 
-// String string sink, useful mostly for testing.
+/// String logging [sink][`sink::Sink`] definition.
 pub struct String {
 	name: string::String,
 	formatter: format::Formatter,
@@ -45,6 +66,7 @@ pub struct String {
 }
 
 impl String {
+	/// Initializes a string [sink][`sink::Sink`] from a [`StringConfig`].
 	pub fn new(conf: StringConfig) -> Self {
 		Self {
 			name: format!("{} log string", conf.type_str),
@@ -62,11 +84,13 @@ impl String {
 		}
 	}
 
+	/// Returns the underlying [`String`] buffer for this sink.
 	pub fn output(&self) -> Arc<Mutex<string::String>> {
 		self.out.clone()
 	}
 
-	pub fn reset(&self) {
+	/// Clears the underlying [`String`] buffer for this sink.
+	pub fn clear(&self) {
 		self.out.lock().unwrap().clear();
 	}
 }

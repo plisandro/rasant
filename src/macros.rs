@@ -1,3 +1,4 @@
+/// Sets a number of attributes for a given [logger][`crate::Logger`].
 #[macro_export]
 macro_rules! set {
     // set!(logger, key=value...)
@@ -8,6 +9,7 @@ macro_rules! set {
 	};
 }
 
+/// Logs an update with [trace][`crate::Level::Trace`] level.
 #[macro_export]
 macro_rules! trace {
     // trace!(logger, msg, key=value...)
@@ -25,6 +27,7 @@ macro_rules! trace {
 	};
 }
 
+/// Logs an update with [debug][`crate::Level::Debug`] level.
 #[macro_export]
 macro_rules! debug {
     // debug!(logger, msg)
@@ -42,6 +45,7 @@ macro_rules! debug {
 	};
 }
 
+/// Logs an update with [info][`crate::Level::Info`] level.
 #[macro_export]
 macro_rules! info {
     // info!(logger, msg)
@@ -59,6 +63,7 @@ macro_rules! info {
 	};
 }
 
+/// Logs an update with [warning][`crate::Level::Warning`] level.
 #[macro_export]
 macro_rules! warn {
     // warn!(logger, msg)
@@ -76,6 +81,7 @@ macro_rules! warn {
 	};
 }
 
+/// Logs an update with [error][`crate::Level::Error`] level.
 #[macro_export]
 macro_rules! error {
     // error!(logger, msg)
@@ -107,6 +113,7 @@ macro_rules! error {
 	};
 }
 
+/// Logs an update with [fatal][`crate::Level::Fatal`] level.
 #[macro_export]
 macro_rules! fatal {
     // fatal!(logger, msg)
@@ -124,9 +131,9 @@ macro_rules! fatal {
 	};
 }
 
+/// Logs an update with [panic][`crate::Level::Panic`] level.
 #[macro_export]
 macro_rules! panic {
-    // panic!(logger, msg)
 	($logger:ident, $msg:literal) => {
 		$logger.panic($msg);
 	};

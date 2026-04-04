@@ -3,26 +3,40 @@ use std::fmt;
 use std::io;
 use std::thread;
 
+/// Attribute value definition for all log operations.
+/// These are associated with a single [`&str`] key in attribute maps for [logger][`crate::Logger`]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
+	/// A [`bool`]ean.
 	Bool(bool),
+	/// An owned [`String`].
 	String(String),
+	/// An integer, internally stored as a [`i64`].
 	Int(i64),
+	/// A long integer, internally stored as a [`i128`].
 	LongInt(i128),
+	/// A pointer-sized integer, stored as a [`isize`].
 	Size(isize),
+	/// An unsigned integer, internally stored as a [`u64`].
 	Uint(u64),
+	/// An unsigned long integer, internally stored as a [`i128`].
 	LongUint(u128),
+	/// A pointer-sized unsigned integer, stored as a [`isize`].
 	Usize(usize),
+	/// A float, internally stored as a [`f64`].
 	Float(f64),
 }
 
 /* ----------------------- Casting helpers ----------------------- */
 
+/// Trait for known types/structs which can be casted into a [`Value`].
 pub trait ToValue {
+	/// Casts the type to a [`Value`].
 	fn to_value(&self) -> Value;
 }
 
 impl Value {
+	/// Yields the underlying type associated with a given [`Value`].
 	pub fn from<T: ToValue>(v: T) -> Self {
 		v.to_value()
 	}
@@ -152,6 +166,7 @@ cast_float_to_value!(f64);
 /* ----------------------- Value implementation ----------------------- */
 
 impl Value {
+	/// Serializes a [`Value`], as string, into a [`io::Write`].
 	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		match &self {
 			Self::Bool(b) => write!(out, "{}", b),
@@ -178,6 +193,8 @@ impl Value {
 		}
 	}
 
+	/// Serializes a [`Value`], as a quoted string, into a [`io::Write`].
+	/// Non-numeric [`Value`]s get written as `"<string>"`.
 	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		match &self {
 			Self::String(s) => write!(out, "\"{}\"", s),
@@ -185,6 +202,7 @@ impl Value {
 		}
 	}
 
+	/// Serializes a [`Value`], as a JSON-compatible string, into a [`io::Write`].
 	pub fn write_json<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		match &self {
 			Self::String(s) => write!(out, "\"{}\"", s),
