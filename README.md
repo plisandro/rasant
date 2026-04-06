@@ -65,7 +65,7 @@ log.warn_with("here's some context", [("line", 7.to_value())]);
 log.debug("and i'm ignored :(");
 ```
 
-...or the _much_ nicer macro interface:
+...or the _much_ nicer macro API:
 
 ```rust
 use rasant as r;
@@ -86,9 +86,9 @@ r::debug!(log, "and i'm ignored :(");
 
 ### Stacking
 
-Any initialized logger can be cheaply cloned, inheriting all settings from its parent - including
-levels, sinks and fixed attributes - allowing for very flexible setups. For example, to have all
-errors (or higher) within a thread logged to `stderr`:
+All loggers can be cheaply cloned, inheriting all settings from its parent - including
+levels, sinks and fixed attributes - allowing for very flexible setups. For example, to
+have all errors (or higher) within a thread logged to `stderr`:
 
 ```rust
 use rasant as r;
@@ -137,7 +137,7 @@ r::info!(log, "hello!");
 ```
 
 ### Asynchronous Logging
-Any logger, cloned or not, can dynamically enable/disable async writes.
+All loggers can dynamically enable/disable async writes.
 
 When in async mode, log operations have a slightly longer (as details are
 copied into a queue) _but fixed_ lock time, making it ideal f.ex. for

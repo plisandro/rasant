@@ -35,7 +35,7 @@
 //! log.debug("and i'm ignored :(");
 //! ```
 //!
-//! ...or the _much_ nicer macro interface:
+//! ...or the _much_ nicer macro API:
 //!
 //! ```rust
 //! use rasant as r;

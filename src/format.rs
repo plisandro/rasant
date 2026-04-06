@@ -32,7 +32,7 @@ impl OutputFormat {
 }
 
 /// Configuration struct for output formatting.
-// TODO: derive Clone and Debug once ntime does for Format.
+#[derive(Clone, Debug)]
 pub struct FormatterConfig {
 	/// Output formatting configuration.
 	pub format: OutputFormat,
@@ -67,7 +67,7 @@ impl FormatterConfig {
 }
 
 /// Serializes and writes log updates + attributes.
-// TODO: derive Clone and Debug once ntime does for Format.
+#[derive(Clone, Debug)]
 pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,

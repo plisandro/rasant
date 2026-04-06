@@ -25,7 +25,7 @@ name = "rasant"
 path = "src/lib.rs"
 
 [dependencies]
-ntime = "0.3.0"
+ntime = "0.4.0"
 
 [features]
 # TODO: use "cargo bench" once that feature finally becomes stable >:(
