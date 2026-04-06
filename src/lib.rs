@@ -209,6 +209,7 @@ mod level;
 mod logger;
 mod macros;
 mod queue;
+mod types;
 
 // Public exported symbols
 pub mod sink;

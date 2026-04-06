@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crate::attributes;
-use crate::sink::{LogUpdate, Sink};
+use crate::sink::LogUpdate;
+use crate::types::SinkRef;
 
 const ASYNC_HANDLER_OP_TIMEOUT: Duration = Duration::from_secs(10);
 const ASYNC_HANDLER_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
@@ -14,14 +15,8 @@ static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncSinkHandler>> = Mutex::new(None);
 static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u32> = Mutex::new(0);
 
 enum AsyncSinkOp {
-	Log {
-		sink: Arc<Mutex<Box<dyn Sink + Send>>>,
-		update: LogUpdate,
-		attrs: attributes::Map,
-	},
-	FlushSink {
-		sink: Arc<Mutex<Box<dyn Sink + Send>>>,
-	},
+	Log { sink: SinkRef, update: LogUpdate, attrs: attributes::Map },
+	FlushSink { sink: SinkRef },
 }
 
 struct AsyncSinkHandler {
@@ -78,7 +73,7 @@ impl AsyncSinkHandler {
 		*(self.size.lock().unwrap())
 	}
 
-	fn log(&self, sink: Arc<Mutex<Box<dyn Sink + Send>>>, update: LogUpdate, attrs: attributes::Map) {
+	fn log(&self, sink: SinkRef, update: LogUpdate, attrs: attributes::Map) {
 		*(self.size.lock().unwrap()) += 1;
 		match self.tx.send(AsyncSinkOp::Log {
 			sink: sink,
@@ -90,7 +85,7 @@ impl AsyncSinkHandler {
 		};
 	}
 
-	fn flush_sink(&self, sink: Arc<Mutex<Box<dyn Sink + Send>>>) {
+	fn flush_sink(&self, sink: SinkRef) {
 		*(self.size.lock().unwrap()) += 1;
 		match self.tx.send(AsyncSinkOp::FlushSink { sink: sink }) {
 			Ok(_) => (),
@@ -133,6 +128,7 @@ impl Drop for AsyncSinkHandler {
 	}
 }
 
+// TODO: fix me
 fn drop() {
 	//*(GLOBAL_ASYNC_HANDLER.lock().unwrap()) = None;
 }
@@ -174,10 +170,10 @@ pub fn flush() {
 	};
 }
 
-pub fn log(sink: &Arc<Mutex<Box<dyn Sink + Send>>>, update: &LogUpdate, attrs: &attributes::Map) {
+pub fn log(sink: &SinkRef, update: &LogUpdate, attrs: &attributes::Map) {
 	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().log(sink.clone(), update.clone(), attrs.clone())
 }
 
-pub fn flush_sink(sink: &Arc<Mutex<Box<dyn Sink + Send>>>) {
+pub fn flush_sink(sink: &SinkRef) {
 	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().flush_sink(sink.clone())
 }

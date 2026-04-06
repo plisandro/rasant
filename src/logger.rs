@@ -8,7 +8,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
-use crate::sink::Sink;
+use crate::types::SinkRef;
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
@@ -19,8 +19,8 @@ pub struct Logger {
 	level: Level,
 	async_writes: bool,
 	attributes: attributes::Map,
-	sinks: Vec<Arc<Mutex<Box<dyn Sink + Send>>>>,
-	parent_sinks: Vec<Arc<Mutex<Box<dyn Sink + Send>>>>,
+	sinks: Vec<SinkRef>,
+	parent_sinks: Vec<SinkRef>,
 	has_levelless_sinks: bool,
 }
 
@@ -76,7 +76,7 @@ impl Logger {
 	/// Enables/disables async mode for this [`Logger`].
 	///
 	/// When async mode is enabled, log updates return immediately but are queued to
-	/// write to the [`Sink`]s associated to the [`Logger`] by a separate worker thread.
+	/// write to the [`Sink`][`sink::Sink`]s associated to the [`Logger`] by a separate worker thread.
 	/// Log updates for a given [`Logger`] are guaranteed to write in order.
 	pub fn set_async(&mut self, async_writes: bool) -> &mut Self {
 		if async_writes == self.async_writes {
@@ -99,9 +99,9 @@ impl Logger {
 		self
 	}
 
-	/// Adds a new logging [`Sink`] to the [`Logger`] instance.
+	/// Adds a new logging [`Sink`][`sink::Sink`] to the [`Logger`] instance.
 	///
-	/// At least one [`Sink`] is required for logging operations to succeed.
+	/// At least one [`Sink`][`sink::Sink`] is required for logging operations to succeed.
 	pub fn add_sink<T: sink::Sink + Send + 'static>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
@@ -283,7 +283,7 @@ impl Logger {
 		self.log_with(Level::Panic, msg, attrs)
 	}
 
-	/// Flushes all pending writes on [`Sink`]s for this [`Logger`].
+	/// Flushes all pending writes on [`Sink`][`sink::Sink`]s for this [`Logger`].
 	///
 	/// If async mode is enabled, flushing is deferred via the same queue used to write
 	/// log messages. The method will not lock, and return immediately, but actual flushes
@@ -314,7 +314,7 @@ impl Clone for Logger {
 			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = sink::MAX_LOGDEPTH, id = self.id);
 		}
 
-		let mut parent_sinks: Vec<Arc<Mutex<Box<dyn Sink + Send>>>> = Vec::new();
+		let mut parent_sinks: Vec<SinkRef> = Vec::new();
 		for s in &self.sinks {
 			parent_sinks.push(s.clone());
 		}
