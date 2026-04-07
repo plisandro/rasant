@@ -8,7 +8,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
-use crate::types::SinkRef;
+use crate::types::{AsyncSinkSender, SinkRef};
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
@@ -17,7 +17,7 @@ pub struct Logger {
 	id: u32,
 	depth: sink::LogDepth,
 	level: Level,
-	async_writes: bool,
+	async_sink_sender: Option<AsyncSinkSender>,
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	parent_sinks: Vec<SinkRef>,
@@ -40,7 +40,7 @@ impl Logger {
 			id: Self::next_uuid(),
 			depth: 0,
 			level: Level::Warning,
-			async_writes: false,
+			async_sink_sender: None,
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			parent_sinks: Vec::new(),
@@ -73,20 +73,33 @@ impl Logger {
 		self
 	}
 
+	/// Evaluates whether this [`Logger`] is in async mode or not.
+	pub fn is_async(&self) -> bool {
+		self.async_sink_sender.is_some()
+	}
+
 	/// Enables/disables async mode for this [`Logger`].
 	///
 	/// When async mode is enabled, log updates return immediately but are queued to
 	/// write to the [`Sink`][`sink::Sink`]s associated to the [`Logger`] by a separate worker thread.
 	/// Log updates for a given [`Logger`] are guaranteed to write in order.
 	pub fn set_async(&mut self, async_writes: bool) -> &mut Self {
-		if async_writes == self.async_writes {
+		if async_writes == self.is_async() {
+			// nothing to do
 			return self;
 		}
-		self.async_writes = async_writes;
 
-		match self.async_writes {
-			true => queue::inc_refcount(),
-			false => queue::dec_refcount(),
+		match async_writes {
+			true => {
+				queue::inc_refcount();
+				self.async_sink_sender = Some(queue::get_sender());
+			}
+			false => {
+				// order here is important! decrementing the async refcount before closing the
+				// sender channel will deadlock active AsyncSinkHandler instances.
+				self.async_sink_sender = None;
+				queue::dec_refcount();
+			}
 		};
 
 		if self.has_sinks() {
@@ -114,7 +127,7 @@ impl Logger {
 			"added new log sink",
 			[
 				("name", Value::from(name)),
-				("async", Value::from(self.async_writes)),
+				("async", Value::from(self.is_async())),
 				("logs_all_levels", Value::from(receives_all_levels)),
 			],
 		);
@@ -172,12 +185,12 @@ impl Logger {
 				}
 			}
 
-			let res = match self.async_writes {
-				true => {
-					queue::log(&asink, &update, &attrs);
+			let res = match self.async_sink_sender {
+				Some(ref tx) => {
+					queue::log(&tx, &asink, &update, &attrs);
 					Ok(())
 				}
-				false => asink.lock().unwrap().log(&update, &attrs),
+				None => asink.lock().unwrap().log(&update, &attrs),
 			};
 			if let Err(e) = res {
 				panic!("failed to log update {update:?} on sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
@@ -292,12 +305,12 @@ impl Logger {
 		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
 			// TODO: fix logging.
 			//let name = asink.lock().unwrap().as_mut().name();
-			let res = match self.async_writes {
-				true => {
-					queue::flush_sink(&asink);
+			let res = match self.async_sink_sender {
+				Some(ref tx) => {
+					queue::flush(&tx, &asink);
 					Ok(())
 				}
-				false => asink.lock().unwrap().flush(),
+				None => asink.lock().unwrap().flush(),
 			};
 			if let Err(e) = res {
 				panic!("failed to flush sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
@@ -327,13 +340,13 @@ impl Clone for Logger {
 			depth: self.depth + 1,
 			level: self.level,
 			// async state is modified via set_async()
-			async_writes: false,
+			async_sink_sender: None,
 			attributes: self.attributes.clone(),
 			sinks: Vec::new(),
 			parent_sinks: parent_sinks,
 			has_levelless_sinks: self.has_levelless_sinks,
 		};
-		clone.set_async(self.async_writes);
+		clone.set_async(self.is_async());
 
 		clone
 	}
@@ -343,10 +356,12 @@ impl Drop for Logger {
 	fn drop(&mut self) {
 		self.flush();
 
+		/*
 		// If we're dropping a root logger, make sure any async writes left are processed.
 		if self.depth == 0 {
-			queue::flush();
+			queue::flush_queue();
 		}
+		*/
 
 		self.set_async(false);
 	}

@@ -1,36 +1,33 @@
 use ntime::{Duration, Timestamp, sleep};
-use std::hint;
+use std::sync::Mutex;
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crate::attributes;
 use crate::sink::LogUpdate;
-use crate::types::SinkRef;
+use crate::types::{AsyncSinkSender, SinkRef};
 
-const ASYNC_HANDLER_OP_TIMEOUT: Duration = Duration::from_secs(10);
+const ASYNC_HANDLER_OP_TIMEOUT: Duration = Duration::from_secs(5);
 const ASYNC_HANDLER_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
 
 static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncSinkHandler>> = Mutex::new(None);
 static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u32> = Mutex::new(0);
 
-enum AsyncSinkOp {
+pub enum AsyncSinkOp {
+	// TODO: allow for multiple sinks in the same Log op
 	Log { sink: SinkRef, update: LogUpdate, attrs: attributes::Map },
 	FlushSink { sink: SinkRef },
 }
 
 struct AsyncSinkHandler {
-	tx: Option<mpsc::Sender<AsyncSinkOp>>,
+	tx: Option<AsyncSinkSender>,
 	rx_handler: Option<thread::JoinHandle<()>>,
-	queue_size: Arc<Mutex<usize>>,
 }
 
 impl AsyncSinkHandler {
 	fn new() -> Self {
 		let (tx, rx) = mpsc::channel::<AsyncSinkOp>();
-		let size = Arc::new(Mutex::new(0 as usize));
 
-		let asize = size.clone();
 		let rx_handler = thread::spawn(move || {
 			while let Ok(cmd) = rx.recv() {
 				match cmd {
@@ -49,75 +46,41 @@ impl AsyncSinkHandler {
 						Err(e) => panic!("failed to acquire lock on sink: {e}"),
 					},
 				};
-
-				match asize.lock() {
-					Ok(mut s) => {
-						if *s == 0 {
-							panic!("processed AsyncSinkOp from a suposedly exhausted channel");
-						}
-						*s -= 1;
-					}
-					Err(e) => panic!("failed to acquire AsyncSinkOp count lock: {e}"),
-				};
 			}
 		});
 
 		Self {
 			tx: Some(tx),
 			rx_handler: Some(rx_handler),
-			queue_size: size,
 		}
 	}
 
-	fn get_queue_size(&self) -> usize {
-		*(self.queue_size.lock().unwrap())
+	fn get_sender(&self) -> AsyncSinkSender {
+		match self.tx {
+			Some(ref tx) => tx.clone(),
+			None => panic!("tried to get a sender for a closed async queue handler"),
+		}
 	}
 
-	fn inc_queue_size(&self) {
-		*(self.queue_size.lock().unwrap()) += 1;
-	}
+	fn shutdown(&mut self) {
+		// close the main async queue sender and wait for the handler thread to die
+		self.tx = None;
 
-	fn log(&self, sink: SinkRef, update: LogUpdate, attrs: attributes::Map) {
-		let Some(ref tx) = self.tx else {
-			return;
-		};
-		self.inc_queue_size();
-
-		match tx.send(AsyncSinkOp::Log {
-			sink: sink,
-			update: update,
-			attrs: attrs,
-		}) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to queue log update: {e}"),
-		};
-	}
-
-	fn flush_sink(&self, sink: SinkRef) {
-		let Some(ref tx) = self.tx else {
-			return;
-		};
-		self.inc_queue_size();
-
-		match tx.send(AsyncSinkOp::FlushSink { sink: sink }) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to queue sink flush: {e}"),
-		};
-	}
-
-	fn flush_queue(&self) {
-		let start = Timestamp::now();
-		while self.get_queue_size() != 0 {
-			if Timestamp::now().diff_as_duration(&start) > ASYNC_HANDLER_OP_TIMEOUT {
-				panic!(
-					"failed to flush AsyncSinkHanlder after {wait:?}, {size} ops left",
-					wait = ASYNC_HANDLER_OP_TIMEOUT,
-					size = self.get_queue_size()
-				);
+		// we don't join() the handler thread, to prevent any potential issues causing a deadlock during shutdown.
+		// if we fail to kill the handler after a period of time, panic the process instead.
+		match self.rx_handler.take() {
+			None => panic!("tried to shut down a closed sync queue handler"),
+			Some(rx_handler) => {
+				let start = Timestamp::now();
+				while !rx_handler.is_finished() {
+					if Timestamp::now().diff_as_duration(&start) > ASYNC_HANDLER_OP_TIMEOUT {
+						panic!("failed to shut downh AsyncSinkHanlder after {wait:?}", wait = ASYNC_HANDLER_OP_TIMEOUT,);
+					};
+					sleep(ASYNC_HANDLER_SPINLOCK_WAIT);
+					thread::yield_now();
+				}
 			}
-			sleep(ASYNC_HANDLER_SPINLOCK_WAIT);
-			hint::spin_loop();
-		}
+		};
 	}
 }
 
@@ -129,16 +92,7 @@ impl Default for AsyncSinkHandler {
 
 impl Drop for AsyncSinkHandler {
 	fn drop(&mut self) {
-		self.flush_queue();
-
-		// close the async queue sender and wait for the handler thread to die
-		self.tx = None;
-		if let Some(rx_handler) = self.rx_handler.take() {
-			match rx_handler.join() {
-				Ok(_) => (),
-				Err(e) => panic!("failed to close async log handler: {e:?}"),
-			};
-		};
+		self.shutdown()
 	}
 }
 
@@ -165,33 +119,38 @@ pub fn dec_refcount() {
 	*count -= 1;
 
 	if *count == 0 {
-		// shutdown handler once no loggers are referencing the async queue
+		// force handler shutdown once no loggers are referencing the async queue
 		drop();
 	}
 }
 
-/// Returns the async queue size.
-pub fn size() -> usize {
-	match GLOBAL_ASYNC_HANDLER.lock().unwrap().as_ref() {
-		Some(h) => h.get_queue_size(),
-		None => 0,
-	}
+/// Returns an operation sender channel for the async handler.
+pub fn get_sender() -> AsyncSinkSender {
+	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().get_sender()
 }
 
-/// Flushes all pending async queue operations, locking until completion.
-pub fn flush() {
-	match GLOBAL_ASYNC_HANDLER.lock().unwrap().as_ref() {
-		Some(h) => h.flush_queue(),
-		None => (),
+/// Queues a log operation for the async handler..
+pub fn log(tx: &AsyncSinkSender, sink: &SinkRef, update: &LogUpdate, attrs: &attributes::Map) {
+	match tx.send(AsyncSinkOp::Log {
+		sink: sink.clone(),
+		update: update.clone(),
+		attrs: attrs.clone(),
+	}) {
+		Ok(_) => (),
+		Err(e) => {
+			let sink_name = sink.lock().unwrap().name().to_string();
+			panic!("failed to queue log update {update:?} + {attrs} on {sink_name}: {e}");
+		}
 	};
 }
 
-/// Queues a log operation on the async queue.
-pub fn log(sink: &SinkRef, update: &LogUpdate, attrs: &attributes::Map) {
-	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().log(sink.clone(), update.clone(), attrs.clone())
-}
-
-/// Queues a sink flush operation on the async queue.
-pub fn flush_sink(sink: &SinkRef) {
-	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().flush_sink(sink.clone())
+/// Queues a sink flush operation for the async handler.
+pub fn flush(tx: &AsyncSinkSender, sink: &SinkRef) {
+	match tx.send(AsyncSinkOp::FlushSink { sink: sink.clone() }) {
+		Ok(_) => (),
+		Err(e) => {
+			let sink_name = sink.lock().unwrap().name().to_string();
+			panic!("failed to queue flush on {sink_name}: {e}");
+		}
+	};
 }
