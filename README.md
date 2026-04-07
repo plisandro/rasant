@@ -36,11 +36,11 @@ normally bottlenecked by I/O operations. Can't wait that long? There's built-in 
 
 ## Usage 
 
-Latest stable release is **v0.4.1**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v0.5.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.4.1"
+rasant = "0.5.0"
 ```
 
 Rasant is under active development and on track for a v1.0.0 release. You may see small public

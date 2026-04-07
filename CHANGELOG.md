@@ -2,6 +2,13 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 0.5.0 (2026-04-07)
+
+Optimize handling of async log operations by removing unnecessary R/W's on common mutexed
+items.
+
+These are now _significantly_ faster - particularly on multi-threaded applications.
+
 ## Version 0.4.0 (2026-04-04)
 
 Initial public release. Optimized attributes maps making most operations zero allocation.
