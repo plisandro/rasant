@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use crate::attributes;
 use crate::attributes::value::ToValue;
+use crate::constant::ATTRIBUTE_KEY_LOGGER_ID;
 use crate::format;
 use crate::sink;
 
@@ -29,8 +30,6 @@ use std::sync::Mutex;
 pub struct StringConfig {
 	/// A type string, used to define the sink's name.
 	pub type_str: string::String,
-	/// String delimiter, inserted between log writes.
-	pub line_delimiter: string::String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
 	/// Whether to mock log update times.
@@ -47,7 +46,6 @@ impl Default for StringConfig {
 				time_format: ntime::Format::UtcMillisDateTime,
 				..format::FormatterConfig::default()
 			},
-			line_delimiter: "\n".into(),
 			mock_time: false,
 			mock_logger_id: false,
 		}
@@ -58,20 +56,25 @@ impl Default for StringConfig {
 pub struct String {
 	name: string::String,
 	formatter: format::Formatter,
-	line_delimiter: string::String,
 	out: Arc<Mutex<string::String>>,
 	frozen_logger_id: Option<u32>,
 	frozen_now: Option<ntime::Timestamp>,
 	frozen_now_tick: Option<ntime::Duration>,
+	delimiter: string::String,
 }
 
 impl String {
 	/// Initializes a string [sink][`sink::Sink`] from a [`StringConfig`].
 	pub fn new(conf: StringConfig) -> Self {
+		let formatter = format::Formatter::new(conf.formatter_cfg);
+		let delimiter = match formatter.delimiter_as_string() {
+			Ok(s) => s,
+			Err(e) => panic!("cannot format delimiter for String sink: {e:?}"),
+		};
+
 		Self {
 			name: format!("{} log string", conf.type_str),
-			formatter: format::Formatter::new(conf.formatter_cfg),
-			line_delimiter: conf.line_delimiter,
+			formatter: formatter,
 			out: Arc::new(Mutex::new(string::String::new())),
 			frozen_logger_id: if conf.mock_logger_id { Some(100 as u32) } else { None },
 			frozen_now: if conf.mock_time {
@@ -81,6 +84,7 @@ impl String {
 				None
 			},
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
+			delimiter: delimiter,
 		}
 	}
 
@@ -117,9 +121,9 @@ impl sink::Sink for String {
 				nupdate.when = t.clone();
 			}
 			if let Some(id) = self.frozen_logger_id {
-				if attrs.has(attributes::KEY_LOGGER_ID) {
+				if attrs.has(ATTRIBUTE_KEY_LOGGER_ID) {
 					mock_attrs = Some(attrs.clone());
-					mock_attrs.as_mut().unwrap().insert_ephemeral(attributes::KEY_LOGGER_ID, id.to_value());
+					mock_attrs.as_mut().unwrap().insert_ephemeral(ATTRIBUTE_KEY_LOGGER_ID, id.to_value());
 					self.frozen_logger_id = Some(id + 1);
 				};
 			}
@@ -136,7 +140,7 @@ impl sink::Sink for String {
 		};
 
 		if !out.is_empty() {
-			out.push_str(&self.line_delimiter);
+			*out += &self.delimiter;
 		}
 		out.push_str(&line);
 

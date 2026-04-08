@@ -4,13 +4,7 @@ use std::fmt;
 use std::io::Write;
 
 use crate::attributes::value::Value;
-
-pub const KEY_ERROR: &str = "error";
-pub const KEY_LEVEL: &str = "level";
-pub const KEY_MESSAGE: &str = "message";
-pub const KEY_TIME: &str = "time";
-pub const KEY_TIMESTAMP: &str = "timestamp";
-pub const KEY_LOGGER_ID: &str = "logger_id";
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 
 macro_rules! check_match {
 	($a:ident, $( $b:ident ),*) => {
@@ -22,11 +16,11 @@ macro_rules! check_match {
 }
 
 fn is_key_priority(key: &str) -> bool {
-	check_match!(key, KEY_MESSAGE, KEY_ERROR)
+	check_match!(key, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_ERROR)
 }
 
 fn is_key_restricted(key: &str) -> bool {
-	check_match!(key, KEY_LEVEL, KEY_TIME, KEY_TIMESTAMP)
+	check_match!(key, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP)
 }
 
 #[derive(Clone, Debug)]

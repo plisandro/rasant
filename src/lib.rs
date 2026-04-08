@@ -204,6 +204,7 @@
 
 mod attributes;
 mod console;
+mod constant;
 mod format;
 mod level;
 mod logger;

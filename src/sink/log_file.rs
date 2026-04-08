@@ -18,8 +18,6 @@ pub struct LogFileConfig {
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
 	/// String delimiter, inserted between log writes.
-	pub delimiter: String,
-	/// Whether file writes are buffered or not.
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
 	pub flush_on_write: bool,
@@ -27,12 +25,11 @@ pub struct LogFileConfig {
 	pub append: bool,
 }
 
-impl Default for LogFileConfig {
+impl<'i> Default for LogFileConfig {
 	fn default() -> Self {
 		Self {
 			log_directory: env::temp_dir(),
 			formatter_cfg: format::FormatterConfig::default(),
-			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
 			append: true,
@@ -59,7 +56,6 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 		name: format!("log file for {process_name}"),
 		path: Some(log_path),
 		formatter_cfg: conf.formatter_cfg,
-		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
 		append: conf.append,

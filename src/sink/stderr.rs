@@ -10,20 +10,17 @@ pub struct StderrConfig {
 	pub name: String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
-	/// String delimiter, inserted between log writes.
-	pub delimiter: String,
 	/// Whether writes to `stderr` are buffered or not.
 	pub buffered: bool,
 	/// Whether to flush immediately after every `stderr` write.
 	pub flush_on_write: bool,
 }
 
-impl Default for StderrConfig {
+impl<'i> Default for StderrConfig {
 	fn default() -> Self {
 		Self {
 			name: String::from("STDERR"),
 			formatter_cfg: format::FormatterConfig::default(),
-			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
 		}
@@ -35,10 +32,10 @@ pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
-		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
 		out: Some(io::stderr()),
+		..IOConfig::default()
 	})
 }
 

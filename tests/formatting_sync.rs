@@ -63,6 +63,7 @@ fn sync_output() {
 			formatter_cfg: FormatterConfig {
 				format: tc.out_format,
 				time_format: tc.time_format,
+				..FormatterConfig::default()
 			},
 			..sink::string::StringConfig::default()
 		});

@@ -3,8 +3,8 @@ use ntime;
 use std::io;
 
 use crate::attributes;
-use crate::attributes::{KEY_ERROR, KEY_MESSAGE, KEY_TIME, KEY_TIMESTAMP};
 use crate::console::Color;
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP, DEFAULT_LOG_DELIMITER_STRING};
 use crate::level::Level;
 use crate::sink::LogUpdate;
 
@@ -17,6 +17,12 @@ pub enum OutputFormat {
 	ColorCompact,
 	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
 	Json,
+}
+
+/// Formatting errors.
+#[derive(Clone, Debug)]
+pub enum FormatterError {
+	DelimiterNotAString,
 }
 
 impl OutputFormat {
@@ -38,6 +44,8 @@ pub struct FormatterConfig {
 	pub format: OutputFormat,
 	/// Time format for log entries, as [`ntime::Format`].
 	pub time_format: ntime::Format,
+	/// A separator for log entries, as a slice of [`u8`]s.
+	pub delimiter: Vec<u8>,
 }
 
 impl FormatterConfig {
@@ -46,6 +54,7 @@ impl FormatterConfig {
 		Self {
 			format: OutputFormat::Compact,
 			time_format: ntime::Format::LocalMillisDateTime,
+			delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 		}
 	}
 
@@ -54,6 +63,7 @@ impl FormatterConfig {
 		Self {
 			format: OutputFormat::ColorCompact,
 			time_format: ntime::Format::LocalMillisDateTime,
+			delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 		}
 	}
 
@@ -62,6 +72,7 @@ impl FormatterConfig {
 		Self {
 			format: OutputFormat::Json,
 			time_format: ntime::Format::TimestampMilliseconds,
+			delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 		}
 	}
 }
@@ -72,6 +83,7 @@ pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
 	time_format: ntime::Format,
+	delimiter: Vec<u8>,
 }
 
 impl Formatter {
@@ -80,10 +92,11 @@ impl Formatter {
 		Self {
 			format: conf.format,
 			time_key: match &conf.time_format {
-				ntime::Format::TimestampSeconds | ntime::Format::TimestampMilliseconds => String::from(KEY_TIMESTAMP),
-				_ => String::from(KEY_TIME),
+				ntime::Format::TimestampSeconds | ntime::Format::TimestampMilliseconds => String::from(ATTRIBUTE_KEY_TIMESTAMP),
+				_ => String::from(ATTRIBUTE_KEY_TIME),
 			},
 			time_format: conf.time_format,
+			delimiter: conf.delimiter,
 		}
 	}
 
@@ -128,7 +141,7 @@ impl Formatter {
 				key_open = Color::Cyan.to_escape_str(),
 				key_close = Color::Default.to_escape_str(),
 				// error attributes are highlighted in red
-				val_open = if key == KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
+				val_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
 			)?;
 			val.write_quoted(out)?;
 			write!(out, "{val_close}", val_close = Color::Default.to_escape_str())?;
@@ -146,7 +159,7 @@ impl Formatter {
 				"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
 				time_key = self.time_key,
 				level = update.level.as_str(),
-				msg_key = KEY_MESSAGE,
+				msg_key = ATTRIBUTE_KEY_MESSAGE,
 				msg = update.msg,
 			)?,
 			None => {
@@ -156,7 +169,7 @@ impl Formatter {
 					out,
 					"\",\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
 					level = update.level.as_str(),
-					msg_key = KEY_MESSAGE,
+					msg_key = ATTRIBUTE_KEY_MESSAGE,
 					msg = update.msg,
 				)?;
 			}
@@ -181,7 +194,15 @@ impl Formatter {
 		}
 	}
 
-	/// Serialies a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
+	/// Write a formatted delimiter into a [`io::Write`].
+	pub fn write_delimiter<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match out.write(self.delimiter.as_slice()) {
+			Ok(_) => Ok(()),
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
 	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
 		let mut out = Vec::new();
 
@@ -192,6 +213,14 @@ impl Formatter {
 		match String::from_utf8(out) {
 			Ok(s) => s,
 			Err(e) => panic!("failed to convert log update {update:?} to UTF8: {e}"),
+		}
+	}
+
+	/// Serializes a formatted delimiter into a [`String`].
+	pub fn delimiter_as_string(&self) -> Result<String, FormatterError> {
+		match String::from_utf8(self.delimiter.clone()) {
+			Ok(s) => Ok(s),
+			Err(_) => Err(FormatterError::DelimiterNotAString),
 		}
 	}
 }

@@ -15,12 +15,12 @@ pub struct IOConfig<T: io::Write + Send> {
 	pub name: String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
-	/// String delimiter, inserted between log writes.
-	pub delimiter: String,
 	/// Whether writes to the underlying [`std::io::Write`] are buffered or not, via [`std::io::BufWriter`].
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
 	pub flush_on_write: bool,
+	/// Whether to insert a [formatted delimiter][`format::FormatterConfig::delimiter`] before the first log entry.
+	pub initial_delimiter: bool,
 	/// [`io::Write`]r for this sink.
 	pub out: Option<T>,
 }
@@ -30,9 +30,9 @@ impl<W: io::Write + Send> Default for IOConfig<W> {
 		Self {
 			name: String::from("default"),
 			formatter_cfg: format::FormatterConfig::default(),
-			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
+			initial_delimiter: false,
 			out: None,
 		}
 	}
@@ -42,9 +42,9 @@ impl<W: io::Write + Send> Default for IOConfig<W> {
 pub struct IO<'s> {
 	name: String,
 	formatter: format::Formatter,
-	delimiter: String,
 	written_to: bool,
 	flush_on_write: bool,
+	initial_delimiter: bool,
 	out: Box<dyn io::Write + Send + 's>,
 }
 
@@ -60,8 +60,8 @@ impl<'i> IO<'i> {
 		Self {
 			name: conf.name,
 			formatter: format::Formatter::new(conf.formatter_cfg),
-			delimiter: conf.delimiter,
 			written_to: false,
+			initial_delimiter: conf.initial_delimiter,
 			flush_on_write: conf.flush_on_write,
 			out: out,
 		}
@@ -74,10 +74,8 @@ impl<'i> sink::Sink for IO<'i> {
 	}
 
 	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		if self.written_to {
-			if let Err(e) = self.out.write(self.delimiter.as_bytes()) {
-				return Err(e);
-			}
+		if self.written_to || (!self.written_to && self.initial_delimiter) {
+			self.formatter.write_delimiter(&mut self.out)?;
 		}
 
 		self.formatter.write(&mut self.out, update, attrs)?;

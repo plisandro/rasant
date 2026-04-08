@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::value::{ToValue, Value};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
 use crate::format;
 use crate::level::Level;
 use crate::queue;
@@ -223,7 +224,7 @@ impl Logger {
 
 	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
 	pub fn trace_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Trace, msg, attrs, [(attributes::KEY_LOGGER_ID, Value::from(self.id))])
+		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, Value::from(self.id))])
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.
@@ -268,12 +269,12 @@ impl Logger {
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
 	pub fn error<T: Error>(&mut self, error: T, msg: &str) -> &mut Self {
-		self.log_with(Level::Error, msg, [(attributes::KEY_ERROR, error.to_string().to_value())])
+		self.log_with(Level::Error, msg, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
 	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Error, msg, attrs, [(attributes::KEY_ERROR, error.to_string().to_value())])
+		self.log_with_two(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
 	}
 
 	/// Logs a [`Level::Fatal`] message, with no additional attributes.
@@ -323,8 +324,8 @@ impl Logger {
 
 impl Clone for Logger {
 	fn clone(&self) -> Self {
-		if self.depth >= sink::MAX_LOGDEPTH {
-			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = sink::MAX_LOGDEPTH, id = self.id);
+		if self.depth >= MAX_LOGGER_DEPTH {
+			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = MAX_LOGGER_DEPTH, id = self.id);
 		}
 
 		let mut parent_sinks: Vec<SinkRef> = Vec::new();
@@ -371,7 +372,7 @@ impl Drop for Logger {
 
 #[cfg(test)]
 mod basic {
-	use crate::sink::MAX_LOGDEPTH;
+	use crate::constant::MAX_LOGGER_DEPTH;
 
 	use super::*;
 
@@ -403,7 +404,7 @@ mod basic {
 	#[should_panic]
 	fn max_depth_exceeded() {
 		let mut log = Logger::new();
-		for _ in 0..MAX_LOGDEPTH + 1 {
+		for _ in 0..MAX_LOGGER_DEPTH + 1 {
 			log = log.clone();
 		}
 	}
@@ -411,6 +412,8 @@ mod basic {
 
 #[cfg(test)]
 mod formatting {
+	use crate::FormatterConfig;
+
 	use super::*;
 	use ntime;
 	use std::io::{Error, ErrorKind};
@@ -494,6 +497,7 @@ mod formatting {
 					formatter_cfg: format::FormatterConfig {
 						format: tc.out_format,
 						time_format: tc.time_format,
+						..FormatterConfig::default()
 					},
 					..sink::string::StringConfig::default()
 				});

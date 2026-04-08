@@ -10,8 +10,6 @@ pub struct StdoutConfig {
 	pub name: String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
-	/// String delimiter, inserted between log writes.
-	pub delimiter: String,
 	/// Whether writes to `stdout` are buffered or not.
 	pub buffered: bool,
 	/// Whether to flush immediately after every `stdout` write.
@@ -26,7 +24,6 @@ impl Default for StdoutConfig {
 				format: format::OutputFormat::ColorCompact,
 				..format::FormatterConfig::default()
 			},
-			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
 		}
@@ -38,10 +35,10 @@ pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
-		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
 		out: Some(io::stdout()),
+		..IOConfig::default()
 	})
 }
 

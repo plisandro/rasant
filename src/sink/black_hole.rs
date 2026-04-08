@@ -15,7 +15,7 @@ pub struct BlackHoleConfig {
 	pub formatter_cfg: format::FormatterConfig,
 }
 
-impl Default for BlackHoleConfig {
+impl<'i> Default for BlackHoleConfig {
 	fn default() -> Self {
 		Self {
 			formatter_cfg: format::FormatterConfig {
@@ -50,7 +50,8 @@ impl sink::Sink for BlackHole {
 	}
 
 	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		self.formatter.write(&mut self.out, update, attrs)
+		self.formatter.write(&mut self.out, update, attrs)?;
+		self.formatter.write_delimiter(&mut self.out)
 	}
 
 	fn flush(&mut self) -> io::Result<()> {

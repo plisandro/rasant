@@ -3,7 +3,7 @@
 //! Built around [`IO`], so it inherits pretty much all of
 //! its configuration options.
 use std::fs;
-use std::io::Write;
+//use std::io::Write;
 use std::path::PathBuf;
 
 use crate::format;
@@ -15,8 +15,6 @@ pub struct FileConfig {
 	pub name: String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
-	/// String delimiter, inserted between log writes.
-	pub delimiter: String,
 	/// Whether file writes are buffered or not.
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
@@ -32,7 +30,6 @@ impl Default for FileConfig {
 		Self {
 			name: "file".into(),
 			formatter_cfg: format::FormatterConfig::default(),
-			delimiter: "\n".into(),
 			buffered: true,
 			flush_on_write: false,
 			append: true,
@@ -51,25 +48,20 @@ pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 		Ok(b) => b,
 		Err(e) => panic!("failed to check if log file for \"{name}\" at {path} exists: {e}", name = &conf.name, path = path.display()),
 	};
-	let mut fh = match fs::File::options().create(true).write(true).append(conf.append).truncate(!conf.append).open(&path) {
+	let fh = match fs::File::options().create(true).write(true).append(conf.append).truncate(!conf.append).open(&path) {
 		Ok(fh) => fh,
 		Err(e) => {
 			panic!("failed to open log file for \"{name}\" at {path}: {e:?}", name = &conf.name, path = path.display());
 		}
 	};
-	if exists {
-		match fh.write(conf.delimiter.as_bytes()) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to insert append delimiter for \"{name}\" at {path}: {e}", name = &conf.name, path = path.display()),
-		};
-	}
 
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
-		delimiter: conf.delimiter,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
 		out: Some(fh),
+		initial_delimiter: exists,
+		..IOConfig::default()
 	})
 }

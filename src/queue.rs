@@ -1,14 +1,12 @@
-use ntime::{Duration, Timestamp, sleep};
+use ntime::{Timestamp, sleep};
 use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 
 use crate::attributes;
+use crate::constant::{THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
 use crate::sink::LogUpdate;
 use crate::types::{AsyncSinkSender, SinkRef};
-
-const ASYNC_HANDLER_OP_TIMEOUT: Duration = Duration::from_secs(5);
-const ASYNC_HANDLER_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
 
 static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncSinkHandler>> = Mutex::new(None);
 static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u32> = Mutex::new(0);
@@ -73,10 +71,10 @@ impl AsyncSinkHandler {
 			Some(rx_handler) => {
 				let start = Timestamp::now();
 				while !rx_handler.is_finished() {
-					if Timestamp::now().diff_as_duration(&start) > ASYNC_HANDLER_OP_TIMEOUT {
-						panic!("failed to shut downh AsyncSinkHanlder after {wait:?}", wait = ASYNC_HANDLER_OP_TIMEOUT,);
+					if Timestamp::now().diff_as_duration(&start) > THREAD_FINALIZE_TIMEOUT {
+						panic!("failed to shut downh AsyncSinkHanlder after {wait:?}", wait = THREAD_FINALIZE_TIMEOUT);
 					};
-					sleep(ASYNC_HANDLER_SPINLOCK_WAIT);
+					sleep(THREAD_FINALIZE_SPINLOCK_WAIT);
 					thread::yield_now();
 				}
 			}

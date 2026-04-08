@@ -18,8 +18,6 @@ use crate::level;
 
 /// Depth for a [`crate::logger::Logger`] - i.e. how many parent instances it has.
 pub type LogDepth = u16;
-/// Maximum allowed [`crate::logger::Logger`] depth.
-pub const MAX_LOGDEPTH: u16 = 1024;
 
 /// Encapsulates a single log update, without attributes.
 #[derive(Clone, Debug)]
