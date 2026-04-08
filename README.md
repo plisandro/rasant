@@ -15,9 +15,10 @@
 Rasant is a lightweight, high performance and flexible Rust library for structured logging,
 inspired by the likes of [zap](https://github.com/uber-go/zap) and [zerolog](https://github.com/rs/zerolog).
 
-It offers nanosecond precision, stackable logging and [outstanding performance](assets/benchmarks.md): on
-modern systems, Rasant can process and dispatch logs to multiple sinks in tens of nanoseconds, being
-normally bottlenecked by I/O operations. Can't wait that long? There's built-in [async support](#asynchronous-logging)!
+It offers [nanosecond precision](https://github.com/plisandro/ntime), stackable logging and
+[outstanding performance](assets/benchmarks.md): on modern systems, Rasant can process and
+dispatch logs to multiple sinks in tens of nanoseconds, being normally bottlenecked by I/O
+operations. Can't wait that long? There's built-in [async support](#asynchronous-logging)!
 
 ![Sample text output image](assets/sample_output_text.png)
 
@@ -27,10 +28,10 @@ normally bottlenecked by I/O operations. Can't wait that long? There's built-in 
 
   - Minimal dependencies.
   - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
-  - Leveled, structured contextual logging with nanosecond precision.
+  - Leveled, structured contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
   - Thread safe.
-  - [Highly cconfigurable log sinks](#configuring-sinks).
+  - [Highly configurable log sinks](#configuring-sinks).
   - Text and JSON log output.
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 

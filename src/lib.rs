@@ -9,7 +9,7 @@
 //!
 //!   - Minimal dependencies.
 //!   - *Blazing fast* performance, with zero allocations on most operations.
-//!   - [Leveled][`Level`], structured contextual logging with nanosecond precision.
+//!   - [Leveled][`Level`], structured contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
 //!   - Thread safe.
 //!   - [Highly configurable log sinks](#configuring-sinks).
