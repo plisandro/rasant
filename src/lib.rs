@@ -194,10 +194,13 @@
 //! Pretty much all errors related to logging are unrecoverable anyway - these will either
 //! happen at initialization time, or when trying to write to a [sink][`sink::Sink`].
 //!
+//! # Repository
+//!
+//! This project is currently hosted at [GitHub](https://github.com/plisandro/rasant).
+//!
 //! # License
 //!
 //! Rasant is distrubuted under the MIT license.
-//!
 
 #![deny(missing_docs)]
 #![allow(dead_code)]
