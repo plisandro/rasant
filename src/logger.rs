@@ -22,7 +22,6 @@ pub struct Logger {
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	parent_sinks: Vec<SinkRef>,
-	has_levelless_sinks: bool,
 }
 
 impl Logger {
@@ -45,7 +44,6 @@ impl Logger {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			parent_sinks: Vec::new(),
-			has_levelless_sinks: false,
 		}
 	}
 
@@ -70,6 +68,13 @@ impl Logger {
 		if self.has_sinks() {
 			self.trace_with("log level updated", [("name", Value::from(level.to_string())), ("new_level", Value::from(level.value()))]);
 		}
+
+		self
+	}
+
+	/// Makes this [`Logger`] write all [`Level`]s, by setting the log level to minimum ([`Level::Trace`]).
+	pub fn set_all_levels(&mut self) -> &mut Self {
+		self.set_level(Level::Trace);
 
 		self
 	}
@@ -119,19 +124,10 @@ impl Logger {
 	pub fn add_sink<T: sink::Sink + Send + 'static>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
-		let receives_all_levels = sink.receives_all_levels();
 
 		self.sinks.push(Arc::new(Mutex::new(Box::new(sink))));
-		self.has_levelless_sinks |= receives_all_levels;
 
-		self.trace_with(
-			"added new log sink",
-			[
-				("name", Value::from(name)),
-				("async", Value::from(self.is_async())),
-				("logs_all_levels", Value::from(receives_all_levels)),
-			],
-		);
+		self.trace_with("added new log sink", [("name", Value::from(name)), ("async", Value::from(self.is_async()))]);
 
 		self
 	}
@@ -159,7 +155,7 @@ impl Logger {
 			panic!("tried to log without sinks configured for logger {id}", id = self.id);
 		}
 		// bail out early on negative log requests
-		if !self.has_levelless_sinks && !self.level.covers(&level) {
+		if !self.level.covers(&level) {
 			return self;
 		}
 
@@ -178,14 +174,7 @@ impl Logger {
 		// deliver the log update - and losing ownership.
 		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update, attrs)) } else { None };
 
-		// TODO: we're locking twice on every sink just to check settings :( improve.
 		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
-			if !self.level.covers(&level) {
-				if !asink.lock().unwrap().receives_all_levels() {
-					continue;
-				}
-			}
-
 			let res = match self.async_sink_sender {
 				Some(ref tx) => {
 					queue::log(&tx, &asink, &update, &attrs);
@@ -345,7 +334,6 @@ impl Clone for Logger {
 			attributes: self.attributes.clone(),
 			sinks: Vec::new(),
 			parent_sinks: parent_sinks,
-			has_levelless_sinks: self.has_levelless_sinks,
 		};
 		clone.set_async(self.is_async());
 

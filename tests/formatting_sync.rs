@@ -112,7 +112,7 @@ fn sync_trace() {
 	}
 
 	let got = string_sink_output.lock().unwrap().clone();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" async=false logs_all_levels=false logger_id=100
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" async=false logger_id=100
 2026-03-04 15:10:16.234 [INF] root test info
 2026-03-04 15:10:17.468 [WRN] root test warn
 2026-03-04 15:10:18.702 [DBG] root test debug

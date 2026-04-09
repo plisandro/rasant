@@ -52,9 +52,4 @@ pub trait Sink {
 	fn log(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> std_io::Result<()>;
 	/// Flushes any pending writes for the sink.
 	fn flush(&mut self) -> std_io::Result<()>;
-
-	/// Whether this sink should receive all levels, instead of pre-filtering by the [`level::Level`] associated with a [`crate::logger::Logger`].
-	fn receives_all_levels(&self) -> bool {
-		false
-	}
 }
