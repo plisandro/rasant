@@ -1,6 +1,5 @@
 use ntime::{Duration, Timestamp};
 use std::fmt;
-use std::io;
 use std::thread;
 
 /// Attribute value definition for all log operations.
@@ -165,72 +164,31 @@ cast_float_to_value!(f64);
 
 /* ----------------------- Value implementation ----------------------- */
 
-impl Value {
-	/// Serializes a [`Value`], as string, into a [`io::Write`].
-	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+impl fmt::Display for Value {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
-			Self::Bool(b) => write!(out, "{}", b),
-			Self::String(s) => write!(out, "{}", s),
-			Self::Int(i) => write!(out, "{}", i),
+			Self::Bool(b) => write!(f, "{}", b),
+			Self::String(s) => write!(f, "\"{}\"", s),
+			Self::Int(i) => write!(f, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
-					write!(out, "-0x{:x}", -i)
+					write!(f, "-0x{:x}", -i)
 				} else {
-					write!(out, "0x{:x}", i)
+					write!(f, "0x{:x}", i)
 				}
 			}
 			Self::Size(s) => {
 				if *s < 1 {
-					write!(out, "-0x{:x}", -s)
+					write!(f, "-0x{:x}", -s)
 				} else {
-					write!(out, "0x{:x}", s)
+					write!(f, "0x{:x}", s)
 				}
 			}
-			Self::Uint(i) => write!(out, "{}", i),
-			Self::LongUint(u) => write!(out, "0x{:x}", u),
-			Self::Usize(u) => write!(out, "0x{:x}", u),
-			Self::Float(f) => write!(out, "{}", f),
+			Self::Uint(i) => write!(f, "{}", i),
+			Self::LongUint(u) => write!(f, "0x{:x}", u),
+			Self::Usize(u) => write!(f, "0x{:x}", u),
+			Self::Float(fl) => write!(f, "{}", fl),
 		}
-	}
-
-	/// Serializes a [`Value`], as a quoted string, into a [`io::Write`].
-	/// Non-numeric [`Value`]s get written as `"<string>"`.
-	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		match &self {
-			Self::String(s) => write!(out, "\"{}\"", s),
-			t => t.write(out),
-		}
-	}
-
-	/// Serializes a [`Value`], as a JSON-compatible string, into a [`io::Write`].
-	pub fn write_json<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		match &self {
-			Self::String(s) => write!(out, "\"{}\"", s),
-			Self::Float(f) => write!(out, "{0:e}", f),
-			Self::LongInt(i) => write!(out, "{}", i),
-			Self::Size(s) => write!(out, "{}", s),
-			Self::LongUint(u) => write!(out, "{}", u),
-			Self::Usize(s) => write!(out, "{}", s),
-			t => t.write(out),
-		}
-	}
-}
-
-// TODO: implement proper glue between io::Write and fmt::Write
-impl fmt::Display for Value {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let mut out = Vec::new();
-
-		match self.write(&mut out) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to convert value to string buffer: {e}"),
-		};
-		let s = match String::from_utf8(out) {
-			Ok(s) => s,
-			Err(e) => panic!("failed to convert value to UTF8: {e}"),
-		};
-
-		write!(f, "{}", s)
 	}
 }
 
@@ -270,76 +228,21 @@ mod tests {
 	}
 
 	#[test]
-	fn value_write() {
-		for tc in [
-			(Value::Bool(true), "true"),
-			(Value::Bool(false), "false"),
-			(Value::String("".into()), ""),
-			(Value::String("abcd 1234".into()), "abcd 1234"),
-			(Value::Int(-123), "-123"),
-			(Value::Int(456), "456"),
-			(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
-			(Value::LongInt(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Size(-12345678901234567), "-0x2bdc545d6b4b87"),
-			(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Uint(123456), "123456"),
-			(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
-			(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Float(-1.2345), "-1.2345"),
-			(Value::Float(6.78901), "6.78901"),
-		] {
-			let (v, want): (Value, &str) = tc;
-
-			let mut out = Vec::new();
-			assert!(v.write(&mut out).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
-		}
-	}
-
-	#[test]
-	fn value_write_quoted() {
-		for tc in [
-			(Value::Bool(true), "true"),
-			(Value::String("".into()), "\"\""),
-			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Value::Int(-123), "-123"),
-			(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
-			(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Uint(123456), "123456"),
-			(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
-			(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Float(-1.2345), "-1.2345"),
-		] {
-			let (v, want): (Value, &str) = tc;
-
-			let mut out = Vec::new();
-			assert!(v.write_quoted(&mut out).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
-		}
-	}
-
-	#[test]
-	fn value_write_json() {
-		for tc in [
-			(Value::Bool(true), "true"),
-			(Value::String("".into()), "\"\""),
-			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Value::Int(-123), "-123"),
-			(Value::LongInt(-12345678901234567), "-12345678901234567"),
-			(Value::LongInt(89801234567890123), "89801234567890123"),
-			(Value::Size(-12345678901234567), "-12345678901234567"),
-			(Value::Size(89801234567890123), "89801234567890123"),
-			(Value::Uint(123456), "123456"),
-			(Value::LongUint(12345678901234567), "12345678901234567"),
-			(Value::Usize(89801234567890123), "89801234567890123"),
-			(Value::Float(-1234.56789012345), "-1.23456789012345e3"),
-			(Value::Float(5678901.2345), "5.6789012345e6"),
-		] {
-			let (v, want): (Value, &str) = tc;
-
-			let mut out = Vec::new();
-			assert!(v.write_json(&mut out).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
-		}
+	fn dbg_format() {
+		assert_eq!(format!("{}", Value::Bool(true)), "true");
+		assert_eq!(format!("{}", Value::Bool(false)), "false");
+		assert_eq!(format!("{}", Value::String("".into())), "\"\"");
+		assert_eq!(format!("{}", Value::String("abcd 1234".into())), "\"abcd 1234\"");
+		assert_eq!(format!("{}", Value::Int(-123)), "-123");
+		assert_eq!(format!("{}", Value::Int(456)), "456");
+		assert_eq!(format!("{}", Value::LongInt(-12345678901234567)), "-0x2bdc545d6b4b87");
+		assert_eq!(format!("{}", Value::LongInt(89801234567890123)), "0x13f09bf3ecf84cb");
+		assert_eq!(format!("{}", Value::Size(-12345678901234567)), "-0x2bdc545d6b4b87");
+		assert_eq!(format!("{}", Value::Size(89801234567890123)), "0x13f09bf3ecf84cb");
+		assert_eq!(format!("{}", Value::Uint(123456)), "123456");
+		assert_eq!(format!("{}", Value::LongUint(12345678901234567)), "0x2bdc545d6b4b87");
+		assert_eq!(format!("{}", Value::Usize(89801234567890123)), "0x13f09bf3ecf84cb");
+		assert_eq!(format!("{}", Value::Float(-1.2345)), "-1.2345");
+		assert_eq!(format!("{}", Value::Float(6.78901)), "6.78901");
 	}
 }

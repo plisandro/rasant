@@ -10,13 +10,13 @@ fn sample_log() {
 	let mut log = rasant::Logger::new();
 
 	let sink_a = sink::string::String::new(sink::string::StringConfig {
-		formatter_cfg: FormatterConfig::color(),
+		formatter_cfg: FormatterConfig::default_color(),
 		..sink::string::StringConfig::default()
 	});
 	let sink_a_output = sink_a.output();
 
 	let sink_b = sink::string::String::new(sink::string::StringConfig {
-		formatter_cfg: FormatterConfig::json(),
+		formatter_cfg: FormatterConfig::default_json(),
 		..sink::string::StringConfig::default()
 	});
 	let sink_b_output = sink_b.output();
