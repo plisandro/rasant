@@ -115,7 +115,6 @@ Sinks can be configured to tweak multiple parameters, including time and
 overall output format.
 
 ```rust
-use ntime;
 use rasant as r;
 
 let mut log = r::Logger::new();
@@ -123,7 +122,7 @@ log.set_level(r::Level::Info).add_sink(
     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
 		formatter_cfg: r::sink::format::FormatterConfig {
 			format: r::sink::format::OutputFormat::Json,
-			time_format: ntime::Format::UtcNanosDateTime,
+			time_format: r::TimeFormat::UtcNanosDateTime,
 			..r::sink::format::FormatterConfig::default()
 		},
 		..r::sink::stdout::StdoutConfig::default()

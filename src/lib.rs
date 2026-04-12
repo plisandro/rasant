@@ -87,7 +87,6 @@
 //! overall output format.
 //!
 //! ```rust
-//! use ntime;
 //! use rasant as r;
 //!
 //! let mut log = r::Logger::new();
@@ -95,7 +94,7 @@
 //!     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
 //! 		formatter_cfg: r::FormatterConfig {
 //! 			format: r::OutputFormat::Json,
-//! 			time_format: ntime::Format::UtcNanosDateTime,
+//! 			time_format: r::TimeFormat::UtcNanosDateTime,
 //! 			..r::FormatterConfig::default()
 //! 		},
 //! 		..r::sink::stdout::StdoutConfig::default()
@@ -221,3 +220,5 @@ pub use attributes::value::{ToValue, Value};
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
 pub use logger::Logger;
+/// [`ntime::Format`], re-exported for convenience.
+pub use ntime::Format as TimeFormat;
