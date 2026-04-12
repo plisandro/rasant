@@ -13,12 +13,12 @@ macro_rules! set {
 #[macro_export]
 macro_rules! trace {
     // trace!(logger, msg, key=value...)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.trace($msg);
 	};
 
     // trace!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.trace_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -31,12 +31,12 @@ macro_rules! trace {
 #[macro_export]
 macro_rules! debug {
     // debug!(logger, msg)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.debug($msg);
 	};
 
     // debug!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.debug_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -49,12 +49,12 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! info {
     // info!(logger, msg)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.info($msg);
 	};
 
     // info!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.info_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -67,12 +67,12 @@ macro_rules! info {
 #[macro_export]
 macro_rules! warn {
     // warn!(logger, msg)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.warn($msg);
 	};
 
     // warn!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.warn_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -85,12 +85,12 @@ macro_rules! warn {
 #[macro_export]
 macro_rules! error {
     // error!(logger, msg)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.err($msg);
 	};
 
     // error!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.err_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -99,12 +99,12 @@ macro_rules! error {
 	};
 
     // error!(logger, msg, error, key=value...)
-	($logger:ident, $error: expr, $msg:literal) => {
+	($logger:ident, $error:expr, $msg:expr) => {
 		$logger.error($error, $msg);
 	};
 
     // error!(logger, msg, error, key=value...)
-	($logger:ident, $error: expr, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $error:expr, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.error_with($error, $msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -117,12 +117,12 @@ macro_rules! error {
 #[macro_export]
 macro_rules! fatal {
     // fatal!(logger, msg)
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.fatal($msg);
 	};
 
     // fatal!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.fatal_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
@@ -134,12 +134,12 @@ macro_rules! fatal {
 /// Logs an update with [panic][`crate::Level::Panic`] level.
 #[macro_export]
 macro_rules! panic {
-	($logger:ident, $msg:literal) => {
+	($logger:ident, $msg:expr) => {
 		$logger.panic($msg);
 	};
 
     // panic!(logger, msg, key=value...)
-	($logger:ident, $msg:literal, $( $key:ident = $value:expr ),*) => {
+	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		$logger.panic_with($msg, [
 		    $(
 				(stringify!($key), rasant::Value::from($value))
