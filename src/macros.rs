@@ -5,7 +5,7 @@ macro_rules! set {
 	($logger:ident, $( $key:ident = $value:expr ),*) => {
 	    $(
 			_ = $logger.set_value(stringify!($key), rasant::Value::from($value));
-		),*
+		)*
 	};
 }
 
