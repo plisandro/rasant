@@ -24,9 +24,20 @@ warnings = "deny"
 name = "rasant"
 path = "src/lib.rs"
 
+[dev-dependencies]
+divan = "0.1.21"
+
 [dependencies]
 ntime = "0.4.0"
 
-[features]
-# TODO: use "cargo bench" once that feature finally becomes stable >:(
-benchmark = []
+[[bench]]
+name = "log_write"
+harness = false
+
+[[bench]]
+name = "allocs"
+harness = false
+
+[[bench]]
+name = "output_formats"
+harness = false
