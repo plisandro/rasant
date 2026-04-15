@@ -33,6 +33,15 @@ pub struct LogUpdate {
 }
 
 impl LogUpdate {
+	/// Initializes a blank placeholder [`LogUpdate`].
+	pub fn blank() -> Self {
+		Self {
+			when: ntime::Timestamp::epoch(),
+			level: level::Level::Panic,
+			msg: String::from(""),
+		}
+	}
+
 	/// Initializes a [`LogUpdate`] for a given timestamp, log level and log meessage.
 	pub fn new(now: ntime::Timestamp, level: level::Level, msg: String) -> Self {
 		Self {
@@ -41,6 +50,22 @@ impl LogUpdate {
 			//depth: depth,
 			msg: msg,
 		}
+	}
+
+	/// Updates the time for a [`LogUpdate`].
+	pub fn set_when(&mut self, when: ntime::Timestamp) {
+		self.when = when;
+	}
+
+	/// Updates the level for a [`LogUpdate`].
+	pub fn set_level(&mut self, level: level::Level) {
+		self.level = level;
+	}
+
+	/// Updates the message string for a [`LogUpdate`].
+	pub fn set_msg(&mut self, msg: &str) {
+		self.msg.clear();
+		self.msg.insert_str(0, msg);
 	}
 }
 

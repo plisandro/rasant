@@ -9,6 +9,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
+use crate::sink::LogUpdate;
 use crate::types::{AsyncSinkSender, SinkRef};
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
@@ -22,6 +23,7 @@ pub struct Logger {
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	parent_sinks: Vec<SinkRef>,
+	common_update: LogUpdate,
 }
 
 impl Logger {
@@ -44,6 +46,7 @@ impl Logger {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			parent_sinks: Vec::new(),
+			common_update: LogUpdate::blank(),
 		}
 	}
 
@@ -167,7 +170,10 @@ impl Logger {
 			self.attributes.insert_ephemeral(k, v);
 		}
 
-		let update = sink::LogUpdate::new(Timestamp::now(), level, msg.into());
+		self.common_update.set_when(Timestamp::now());
+		self.common_update.set_level(level);
+		self.common_update.set_msg(msg);
+		let update = &self.common_update;
 		let attrs = &self.attributes;
 
 		// if we're about to panic, parse the message before attempting to
@@ -334,6 +340,7 @@ impl Clone for Logger {
 			attributes: self.attributes.clone(),
 			sinks: Vec::new(),
 			parent_sinks: parent_sinks,
+			common_update: LogUpdate::blank(),
 		};
 		clone.set_async(self.is_async());
 

@@ -75,6 +75,7 @@ mod multi_argument {
 	fn run(bencher: Bencher, mut log: Logger) {
 		bencher.bench_local(move || {
 			log.set_value("some_bool", true.to_value());
+			// TODO: [`Value::String`] uses an underlying `String` for storage; a zero-alloc solution would be nice...
 			log.set_value("short_string", "hello_there".to_value());
 			log.set_value(
 				"long_string",
