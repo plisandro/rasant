@@ -13,6 +13,9 @@ pub const ATTRIBUTE_KEY_TIMESTAMP: &str = "timestamp";
 /// Attribute key for logger IDs.
 pub const ATTRIBUTE_KEY_LOGGER_ID: &str = "logger_id";
 
+/// Maximum size for a [ShortString][`types::ShortString`], in bytes.
+pub const SHORT_STRING_MAX_SIZE: usize = 32;
+
 /// Maximum allowed [`crate::logger::Logger`] depth.
 pub const MAX_LOGGER_DEPTH: u16 = 1024;
 

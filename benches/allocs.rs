@@ -75,7 +75,34 @@ mod multi_argument {
 	fn run(bencher: Bencher, mut log: Logger) {
 		bencher.bench_local(move || {
 			log.set_value("some_bool", true.to_value());
-			// TODO: [`Value::String`] uses an underlying `String` for storage; a zero-alloc solution would be nice...
+			log.set_value("short_string", "hello_there".to_value());
+			log.set_value("a_float", (3.1415926).to_value());
+			log.set_value("an_usize", (374943849439 as usize).to_value());
+			r::info!(log, "benchmark test!", foo = 12345);
+		});
+	}
+
+	#[divan::bench(name = "async")]
+	fn async_mode(bencher: Bencher) {
+		let mut log = init_logger();
+		log.set_async(true);
+		run(bencher, log);
+	}
+
+	#[divan::bench(name = "sync")]
+	fn sync_mode(bencher: Bencher) {
+		let mut log = init_logger();
+		log.set_async(false);
+		run(bencher, log);
+	}
+}
+
+mod with_long_strings {
+	use super::*;
+
+	fn run(bencher: Bencher, mut log: Logger) {
+		bencher.bench_local(move || {
+			log.set_value("some_bool", true.to_value());
 			log.set_value("short_string", "hello_there".to_value());
 			log.set_value(
 				"long_string",

@@ -23,6 +23,7 @@ pub fn default_format_config() -> FormatterConfig {
 pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 	match val {
 		Value::Bool(b) => write!(out, "{}", b),
+		Value::ShortString(ss) => write!(out, "\"{}\"", ss.as_str()),
 		Value::String(s) => write!(out, "\"{}\"", s),
 		Value::Int(i) => write!(out, "{}", i),
 		Value::LongInt(i) => write!(out, "{}", i),

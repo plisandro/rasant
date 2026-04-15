@@ -2,13 +2,17 @@ use ntime::{Duration, Timestamp};
 use std::fmt;
 use std::thread;
 
+use crate::types;
+
 /// Attribute value definition for all log operations.
 /// These are associated with a single [`&str`] key in attribute maps for [logger][`crate::Logger`]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
 	/// A [`bool`]ean.
 	Bool(bool),
-	/// An owned [`String`].
+	/// An owned short string, akin to [`&str`].
+	ShortString(types::ShortString),
+	/// An owned [`String`], using heap storage.
 	String(String),
 	/// An integer, internally stored as a [`i64`].
 	Int(i64),
@@ -49,13 +53,19 @@ impl ToValue for bool {
 
 impl ToValue for String {
 	fn to_value(&self) -> Value {
-		Value::String(self.clone())
+		match types::ShortString::from(self) {
+			Ok(ss) => Value::ShortString(ss),
+			Err(_) => Value::String(self.clone()),
+		}
 	}
 }
 
 impl ToValue for &str {
 	fn to_value(&self) -> Value {
-		Value::String((*self).into())
+		match types::ShortString::from(*self) {
+			Ok(ss) => Value::ShortString(ss),
+			Err(_) => Value::String((*self).into()),
+		}
 	}
 }
 
@@ -168,6 +178,7 @@ impl fmt::Display for Value {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Bool(b) => write!(f, "{}", b),
+			Self::ShortString(ss) => write!(f, "\"{}\"", ss.as_str()),
 			Self::String(s) => write!(f, "\"{}\"", s),
 			Self::Int(i) => write!(f, "{}", i),
 			Self::LongInt(i) => {
@@ -200,9 +211,20 @@ mod tests {
 
 	#[test]
 	fn type_to_value() {
+		let short_string = "lalala";
+		let long_string = "this is a rather long string, which may be complicated";
+
 		assert_eq!(true.to_value(), Value::Bool(true));
-		assert_eq!("lalala".to_value(), Value::String("lalala".into()));
-		assert_eq!(String::from("lololo").to_value(), Value::String("lololo".into()));
+		assert_eq!(
+			short_string.to_value(),
+			Value::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed"))
+		);
+		assert_eq!(
+			String::from(short_string).to_value(),
+			Value::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed"))
+		);
+		assert_eq!(long_string.to_value(), Value::String(long_string.into()));
+		assert_eq!(String::from(long_string).to_value(), Value::String(long_string.into()));
 		assert_eq!((-12 as i8).to_value(), Value::Int(-12));
 		assert_eq!((345 as i16).to_value(), Value::Int(345));
 		assert_eq!((-678 as i32).to_value(), Value::Int(-678));
