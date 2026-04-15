@@ -3,13 +3,64 @@
 ## Integration test benchmarks
 
 Basic benchmark tests, intended to gauge performance progress across versions, launched with
-`cargo test --release --features=benchmark -- --show-output`.
+`cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
+
+### Version 0.6.0 (2026-04-07)
+
+Zero allocation for all attribute types, excluding long `String`s.
+
+This version also switches bencmarking over to [Divan](https://crates.io/crates/divan), which
+now encompasses log throughput, performance for different log formats, and alloc handling.
+
+```
+Timer precision: 20 ns
+log_write                 fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ nested                               │               │               │               │         │
+│  ├─ async_skip          60.72 µs      │ 106.1 µs      │ 74.51 µs      │ 74.04 µs      │ 100     │ 100
+│  │                      164.6 Mitem/s │ 94.21 Mitem/s │ 134.1 Mitem/s │ 135 Mitem/s   │         │
+│  ├─ async_write         10.88 ms      │ 25.51 ms      │ 13.27 ms      │ 13.68 ms      │ 100     │ 100
+│  │                      919 Kitem/s   │ 391.9 Kitem/s │ 753.1 Kitem/s │ 730.7 Kitem/s │         │
+│  ├─ skip                37.71 µs      │ 90.7 µs       │ 38.28 µs      │ 41.81 µs      │ 100     │ 100
+│  │                      265.1 Mitem/s │ 110.2 Mitem/s │ 261.2 Mitem/s │ 239.1 Mitem/s │         │
+│  ╰─ write               699.6 µs      │ 823.6 µs      │ 721.2 µs      │ 726.2 µs      │ 100     │ 100
+│                         14.29 Mitem/s │ 12.14 Mitem/s │ 13.86 Mitem/s │ 13.77 Mitem/s │         │
+├─ nested_with_arguments                │               │               │               │         │
+│  ├─ async_skip          67.46 µs      │ 1.274 ms      │ 105.1 µs      │ 116.8 µs      │ 100     │ 100
+│  │                      148.2 Mitem/s │ 7.846 Mitem/s │ 95.11 Mitem/s │ 85.58 Mitem/s │         │
+│  ├─ async_write         16.33 ms      │ 38.71 ms      │ 17.97 ms      │ 18.24 ms      │ 100     │ 100
+│  │                      612.3 Kitem/s │ 258.2 Kitem/s │ 556.4 Kitem/s │ 548 Kitem/s   │         │
+│  ├─ skip                52.48 µs      │ 169.5 µs      │ 57.56 µs      │ 60.35 µs      │ 100     │ 100
+│  │                      190.5 Mitem/s │ 58.98 Mitem/s │ 173.7 Mitem/s │ 165.6 Mitem/s │         │
+│  ╰─ write               2.089 ms      │ 2.247 ms      │ 2.115 ms      │ 2.122 ms      │ 100     │ 100
+│                         4.785 Mitem/s │ 4.448 Mitem/s │ 4.726 Mitem/s │ 4.711 Mitem/s │         │
+├─ single                               │               │               │               │         │
+│  ├─ async_skip          22.8 µs       │ 31.29 µs      │ 22.93 µs      │ 23.14 µs      │ 100     │ 100
+│  │                      438.4 Mitem/s │ 319.4 Mitem/s │ 436 Mitem/s   │ 432 Mitem/s   │         │
+│  ├─ async_write         7.378 ms      │ 14.78 ms      │ 7.919 ms      │ 8.63 ms       │ 100     │ 100
+│  │                      1.355 Mitem/s │ 676.1 Kitem/s │ 1.262 Mitem/s │ 1.158 Mitem/s │         │
+│  ├─ skip                25.59 µs      │ 41.57 µs      │ 25.6 µs       │ 27.49 µs      │ 100     │ 100
+│  │                      390.6 Mitem/s │ 240.5 Mitem/s │ 390.4 Mitem/s │ 363.6 Mitem/s │         │
+│  ╰─ write               642.7 µs      │ 740.1 µs      │ 656 µs        │ 660.3 µs      │ 100     │ 100
+│                         15.55 Mitem/s │ 13.51 Mitem/s │ 15.24 Mitem/s │ 15.14 Mitem/s │         │
+╰─ threaded                             │               │               │               │         │
+   ├─ async_skip          1.097 ms      │ 1.655 ms      │ 1.2 ms        │ 1.24 ms       │ 100     │ 100
+   │                      9.113 Mitem/s │ 6.039 Mitem/s │ 8.332 Mitem/s │ 8.059 Mitem/s │         │
+   ├─ async_write         2.512 ms      │ 4.018 ms      │ 2.866 ms      │ 2.943 ms      │ 100     │ 100
+   │                      3.979 Mitem/s │ 2.488 Mitem/s │ 3.488 Mitem/s │ 3.397 Mitem/s │         │
+   ├─ skip                1.052 ms      │ 2.231 ms      │ 1.176 ms      │ 1.235 ms      │ 100     │ 100
+   │                      9.497 Mitem/s │ 4.481 Mitem/s │ 8.499 Mitem/s │ 8.093 Mitem/s │         │
+   ╰─ write               1.156 ms      │ 2.585 ms      │ 2.089 ms      │ 2.088 ms      │ 100     │ 100
+                          8.647 Mitem/s │ 3.867 Mitem/s │ 4.785 Mitem/s │ 4.787 Mitem/s │         │
+```
 
 ### Version 0.5.0 (2026-04-07)
 
 Optimize handling of async log operations.
+
+Benchmarks for v0.5.0 and earlier ran as an ad-hoc set of tests, collected
+via `cargo test --release --features=benchmark -- --show-output`.
 
 ```
 --- Benchmark: single logger ---

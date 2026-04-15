@@ -37,11 +37,11 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
 
 ## Usage 
 
-Latest stable release is **v0.5.6**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v0.6.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.5.6"
+rasant = "0.6.0"
 ```
 
 Rasant is under active development and on track for a v1.0.0 release. You may see small public
