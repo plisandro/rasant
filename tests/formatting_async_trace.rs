@@ -31,7 +31,7 @@ fn async_trace() {
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise
 	let got = string_sink_output.lock().unwrap().clone();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" async=false logger_id=100
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100
 2026-03-04 15:10:16.234 [TRA] enabled async log updates total_async_loggers=1 logger_id=101
 2026-03-04 15:10:17.468 [INF] root test info
 2026-03-04 15:10:18.702 [WRN] root test warn

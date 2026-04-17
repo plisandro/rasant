@@ -31,7 +31,7 @@ fn macro_logging() {
 	}
 
 	let got = string_sink_output.lock().unwrap().clone();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" async=false logger_id=100
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100
 2026-03-04 15:10:16.234 [INF] root test, info without args
 2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"
 2026-03-04 15:10:18.702 [WRN] root test, warn

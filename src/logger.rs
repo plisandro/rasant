@@ -5,12 +5,13 @@ use std::sync::{Arc, Mutex};
 use crate::attributes;
 use crate::attributes::value::{ToValue, Value};
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
+use crate::filter;
 use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
 use crate::sink::LogUpdate;
-use crate::types::{AsyncSinkSender, SinkRef};
+use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 
@@ -22,7 +23,7 @@ pub struct Logger {
 	async_sink_sender: Option<AsyncSinkSender>,
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
-	parent_sinks: Vec<SinkRef>,
+	filters: Vec<FilterRef>,
 	common_update: LogUpdate,
 }
 
@@ -45,7 +46,7 @@ impl Logger {
 			async_sink_sender: None,
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
-			parent_sinks: Vec::new(),
+			filters: Vec::new(),
 			common_update: LogUpdate::blank(),
 		}
 	}
@@ -56,7 +57,7 @@ impl Logger {
 	}
 
 	fn has_sinks(&self) -> bool {
-		!self.parent_sinks.is_empty() || !self.sinks.is_empty()
+		!self.sinks.is_empty()
 	}
 
 	/// Returns the log [`Level`] for this [`Logger`] instance.
@@ -130,7 +131,23 @@ impl Logger {
 
 		self.sinks.push(Arc::new(Mutex::new(Box::new(sink))));
 
-		self.trace_with("added new log sink", [("name", Value::from(name)), ("async", Value::from(self.is_async()))]);
+		self.trace_with(
+			"added new log sink",
+			[("name", Value::from(name)), ("total", Value::from(self.sinks.len() as u64)), ("async", Value::from(self.is_async()))],
+		);
+
+		self
+	}
+
+	/// Adds a new logging [`Filter`][`filter::Filter`] to the [`Logger`] instance.
+	///
+	/// Note that filters are evaluated at logging time, and will introduce latency
+	/// regardless of whether the [`Logger`] is async or not.
+	pub fn add_filter<T: filter::Filter + Send + 'static>(&mut self, filter: T) -> &mut Self {
+		let name: String = filter.name().into();
+		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
+
+		self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
 
 		self
 	}
@@ -176,11 +193,16 @@ impl Logger {
 		let update = &self.common_update;
 		let attrs = &self.attributes;
 
+		// apply filters, if any
+		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update, &attrs)) {
+			return self;
+		}
+
 		// if we're about to panic, parse the message before attempting to
 		// deliver the log update - and losing ownership.
 		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update, attrs)) } else { None };
 
-		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
+		for asink in self.sinks.iter() {
 			let res = match self.async_sink_sender {
 				Some(ref tx) => {
 					queue::log(&tx, &asink, &update, &attrs);
@@ -298,7 +320,7 @@ impl Logger {
 	/// log messages. The method will not lock, and return immediately, but actual flushes
 	/// will materialize later.
 	pub fn flush(&mut self) -> &Self {
-		for asink in self.parent_sinks.iter().chain(self.sinks.iter()) {
+		for asink in self.sinks.iter() {
 			// TODO: fix logging.
 			//let name = asink.lock().unwrap().as_mut().name();
 			let res = match self.async_sink_sender {
@@ -323,14 +345,6 @@ impl Clone for Logger {
 			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = MAX_LOGGER_DEPTH, id = self.id);
 		}
 
-		let mut parent_sinks: Vec<SinkRef> = Vec::new();
-		for s in &self.sinks {
-			parent_sinks.push(s.clone());
-		}
-		for s in &self.parent_sinks {
-			parent_sinks.push(s.clone());
-		}
-
 		let mut clone = Self {
 			id: Self::next_uuid(),
 			depth: self.depth + 1,
@@ -338,8 +352,8 @@ impl Clone for Logger {
 			// async state is modified via set_async()
 			async_sink_sender: None,
 			attributes: self.attributes.clone(),
-			sinks: Vec::new(),
-			parent_sinks: parent_sinks,
+			sinks: self.sinks.clone(),
+			filters: self.filters.clone(),
 			common_update: LogUpdate::blank(),
 		};
 		clone.set_async(self.is_async());

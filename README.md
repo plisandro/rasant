@@ -30,6 +30,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
   - Leveled, structured contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
+  - [Configurable log filters](#filtering).
   - Thread safe.
   - [Highly configurable log sinks](#configuring-sinks).
   - Text and JSON log output.
@@ -88,8 +89,8 @@ r::debug!(log, "and i'm ignored :(");
 ### Stacking
 
 All loggers can be cheaply cloned, inheriting all settings from its parent - including
-levels, sinks and fixed attributes - allowing for very flexible setups. For example, to
-have all errors (or higher) within a thread logged to `stderr`:
+levels, sinks, filters and fixed attributes - allowing for very flexible setups. For example,
+to have all errors (or higher) within a thread logged to `stderr`:
 
 ```rust
 use rasant as r;
@@ -137,6 +138,7 @@ r::info!(log, "hello!");
 ```
 
 ### Asynchronous Logging
+
 All loggers can dynamically enable/disable async writes.
 
 When in async mode, log operations have a slightly longer (as details are
@@ -156,6 +158,26 @@ r::warn!(log, "asynchronously, but");
 r::info!(log, "in order!");
 ```
 
+### Filtering
+
+Rasant supports optional, configurable runtime filters for all log operations.
+
+```rust
+use rasant as r;
+
+let mut log = r::Logger::new();
+log.add_sink(r::sink::stdout::default()).set_all_levels();
+log.add_filter(
+    r::filter::levels::Levels::new(
+        r::filter::levels::LevelsConfig {
+            levels: [Level::Debug, Level::Warning],
+        }));
+
+r::info!(log, "this will not log"):
+r::debug!(log, "but these");
+r::warn!(log, "will");
+```
+
 ## Documentation
 
   * [API documentation][api-docs]
@@ -169,7 +191,6 @@ Rasant is under active development, with more features planned for future versio
   - New output formants (hierarchical pretty print?)
   - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
   - Binary output formats, such as [CBOR](https://cbor.io/) and [protobuf](https://protobuf.dev/).
-  - Configurable log filters.
 
 ## License
 

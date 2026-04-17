@@ -4,8 +4,12 @@ use std::sync::Mutex;
 use std::sync::mpsc;
 
 use crate::constant::SHORT_STRING_MAX_SIZE;
+use crate::filter::Filter;
 use crate::queue::AsyncSinkOp;
 use crate::sink::Sink;
+
+/// An Arc'ed & Mutex'ed reference to a shared log [`Filter`].
+pub type FilterRef = Arc<Mutex<Box<dyn Filter + Send>>>;
 
 /// An Arc'ed & Mutex'ed reference to a shared log [`Sink`].
 pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;

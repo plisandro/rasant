@@ -1,7 +1,8 @@
 use divan::{Bencher, counter};
 use rasant as r;
+use rasant::filter;
 use rasant::sink::black_hole;
-use rasant::{FormatterConfig, OutputFormat, TimeFormat};
+use rasant::{FormatterConfig, Level, Logger, OutputFormat, TimeFormat};
 
 const BENCHMARK_LOG_ITEMS: usize = 10000;
 
@@ -9,11 +10,11 @@ fn main() {
 	divan::main();
 }
 
-fn run(bencher: Bencher, output_format: OutputFormat) {
+fn init_logger() -> Logger {
 	let mut log = rasant::Logger::new();
 	log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 		formatter_cfg: FormatterConfig {
-			format: output_format,
+			format: OutputFormat::Compact,
 			time_format: TimeFormat::TimestampNanoseconds,
 			..FormatterConfig::default()
 		},
@@ -21,6 +22,10 @@ fn run(bencher: Bencher, output_format: OutputFormat) {
 	}))
 	.set_all_levels();
 
+	log
+}
+
+fn run(bencher: Bencher, mut log: Logger) {
 	bencher
 		.counter(counter::ItemsCount::new(BENCHMARK_LOG_ITEMS))
 		.with_inputs(|| BENCHMARK_LOG_ITEMS)
@@ -32,11 +37,16 @@ fn run(bencher: Bencher, output_format: OutputFormat) {
 }
 
 #[divan::bench]
-fn compact(bencher: Bencher) {
-	run(bencher, OutputFormat::Compact);
+fn none(bencher: Bencher) {
+	let log = init_logger();
+	run(bencher, log);
 }
 
 #[divan::bench]
-fn json(bencher: Bencher) {
-	run(bencher, OutputFormat::Json);
+fn levels(bencher: Bencher) {
+	let mut log = init_logger();
+	log.add_filter(filter::levels::Levels::new(filter::levels::LevelsConfig {
+		levels: [Level::Debug, Level::Info, Level::Fatal, Level::Panic],
+	}));
+	run(bencher, log);
 }

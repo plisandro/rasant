@@ -11,6 +11,7 @@
 //!   - *Blazing fast* performance, with zero allocations on most operations.
 //!   - [Leveled][`Level`], structured contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
+//!   - [Configurable log filters](#filtering).
 //!   - Thread safe.
 //!   - [Highly configurable log sinks](#configuring-sinks).
 //!   - Text and JSON log output.
@@ -57,8 +58,8 @@
 //! ## Stacking
 //!
 //! All [`Logger`]s can be cheaply cloned, inheriting all settings from its
-//! parent - including [levels][`level::Level`], [Sink][`sink::Sink`]s and fixed
-//! [attributes](#attributes), allowing for very flexible  setups.
+//! parent - including [Level][`level::Level`]s, [`sink`]s, [`filter`]s
+//! and fixed [attributes](#attributes), allowing for very flexible setups.
 //!
 //! For example, to have all errors (or higher) within a thread logged to
 //! `stderr`:
@@ -83,7 +84,7 @@
 //!
 //! ## Configuring Sinks
 //!
-//! [Sink][`sink::Sink`]s can be configured to tweak multiple parameters, including time and
+//! [`sink`]s can be configured to tweak multiple parameters, including time and
 //! overall output format.
 //!
 //! ```rust
@@ -129,6 +130,31 @@
 //! r::info!(log, "in order!");
 //! ```
 //!
+//! ## Filtering
+//!
+//! [`Logger`]s can apply configurable runtime [`filter`]s on log operations.
+//!
+//! Note that [`filter`]s are evaluated at logging time, and will
+//! introduce (minimal) latency, regardless of [`Logger`]s having async mode
+//! enabled.
+//!
+//! ```rust
+//! use rasant as r;
+//!
+//! let mut log = r::Logger::new();
+//! log.add_sink(r::sink::stdout::default()).set_all_levels();
+//! log.add_filter(
+//!     r::filter::levels::Levels::new(
+//!         r::filter::levels::LevelsConfig {
+//!             levels: [r::Level::Debug, r::Level::Warning, r::Level::Fatal],
+//!         }));
+//!
+//! r::info!(log, "this will not log");
+//! r::debug!(log, "but");
+//! r::fatal!(log, "these");
+//! r::warn!(log, "will");
+//! ```
+//!
 //! # Concepts
 //!
 //! Rasant is a structured logging library: it logs messages with a set of associated key-[`Value`]
@@ -137,12 +163,12 @@
 //!
 //! ## Methodology
 //!
-//! Rasant is built around individual [`Logger`] logging instances and [Sink][`sink::Sink`]s, which are
+//! Rasant is built around individual [`Logger`] logging instances and [`sink`]s, which are
 //! configurable destinations for log updates. When a log operation is performed, its level
 //! is compared to the one defined for the [`Logger`] and, if applicable, the log is written
-//! on all its [Sink][`sink::Sink`]s.
+//! on all its [`sink`]s.
 //!
-//! Once a [Sink][`sink::Sink`] is added to a [`Logger`], it cannot be removed nor modified.
+//! Once a [`sink`] is added to a [`Logger`], it cannot be removed nor modified.
 //!
 //! ## Attributes
 //!
@@ -162,7 +188,8 @@
 //! ## Cloning and Stacking
 //!
 //! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it inherits
-//! all settings from the original, including levels, sinks (owned + inherited) and attributes.
+//! all settings from the original, including [level['level::Level]s, [`filter`]s,
+//! [`sink`]s (owned + inherited) and attributes.
 //!
 //! This allows for very flexible logging setups. New [`Logger`]s can just be extensions of
 //! an original with extra arguments, have newly defined sinks and/or log levels - or both.
@@ -172,11 +199,11 @@
 //!
 //! ## Asynchronous Operation
 //!
-//! By default, log operations lock until writes are propagated to all [Sink][`sink::Sink`]s associated
+//! By default, log operations lock until writes are propagated to all [`sink`]s associated
 //! with a given [`Logger`].
 //!
-//! To improve performance when slow and/or a high number of [Sink][`sink::Sink`]s is
-//! involved, Rasant supports dynamic asynchronous logging.
+//! To improve performance when slow and/or a high number of [`sink`]s is involved, Rasant
+//! supports dynamic asynchronous logging.
 //!
 //! Loggers can be switched to asynchronous mode via [`Logger::set_async`]. When enabled, log
 //! operations defer writes by pushing them into a processing queue, and return immediately.
@@ -191,7 +218,7 @@
 //! will [panic][`std::panic!`] upon failures instead.
 //!
 //! Pretty much all errors related to logging are unrecoverable anyway - these will either
-//! happen at initialization time, or when trying to write to a [sink][`sink::Sink`].
+//! happen at initialization time, or when trying to write to a [`sink`].
 //!
 //! # Repository
 //!
@@ -215,6 +242,7 @@ mod queue;
 mod types;
 
 // Public exported symbols
+pub mod filter;
 pub mod sink;
 pub use attributes::value::{ToValue, Value};
 pub use format::{FormatterConfig, OutputFormat};

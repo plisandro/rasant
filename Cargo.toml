@@ -31,11 +31,15 @@ divan = "0.1.21"
 ntime = "0.4.0"
 
 [[bench]]
-name = "log_write"
+name = "allocs"
 harness = false
 
 [[bench]]
-name = "allocs"
+name = "filters"
+harness = false
+
+[[bench]]
+name = "log_write"
 harness = false
 
 [[bench]]
