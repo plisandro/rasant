@@ -1,4 +1,4 @@
-//! Null log [sink][`sink::Sink`] module, intended mostly for testing.
+//! Null log [`sink`] module, intended mostly for testing.
 //!
 //! Black hole sinks are effectively no-op, but otherwise excercise every
 //! aspect of Rasant.
@@ -9,7 +9,7 @@ use crate::attributes;
 use crate::format;
 use crate::sink;
 
-/// Configuration struct for an [`BlackHole`] [sink][`sink::Sink`].
+/// Configuration struct for an [`BlackHole`] [`sink`].
 pub struct BlackHoleConfig {
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
@@ -34,7 +34,7 @@ pub struct BlackHole {
 }
 
 impl BlackHole {
-	/// Initializes a new [`BlackHole`] log [sink][`sink::Sink`], from a given [`BlackHoleConfig`].
+	/// Initializes a new [`BlackHole`] log [`sink`], from a given [`BlackHoleConfig`].
 	pub fn new(conf: BlackHoleConfig) -> Self {
 		Self {
 			name: "black hole NULL logger".into(),
@@ -59,7 +59,7 @@ impl sink::Sink for BlackHole {
 	}
 }
 
-/// Returns an intitalized [`BlackHole`] log [sink][`sink::Sink`], with default values.
+/// Returns an intitalized [`BlackHole`] log [`sink`], with default values.
 pub fn default() -> BlackHole {
 	BlackHole::new(BlackHoleConfig::default())
 }

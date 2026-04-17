@@ -1,10 +1,10 @@
-//! A [stderr](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink::Sink`] module.
+//! A [stderr](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink`] module.
 use std::io;
 
 use crate::format;
 use crate::sink::io::{IO, IOConfig};
 
-/// Configuration struct for an `stderr` [sink][`crate::sink::Sink`].
+/// Configuration struct for an `stderr` [sink][`crate::sink`].
 pub struct StderrConfig {
 	/// Name for this sink.
 	pub name: String,
@@ -27,7 +27,7 @@ impl<'i> Default for StderrConfig {
 	}
 }
 
-/// Initializes a `stderr` [sink][`crate::sink::Sink`] from a [`StderrConfig`].
+/// Initializes a `stderr` [sink][`crate::sink`] from a [`StderrConfig`].
 pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
@@ -39,7 +39,7 @@ pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 	})
 }
 
-/// Returns an initialized `IO` [sink][`crate::sink::Sink`] for `stderr`, with default values.
+/// Returns an initialized `IO` [sink][`crate::sink`] for `stderr`, with default values.
 pub fn default<'f>() -> IO<'f> {
 	new(StderrConfig::default())
 }

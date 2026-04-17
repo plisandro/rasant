@@ -3,9 +3,9 @@ mod color_compact;
 mod compact;
 mod json;
 
-use ntime;
 use std::io;
 
+use crate::TimeFormat;
 use crate::attributes;
 use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 use crate::sink::LogUpdate;
@@ -44,8 +44,8 @@ impl OutputFormat {
 pub struct FormatterConfig {
 	/// Output formatting configuration.
 	pub format: OutputFormat,
-	/// Time format for log entries, as [`ntime::Format`].
-	pub time_format: ntime::Format,
+	/// Time format for log entries, as [`TimeFormat`].
+	pub time_format: TimeFormat,
 	/// A separator for log entries, as a slice of [`u8`]s.
 	pub delimiter: Vec<u8>,
 }
@@ -77,7 +77,7 @@ impl FormatterConfig {
 pub struct Formatter {
 	format: OutputFormat,
 	time_key: String,
-	time_format: ntime::Format,
+	time_format: TimeFormat,
 	delimiter: Vec<u8>,
 }
 
@@ -86,8 +86,9 @@ impl Formatter {
 	pub fn new(conf: FormatterConfig) -> Self {
 		Self {
 			format: conf.format,
+			// TODO: replace by TimeFormat.is_numeric() once supported by ntime.
 			time_key: match &conf.time_format {
-				ntime::Format::TimestampSeconds | ntime::Format::TimestampMilliseconds => String::from(ATTRIBUTE_KEY_TIMESTAMP),
+				TimeFormat::TimestampSeconds | TimeFormat::TimestampMilliseconds | TimeFormat::TimestampNanoseconds => String::from(ATTRIBUTE_KEY_TIMESTAMP),
 				_ => String::from(ATTRIBUTE_KEY_TIME),
 			},
 			time_format: conf.time_format,

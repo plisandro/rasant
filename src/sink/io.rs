@@ -1,4 +1,4 @@
-//! Generic I/O logging [sink][`sink::Sink`] module.
+//! Generic I/O logging [`sink`] module.
 //!
 //! This sink can be used with any [`std::io::Write`] implementing [`Send`],
 //! and supports options such as configurable delimiters between log
@@ -9,7 +9,7 @@ use crate::attributes;
 use crate::format;
 use crate::sink;
 
-/// Configuration struct for an [`IO`] [sink][`sink::Sink`].
+/// Configuration struct for an [`IO`] [`sink`].
 pub struct IOConfig<T: io::Write + Send> {
 	/// Name for this sink.
 	pub name: String,
@@ -38,7 +38,7 @@ impl<W: io::Write + Send> Default for IOConfig<W> {
 	}
 }
 
-/// A [sink][`sink::Sink`] for any implementation of [`std::io::Write`] supporting [`Send`].
+/// A [`sink`] for any implementation of [`std::io::Write`] supporting [`Send`].
 pub struct IO<'s> {
 	name: String,
 	formatter: format::Formatter,
@@ -49,7 +49,7 @@ pub struct IO<'s> {
 }
 
 impl<'i> IO<'i> {
-	/// Initializes a new [`IO`] [sink][`sink::Sink`], from a given [`IOConfig`].
+	/// Initializes a new [`IO`] [`sink`], from a given [`IOConfig`].
 	pub fn new<T: io::Write + Send + 'i>(conf: IOConfig<T>) -> Self {
 		let cout = match conf.out {
 			Some(o) => o,

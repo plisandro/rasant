@@ -1,4 +1,4 @@
-//! Generic file logging log [sink][`crate::sink::Sink`] module.
+//! Generic file logging log [sink][`crate::sink`] module.
 //!
 //! Built around [`IO`], so it inherits pretty much all of
 //! its configuration options.
@@ -38,7 +38,7 @@ impl Default for FileConfig {
 	}
 }
 
-/// Initializes a file log [sink][`crate::sink::Sink`] from a [`FileConfig`].
+/// Initializes a file log [sink][`crate::sink`] from a [`FileConfig`].
 pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 	let Some(path) = conf.path else {
 		panic!("missing path for logfile sink");

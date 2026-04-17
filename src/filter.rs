@@ -1,4 +1,4 @@
-//! Log filters for use with Rasant [`crate::Logger`] instances.
+//! Log filters for use with Rasant [Logger][`crate::logger::Logger`] instances.
 //!
 //! This module defines the [`Filter`] traits for filter, and
 //! exports all available filter types.

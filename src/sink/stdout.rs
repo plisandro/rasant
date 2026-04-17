@@ -1,10 +1,10 @@
-//! A [stdout](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink::Sink`] module.
+//! A [stdout](https://en.wikipedia.org/wiki/Standard_streams) [sink][`crate::sink`] module.
 use std::io;
 
 use crate::format;
 use crate::sink::io::{IO, IOConfig};
 
-/// Configuration struct for an `stdout` [sink][`crate::sink::Sink`].
+/// Configuration struct for an `stdout` [sink][`crate::sink`].
 pub struct StdoutConfig {
 	/// Name for this sink.
 	pub name: String,
@@ -30,7 +30,7 @@ impl Default for StdoutConfig {
 	}
 }
 
-/// Initializes a `stdout` [sink][`crate::sink::Sink`] from a [`StdoutConfig`].
+/// Initializes a `stdout` [sink][`crate::sink`] from a [`StdoutConfig`].
 pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
 	IO::new(IOConfig {
 		name: conf.name,
@@ -42,7 +42,7 @@ pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
 	})
 }
 
-/// Returns an initialized `IO` [sink][`crate::sink::Sink`] for `stdout`, with default values.
+/// Returns an initialized `IO` [sink][`crate::sink`] for `stdout`, with default values.
 pub fn default<'f>() -> IO<'f> {
 	new(StdoutConfig::default())
 }

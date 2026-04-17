@@ -127,7 +127,7 @@ pub fn get_sender() -> AsyncSinkSender {
 	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().get_sender()
 }
 
-/// Queues a log operation for the async handler..
+/// Queues a log operation for the async handler.
 pub fn log(tx: &AsyncSinkSender, sink: &SinkRef, update: &LogUpdate, attrs: &attributes::Map) {
 	match tx.send(AsyncSinkOp::Log {
 		sink: sink.clone(),

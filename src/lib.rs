@@ -187,8 +187,8 @@
 //!
 //! ## Cloning and Stacking
 //!
-//! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it inherits
-//! all settings from the original, including [level['level::Level]s, [`filter`]s,
+//! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it
+//! inherits all settings from the original, including [level['level::Level]s, [`filter`]s,
 //! [`sink`]s (owned + inherited) and attributes.
 //!
 //! This allows for very flexible logging setups. New [`Logger`]s can just be extensions of

@@ -1,4 +1,4 @@
-//! Log file [sink][`crate::sink::Sink`] module.
+//! Log file [sink][`crate::sink`] module.
 //!
 //! Log file sinks are very similar to regular [`mod@file`] sinks, but impose an
 //! opinionated file name format. Only logging directories are configurable.
@@ -11,7 +11,7 @@ use crate::format;
 use crate::sink::file;
 use crate::sink::io::IO;
 
-/// Configuration struct for an [`IO`] log file [sink][`crate::sink::Sink`].
+/// Configuration struct for an [`IO`] log file [sink][`crate::sink`].
 pub struct LogFileConfig {
 	/// Base directory for log files, as a [`std::path::PathBuf`]
 	pub log_directory: path::PathBuf,
@@ -37,7 +37,7 @@ impl<'i> Default for LogFileConfig {
 	}
 }
 
-/// Initializes a [`IO`] log file [sink][`crate::sink::Sink`] from a [`LogFileConfig`].
+/// Initializes a [`IO`] log file [sink][`crate::sink`] from a [`LogFileConfig`].
 pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	// TODO: resolve process name
 	let process_name = "process";
@@ -62,12 +62,12 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	})
 }
 
-/// Returns an initialized log file [sink][`crate::sink::Sink`] for text, with default values.
+/// Returns an initialized log file [sink][`crate::sink`] for text, with default values.
 pub fn default<'f>() -> IO<'f> {
 	new(LogFileConfig::default())
 }
 
-/// Returns an initialized log file [sink][`crate::sink::Sink`] for JSON, with default values.
+/// Returns an initialized log file [sink][`crate::sink`] for JSON, with default values.
 pub fn default_json<'f>() -> IO<'f> {
 	new(LogFileConfig {
 		formatter_cfg: format::FormatterConfig {

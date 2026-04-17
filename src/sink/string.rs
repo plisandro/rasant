@@ -1,4 +1,4 @@
-//! String logging [sink][`sink::Sink`] module.
+//! String logging [`sink`] module.
 //!
 //! String sinks are useful mostly for testing and, as a result, their focus is not
 //! performance,  but usability.
@@ -12,7 +12,7 @@
 //!   - If `mock_logger_id` is `true`, the `logger_id` atttibute is pinned to a
 //!     fixed start value, and  increases monolithically with every log write.
 //!
-//! Unless you're writing tests, you _really_ want to use another [sink][`sink::Sink`] type :)
+//! Unless you're writing tests, you _really_ want to use another [`sink`] type :)
 use ntime;
 use std::io;
 use std::string;
@@ -26,7 +26,7 @@ use crate::sink;
 
 use std::sync::Mutex;
 
-/// Configuration struct for an [`String`] [sink][`sink::Sink`].
+/// Configuration struct for an [`String`] [`sink`].
 pub struct StringConfig {
 	/// A type string, used to define the sink's name.
 	pub type_str: string::String,
@@ -52,7 +52,7 @@ impl Default for StringConfig {
 	}
 }
 
-/// String logging [sink][`sink::Sink`] definition.
+/// String logging [`sink`] definition.
 pub struct String {
 	name: string::String,
 	formatter: format::Formatter,
@@ -64,7 +64,7 @@ pub struct String {
 }
 
 impl String {
-	/// Initializes a string [sink][`sink::Sink`] from a [`StringConfig`].
+	/// Initializes a string [`sink`] from a [`StringConfig`].
 	pub fn new(conf: StringConfig) -> Self {
 		let formatter = format::Formatter::new(conf.formatter_cfg);
 		let delimiter = match formatter.delimiter_as_string() {

@@ -91,7 +91,7 @@ impl Logger {
 	/// Enables/disables async mode for this [`Logger`].
 	///
 	/// When async mode is enabled, log updates return immediately but are queued to
-	/// write to the [`Sink`][`sink::Sink`]s associated to the [`Logger`] by a separate worker thread.
+	/// write to the [`sink`]s associated to the [`Logger`] by a separate worker thread.
 	/// Log updates for a given [`Logger`] are guaranteed to write in order.
 	pub fn set_async(&mut self, async_writes: bool) -> &mut Self {
 		if async_writes == self.is_async() {
@@ -122,9 +122,9 @@ impl Logger {
 		self
 	}
 
-	/// Adds a new logging [`Sink`][`sink::Sink`] to the [`Logger`] instance.
+	/// Adds a new logging [`sink`] to the [`Logger`] instance.
 	///
-	/// At least one [`Sink`][`sink::Sink`] is required for logging operations to succeed.
+	/// At least one [`sink`] is required for logging operations to succeed.
 	pub fn add_sink<T: sink::Sink + Send + 'static>(&mut self, sink: T) -> &mut Self {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
@@ -139,10 +139,10 @@ impl Logger {
 		self
 	}
 
-	/// Adds a new logging [`Filter`][`filter::Filter`] to the [`Logger`] instance.
+	/// Adds a new logging [`filter`] to the [`Logger`] instance.
 	///
-	/// Note that filters are evaluated at logging time, and will introduce latency
-	/// regardless of whether the [`Logger`] is async or not.
+	/// Note that [`filter`]s are evaluated at logging time, and will introduce
+	/// latency regardless of whether the [`Logger`] is async or not.
 	pub fn add_filter<T: filter::Filter + Send + 'static>(&mut self, filter: T) -> &mut Self {
 		let name: String = filter.name().into();
 		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
@@ -314,7 +314,7 @@ impl Logger {
 		self.log_with(Level::Panic, msg, attrs)
 	}
 
-	/// Flushes all pending writes on [`Sink`][`sink::Sink`]s for this [`Logger`].
+	/// Flushes all pending writes on [`sink`]s for this [`Logger`].
 	///
 	/// If async mode is enabled, flushing is deferred via the same queue used to write
 	/// log messages. The method will not lock, and return immediately, but actual flushes

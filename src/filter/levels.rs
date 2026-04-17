@@ -12,7 +12,7 @@ use crate::filter;
 use crate::level::Level;
 use crate::sink;
 
-/// Configuration struct for a [`Level`]s [filter][`filter::Filter`].
+/// Configuration struct for a [`Level`]s [`filter`].
 pub struct LevelsConfig<const N: usize> {
 	/// [`Level`]s to allow logging by.
 	pub levels: [Level; N],
@@ -25,7 +25,7 @@ pub struct Levels {
 }
 
 impl Levels {
-	/// Initializes a new [`Levels`] log [filter][`filter::Filter`], from a given [`LevelsConfig`].
+	/// Initializes a new [`Levels`] log [`filter`], from a given [`LevelsConfig`].
 	pub fn new<const N: usize>(conf: LevelsConfig<N>) -> Self {
 		Self {
 			name: format!("level filter for {levels:?}", levels = conf.levels),
