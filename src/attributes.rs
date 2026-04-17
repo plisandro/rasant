@@ -148,8 +148,12 @@ impl Map {
 		}
 	}
 
-	pub fn into_iter(&self) -> MapIter<'_> {
+	pub fn iter(&self) -> MapIter<'_> {
 		MapIter::new(self)
+	}
+
+	pub fn key_iter(&self) -> MapKeyIter<'_> {
+		MapKeyIter::new(self)
 	}
 
 	pub fn len(&self) -> usize {
@@ -191,6 +195,59 @@ impl Map {
 	}
 }
 
+/// A key iterator for [`Map`]
+pub struct MapKeyIter<'s> {
+	map: &'s Map,
+	main_idx: usize,
+	ephemeral_new_idx: usize,
+	ephemeral_priority_idx: usize,
+}
+
+impl<'i> MapKeyIter<'i> {
+	pub fn new(map: &'i Map) -> Self {
+		Self {
+			map: map,
+			main_idx: 0,
+			ephemeral_new_idx: 0,
+			ephemeral_priority_idx: 0,
+		}
+	}
+}
+
+impl<'i> Iterator for MapKeyIter<'i> {
+	type Item = &'i str;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		// iterate over priority ephemeral keys
+		match self.map.ephemeral_priority.key_by_idx(self.ephemeral_priority_idx) {
+			None => (),
+			Some(key) => {
+				self.ephemeral_priority_idx += 1;
+				return Some(key);
+			}
+		}
+
+		// iterate over main and ephemeral key overlaps
+		match self.map.main.key_by_idx(self.main_idx) {
+			None => (),
+			Some(key) => {
+				self.main_idx += 1;
+				return Some(key);
+			}
+		}
+
+		// iterate over the rest of ephemeral keys
+		match self.map.ephemeral_new.key_by_idx(self.ephemeral_new_idx) {
+			None => None,
+			Some(key) => {
+				self.ephemeral_new_idx += 1;
+				Some(key)
+			}
+		}
+	}
+}
+
+/// A key:value iterator for [`Map`].
 pub struct MapIter<'s> {
 	map: &'s Map,
 	main_idx: usize,
@@ -253,7 +310,7 @@ impl<'i> Iterator for MapIter<'i> {
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut first: bool = true;
-		for (key, val) in self.into_iter() {
+		for (key, val) in self.iter() {
 			write!(f, "{spacer}{key}={val}", spacer = if first { "" } else { " " })?;
 			first = false;
 		}
@@ -395,5 +452,56 @@ mod map_tests {
 		assert_eq!(attr.ephemeral_priority.len(), 1);
 		assert_eq!(attr.ephemeral_overlap.len(), 0);
 		assert_eq!(attr.to_string(), "error=\"oh no!\" key_a=123 key_b=456 key_c=789 key_d=\"new key\"",);
+	}
+
+	#[test]
+	fn iterator() {
+		let mut attr = Map::new();
+
+		attr.insert("key_a", 123.to_value());
+		attr.insert("key_b", 456.to_value());
+		attr.insert("key_c", 789.to_value());
+		attr.insert("error", "first error".to_value());
+
+		attr.insert_ephemeral("key_b", "overwrite!".to_value());
+		attr.insert_ephemeral("key_d", "new key".to_value());
+		attr.insert_ephemeral("error", "new error".to_value());
+
+		let mut got: Vec<(&str, &Value)> = Vec::new();
+		for kv in attr.iter() {
+			got.push(kv);
+		}
+
+		assert_eq!(
+			got.as_array::<5>().expect("invalid number of keys"),
+			&[
+				("error", &"new error".to_value()),
+				("key_a", &123.to_value()),
+				("key_b", &"overwrite!".to_value()),
+				("key_c", &789.to_value()),
+				("key_d", &"new key".to_value()),
+			]
+		);
+	}
+
+	#[test]
+	fn key_iterator() {
+		let mut attr = Map::new();
+
+		attr.insert("key_a", 123.to_value());
+		attr.insert("key_b", 456.to_value());
+		attr.insert("key_c", 789.to_value());
+		attr.insert("error", "first error".to_value());
+
+		attr.insert_ephemeral("key_b", "overwrite!".to_value());
+		attr.insert_ephemeral("key_d", "new key".to_value());
+		attr.insert_ephemeral("error", "new error".to_value());
+
+		let mut got_keys: Vec<&str> = Vec::new();
+		for key in attr.key_iter() {
+			got_keys.push(key);
+		}
+
+		assert_eq!(got_keys.as_array::<5>().expect("invalid number of keys"), &["error", "key_a", "key_b", "key_c", "key_d"]);
 	}
 }

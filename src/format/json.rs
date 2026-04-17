@@ -60,7 +60,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	}
 
 	// append fields
-	for (key, val) in attrs.into_iter() {
+	for (key, val) in attrs.iter() {
 		write!(out, ",\"{key}\":")?;
 		write_value(out, val)?;
 	}

@@ -46,7 +46,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	)?;
 
 	// append fields
-	for (key, val) in attrs.into_iter() {
+	for (key, val) in attrs.iter() {
 		write!(
 			out,
 			" {key_open}{key}{key_close}={val_open}",
