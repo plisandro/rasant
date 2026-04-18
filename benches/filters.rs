@@ -22,6 +22,8 @@ fn init_logger() -> Logger {
 	}))
 	.set_all_levels();
 
+	r::set!(log, a_string = "hello there!", an_int = 12345, a_float = 6789.0123 as f32);
+
 	log
 }
 
@@ -47,6 +49,40 @@ fn levels(bencher: Bencher) {
 	let mut log = init_logger();
 	log.add_filter(filter::levels::Levels::new(filter::levels::LevelsConfig {
 		levels: [Level::Debug, Level::Info, Level::Fatal, Level::Panic],
+	}));
+	run(bencher, log);
+}
+
+#[divan::bench]
+fn matches_msg(bencher: Bencher) {
+	let mut log = init_logger();
+	log.add_filter(filter::matches::Message::new(filter::matches::MessageConfig {
+		has: ["test!"],
+		has_not: ["bRoKeN", "mSg"],
+		match_all: true,
+	}));
+	run(bencher, log);
+}
+
+#[divan::bench]
+fn matches_attr_key(bencher: Bencher) {
+	let mut log = init_logger();
+	log.add_filter(filter::matches::AttributeKey::new(filter::matches::AttributeKeyConfig {
+		has: ["an_int", "a_string"],
+		has_not: ["a_bool"],
+		match_all: true,
+	}));
+	run(bencher, log);
+}
+
+#[divan::bench]
+fn matches_attr_value(bencher: Bencher) {
+	let mut log = init_logger();
+	log.add_filter(filter::matches::AttributeValue::new(filter::matches::AttributeValueConfig {
+		key: "a_string",
+		has: ["hello", "there"],
+		has_not: ["12345", "6789"],
+		match_all: true,
 	}));
 	run(bencher, log);
 }

@@ -188,11 +188,12 @@
 //! ## Cloning and Stacking
 //!
 //! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it
-//! inherits all settings from the original, including [level['level::Level]s, [`filter`]s,
+//! inherits all settings from the original, including [level][`level::Level`]s, [`filter`]s,
 //! [`sink`]s (owned + inherited) and attributes.
 //!
 //! This allows for very flexible logging setups. New [`Logger`]s can just be extensions of
-//! an original with extra arguments, have newly defined sinks and/or log levels - or both.
+//! an original with extra arguments, have newly defined sinks, log levels, filters and/or
+//! async modes - or all of the above.
 //!
 //! In general, programs using Rasant will instantiate a single root logger via [`Logger::new()`],
 //! and spawn nested clones as required.
@@ -211,6 +212,23 @@
 //! Rasant will spawn a single thread to handle all asynchronous write operations, and
 //! close it automatically once no async [`Logger`]s are present, and all their deferred
 //! writes have been flushed.
+//!
+//! ## Log Filters
+//!
+//! [`Logger`]s supports optional, configurable [`filter`]s for log updates. These are evaluated
+//! on every log operation, blocking [`sink`] writes, unless the configured criteria for all
+//! filters is met.
+//!
+//! Note that [`filter`]s are evaluated at logging time, even for [`Logger`]s in
+//! asynchronous mode; as a result, every [`filter`] will introduce additional latency
+//! on **all** log operations for that [`Logger`].
+//!
+//! Rasant supports filtering by:
+//!
+//!   - [Multiple log levels][`filter::levels::Levels`].
+//!   - Log [message contents][`filter::matches::Message`].
+//!   - Log [attributes presence][`filter::matches::AttributeKey`].
+//!   - Log [attribute value contents][`filter::matches::AttributeValue`].
 //!
 //! ## Error Handling
 //!

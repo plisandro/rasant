@@ -4,6 +4,7 @@
 //! exports all available filter types.
 
 pub mod levels;
+pub mod matches;
 
 use crate::attributes;
 use crate::sink::LogUpdate;
