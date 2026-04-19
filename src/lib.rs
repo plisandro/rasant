@@ -133,6 +133,13 @@
 //! ## Filtering
 //!
 //! [`Logger`]s can apply configurable runtime [`filter`]s on log operations.
+//! Supported filters include:
+//!
+//!   - [Multiple log levels][`filter::level::In`].
+//!   - Log [message contents][`filter::matches::Message`].
+//!   - Log [attributes presence][`filter::matches::AttributeKey`].
+//!   - Log [attribute value contents][`filter::matches::AttributeValue`].
+//!   - Several [log output sampling][`filter::sample`] criteria.
 //!
 //! Note that [`filter`]s are evaluated at logging time, and will
 //! introduce (minimal) latency, regardless of [`Logger`]s having async mode
@@ -144,8 +151,8 @@
 //! let mut log = r::Logger::new();
 //! log.add_sink(r::sink::stdout::default()).set_all_levels();
 //! log.add_filter(
-//!     r::filter::levels::Levels::new(
-//!         r::filter::levels::LevelsConfig {
+//!     r::filter::level::In::new(
+//!         r::filter::level::InConfig {
 //!             levels: [r::Level::Debug, r::Level::Warning, r::Level::Fatal],
 //!         }));
 //!
@@ -220,21 +227,13 @@
 //! filters is met. Multiple filters can be stacked to combine their behavior.
 //!
 //! [`filter`]s are evaluated after normal level checks, so their output is affected by each
-//! [`Logger`]s log level. When using level-based filters (f.ex. [Levels][`crate::filter::levels::Levels`]),
+//! [`Logger`]s log level. When using level-based filters (f.ex. [Levels][`crate::filter::level::In`]),
 //! consider enabling [set_all_levels()][`crate::logger::Logger::set_all_levels`] to avoid
 //! unexpected interactions.
 //!
 //! Note that [`filter`]s are evaluated at logging time, even for [`Logger`]s in
 //! asynchronous mode; as a result, every [`filter`] will introduce additional latency
 //! on **all** log operations for that [`Logger`].
-//!
-//! Rasant supports filtering by:
-//!
-//!   - [Multiple log levels][`filter::levels::Levels`].
-//!   - Log [message contents][`filter::matches::Message`].
-//!   - Log [attributes presence][`filter::matches::AttributeKey`].
-//!   - Log [attribute value contents][`filter::matches::AttributeValue`].
-//!   - Various log [output sampling][`filter::sample`] criteria.
 //!
 //! ## Error Handling
 //!

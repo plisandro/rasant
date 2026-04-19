@@ -3,7 +3,7 @@
 //! This module defines the [`Filter`] traits for filter, and
 //! exports all available filter types.
 
-pub mod levels;
+pub mod level;
 pub mod matches;
 pub mod sample;
 

@@ -160,9 +160,9 @@ r::info!(log, "in order!");
 
 ### Filtering
 
-Rasant supports optional, configurable runtime filters for all log operations.
-These include filtering by levels, log message, attribute key/value contents, and
-sampling for statistical/monitoring purposes.
+Rasant supports optional, configurable runtime filters for all log operations,
+including filtering by levels, log message, attribute key/value contents,
+and multiple sampling filters for statistical and monitoring purposes.
 
 ```rust
 use rasant as r;
@@ -170,8 +170,8 @@ use rasant as r;
 let mut log = r::Logger::new();
 log.add_sink(r::sink::stdout::default()).set_all_levels();
 log.add_filter(
-    r::filter::levels::Levels::new(
-        r::filter::levels::LevelsConfig {
+    r::filter::level::In::new(
+        r::filter::level::InConfig {
             levels: [Level::Debug, Level::Warning],
         }));
 

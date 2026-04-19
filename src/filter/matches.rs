@@ -99,7 +99,7 @@ pub struct AttributeKey {
 }
 
 impl AttributeKey {
-	/// Initializes a new message log [`filter`], from a given [`MessageConfig`].
+	/// Initializes a new message log [`filter`], from a given [`AttributeKeyConfig`].
 	pub fn new<const A: usize, const B: usize>(conf: AttributeKeyConfig<A, B>) -> Self {
 		Self {
 			name: format!(
@@ -160,7 +160,7 @@ pub struct AttributeValueConfig<'s, const A: usize, const B: usize> {
 }
 
 /// An attribute value [filter][`filter::Filter`], which filters log updates based
-/// on the presence of am attribute, and its value conntents.
+/// on the presence of an attribute, and its value contents.
 pub struct AttributeValue {
 	name: string::String,
 	key: String,
@@ -170,7 +170,7 @@ pub struct AttributeValue {
 }
 
 impl AttributeValue {
-	/// Initializes a new message log [`filter`], from a given [`MessageConfig`].
+	/// Initializes a new message log [`filter`], from a given [`AttributeValueConfig`].
 	pub fn new<const A: usize, const B: usize>(conf: AttributeValueConfig<A, B>) -> Self {
 		Self {
 			name: format!(

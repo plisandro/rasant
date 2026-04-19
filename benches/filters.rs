@@ -48,9 +48,9 @@ mod level {
 	use super::*;
 
 	#[divan::bench]
-	fn levels(bencher: Bencher) {
+	fn level_in(bencher: Bencher) {
 		let mut log = init_logger();
-		log.add_filter(filter::levels::Levels::new(filter::levels::LevelsConfig {
+		log.add_filter(filter::level::In::new(filter::level::InConfig {
 			levels: [Level::Debug, Level::Info, Level::Fatal, Level::Panic],
 		}));
 		run(bencher, log);
