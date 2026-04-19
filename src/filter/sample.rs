@@ -110,7 +110,7 @@ impl filter::Filter for Step {
 
 /// Configuration struct for a [`RandomStep`] sampling [filter][`filter::Filter`].
 pub struct RandomStepConfig {
-	/// Interval size from which one log update is randomly selected.
+	/// Interval size from which one log update gets randomly selected.
 	pub step: u64,
 }
 

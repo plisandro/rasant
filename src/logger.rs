@@ -147,7 +147,9 @@ impl Logger {
 		let name: String = filter.name().into();
 		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
 
-		self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
+		if self.has_sinks() {
+			self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
+		}
 
 		self
 	}
