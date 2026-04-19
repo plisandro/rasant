@@ -161,7 +161,8 @@ r::info!(log, "in order!");
 ### Filtering
 
 Rasant supports optional, configurable runtime filters for all log operations.
-These include filtering by levels, log message and attribute key/value contents.
+These include filtering by levels, log message, attribute key/value contents, and
+sampling for statistical/monitoring purposes.
 
 ```rust
 use rasant as r;

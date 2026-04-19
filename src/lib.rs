@@ -215,9 +215,14 @@
 //!
 //! ## Log Filters
 //!
-//! [`Logger`]s supports optional, configurable [`filter`]s for log updates. These are evaluated
-//! on every log operation, blocking [`sink`] writes, unless the configured criteria for all
-//! filters is met.
+//! [`Logger`]s supports optional, configurable [`filter`]s for log updates. These are evaluated,
+//! in order, on every log operation, blocking [`sink`] writes unless the configured criteria for all
+//! filters is met. Multiple filters can be stacked to combine their behavior.
+//!
+//! [`filter`]s are evaluated after normal level checks, so their output is affected by each
+//! [`Logger`]s log level. When using level-based filters (f.ex. [Levels][`crate::filter::levels::Levels`]),
+//! consider enabling [set_all_levels()][`crate::logger::Logger::set_all_levels`] to avoid
+//! unexpected interactions.
 //!
 //! Note that [`filter`]s are evaluated at logging time, even for [`Logger`]s in
 //! asynchronous mode; as a result, every [`filter`] will introduce additional latency
@@ -229,6 +234,7 @@
 //!   - Log [message contents][`filter::matches::Message`].
 //!   - Log [attributes presence][`filter::matches::AttributeKey`].
 //!   - Log [attribute value contents][`filter::matches::AttributeValue`].
+//!   - Various log [output sampling][`filter::sample`] criteria.
 //!
 //! ## Error Handling
 //!

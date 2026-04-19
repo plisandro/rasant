@@ -1,9 +1,11 @@
 //! Level [`filter`] module.
 //!
-//! Allows to filter log updates by multiple levels.
+//! Allows to filter log updates by level.
 //!
 //! Note that [logger][`crate::logger::Logger`]s will still apply level checks, so consider
 //! enabling [set_all_levels()][`crate::logger::Logger::set_all_levels`] when using this filter.
+
+// TODO: rename module to just level.rs, and "Levels" to "In".
 
 use std::string;
 

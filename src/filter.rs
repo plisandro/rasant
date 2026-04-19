@@ -5,6 +5,7 @@
 
 pub mod levels;
 pub mod matches;
+pub mod sample;
 
 use crate::attributes;
 use crate::sink::LogUpdate;

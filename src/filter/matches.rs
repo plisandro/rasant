@@ -3,6 +3,10 @@
 //! Provides log update filters matching substrings in the message body,
 //! presence of attributes keys, and attribute value contents.
 //!
+//! Note that matchers are comparatively expensive to run (against the
+//! rest of Rasant) as they operate on every single meesage, attribute key
+//! and attribute value of every log update received.
+//!
 
 use std::string;
 
