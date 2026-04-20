@@ -35,6 +35,10 @@ name = "allocs"
 harness = false
 
 [[bench]]
+name = "attributes"
+harness = false
+
+[[bench]]
 name = "filters"
 harness = false
 
