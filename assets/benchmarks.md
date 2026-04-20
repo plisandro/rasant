@@ -1,8 +1,25 @@
 # Benchmarks 
 
-## Integration test benchmarks
+## Third-party
 
-Basic benchmark tests, intended to gauge performance progress across versions, launched with
+### [rust_logger_benchmark](https://github.com/jackson211/rust_logger_benchmark)
+
+This project compares the performance of multiple logging libraries for Rust, including
+[log](https://crates.io/crates/log), [slog](https://crates.io/crates/slog) and
+[tracing](https://crates.io/crates/tracing).
+
+Depending on the scenario, Rasant v0.6.0 performs in average 18% to 41% faster
+than [slog](https://crates.io/crates/slog), second fastest in the benchmark,
+and 41% to 57% faster than [tracing](https://crates.io/crates/tracing).
+
+<img src="rust_logger_benchmark.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
+
+<img src="rust_logger_benchmark_-_log_size.svg" title="https://github.com/jackson211/rust_logger_benchmark" height="960px"/>
+
+## Internal
+
+Rasant includes a number of [Divan](https://crates.io/crates/divan) benchmark tests,
+intended to gauge performance progress across versions, wich can be run via
 `cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
