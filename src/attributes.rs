@@ -220,6 +220,10 @@ impl Map {
 		_ = self.main.set(key, &[val]);
 	}
 
+	pub fn insert_multi<const N: usize>(&mut self, key: &str, vals: &[Value; N]) {
+		_ = self.main.set(key, vals);
+	}
+
 	pub fn clear_ephemeral(&mut self) {
 		self.ephemeral_new.clear();
 		self.ephemeral_priority.clear();
@@ -227,12 +231,16 @@ impl Map {
 	}
 
 	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
+		_ = self.insert_ephemeral_multi(key, &[val]);
+	}
+
+	pub fn insert_ephemeral_multi<const N: usize>(&mut self, key: &str, vals: &[Value; N]) {
 		match self.main.has(key) {
 			false => match is_key_priority(key) {
-				true => self.ephemeral_priority.set(key, &[val]),
-				false => self.ephemeral_new.set(key, &[val]),
+				true => self.ephemeral_priority.set(key, vals),
+				false => self.ephemeral_new.set(key, vals),
 			},
-			true => self.ephemeral_overlap.set(key, &[val]),
+			true => self.ephemeral_overlap.set(key, vals),
 		}
 	}
 }
@@ -353,13 +361,17 @@ impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut first: bool = true;
 		for (key, vals) in self.iter() {
-			write!(f, "{spacer}{key}=", spacer = if first { "" } else { " " })?;
+			write!(f, "{spacer}{key}={list_open}", spacer = if first { "" } else { " " }, list_open = if vals.len() > 1 { "[" } else { "" })?;
 			for i in 0..vals.len() {
 				let sep = if i != 0 { ", " } else { "" };
 				write!(f, "{sep}{val}", val = vals[i])?;
 			}
+			if vals.len() > 1 {
+				write!(f, "]")?;
+			}
 			first = false;
 		}
+
 		Ok(())
 	}
 }
@@ -504,14 +516,15 @@ mod map_tests {
 
 		attr.insert("key_a", 123.to_value());
 		attr.insert("key_b", 456.to_value());
-		attr.insert("key_c", 789.to_value());
-		attr.insert("key_b", "overwrites should not change key order".to_value());
-		attr.insert("error", "priority keys should go first".to_value());
+		attr.insert_multi("key_c", &[789.to_value(), true.to_value()]);
+		attr.insert_multi("key_b", &["overwrites should not change key order".to_value()]);
+		attr.insert_multi("error", &["priority keys should go first".to_value()]);
 
 		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.main.store_size(), 5);
 		assert_eq!(
 			attr.to_string(),
-			"error=\"priority keys should go first\" key_a=123 key_b=\"overwrites should not change key order\" key_c=789"
+			"error=\"priority keys should go first\" key_a=123 key_b=\"overwrites should not change key order\" key_c=[789, true]"
 		);
 	}
 
@@ -519,52 +532,77 @@ mod map_tests {
 	fn ephemeral_attributes() {
 		let mut attr = Map::new();
 
-		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", 456.to_value());
+		attr.insert_multi("key_a", &[123.to_value(), "lalala".to_value()]);
+		attr.insert_multi("key_b", &[456.to_value(), "lololo".to_value()]);
 		attr.insert("key_c", 789.to_value());
 		attr.insert("error", "first error".to_value());
 
 		attr.insert_ephemeral("key_b", "overwrites should not change key order".to_value());
 		attr.insert_ephemeral("key_d", "new key".to_value());
-		attr.insert_ephemeral("error", "new error".to_value());
+		attr.insert_ephemeral_multi("error", &["new".to_value(), "error".to_value()]);
 
 		assert_eq!(attr.len(), 5);
 		assert_eq!(attr.main.len(), 4);
+		assert_eq!(attr.main.store_size(), 6);
 		assert_eq!(attr.ephemeral_new.len(), 1);
+		assert_eq!(attr.ephemeral_new.store_size(), 1);
 		assert_eq!(attr.ephemeral_priority.len(), 0);
+		assert_eq!(attr.ephemeral_priority.store_size(), 0);
 		assert_eq!(attr.ephemeral_overlap.len(), 2);
+		assert_eq!(attr.ephemeral_overlap.store_size(), 3);
 		assert_eq!(
 			attr.to_string(),
-			"error=\"new error\" key_a=123 key_b=\"overwrites should not change key order\" key_c=789 key_d=\"new key\"",
+			"error=[\"new\", \"error\"] key_a=[123, \"lalala\"] key_b=\"overwrites should not change key order\" key_c=789 key_d=\"new key\"",
 		);
 
 		attr.clear_ephemeral();
 
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.main.len(), 4);
+		assert_eq!(attr.main.store_size(), 6);
 		assert_eq!(attr.ephemeral_new.len(), 0);
+		assert_eq!(attr.ephemeral_new.store_size(), 0);
 		assert_eq!(attr.ephemeral_priority.len(), 0);
+		assert_eq!(attr.ephemeral_priority.store_size(), 0);
 		assert_eq!(attr.ephemeral_overlap.len(), 0);
-		assert_eq!(attr.to_string(), "error=\"first error\" key_a=123 key_b=456 key_c=789",);
+		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
+		assert_eq!(attr.to_string(), "error=\"first error\" key_a=[123, \"lalala\"] key_b=[456, \"lololo\"] key_c=789",);
 	}
 
 	#[test]
 	fn ephemeral_new_priority_keys() {
 		let mut attr = Map::new();
 
-		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", 456.to_value());
-		attr.insert("key_c", 789.to_value());
+		attr.insert_multi("key_a", &[123.to_value()]);
+		attr.insert_multi("key_b", &[456.to_value(), true.to_value()]);
+		attr.insert_multi("key_c", &[789.to_value()]);
 
-		attr.insert_ephemeral("error", "oh no!".to_value());
+		attr.insert_ephemeral_multi("error", &["oh".to_value(), "no!".to_value()]);
 		attr.insert_ephemeral("key_d", "new key".to_value());
 
 		assert_eq!(attr.len(), 5);
 		assert_eq!(attr.main.len(), 3);
+		assert_eq!(attr.main.store_size(), 4);
 		assert_eq!(attr.ephemeral_new.len(), 1);
+		assert_eq!(attr.ephemeral_new.store_size(), 1);
 		assert_eq!(attr.ephemeral_priority.len(), 1);
+		assert_eq!(attr.ephemeral_priority.store_size(), 2);
 		assert_eq!(attr.ephemeral_overlap.len(), 0);
-		assert_eq!(attr.to_string(), "error=\"oh no!\" key_a=123 key_b=456 key_c=789 key_d=\"new key\"",);
+		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
+		assert_eq!(attr.to_string(), "error=[\"oh\", \"no!\"] key_a=123 key_b=[456, true] key_c=789 key_d=\"new key\"",);
+
+		attr.clear_ephemeral();
+
+		assert_eq!(attr.len(), 3);
+		assert_eq!(attr.main.len(), 3);
+		assert_eq!(attr.main.store_size(), 4);
+		assert_eq!(attr.ephemeral_new.len(), 0);
+		assert_eq!(attr.ephemeral_new.store_size(), 0);
+		assert_eq!(attr.ephemeral_priority.len(), 0);
+		assert_eq!(attr.ephemeral_priority.store_size(), 0);
+		assert_eq!(attr.ephemeral_overlap.len(), 0);
+		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
+		assert_eq!(attr.to_string(), "key_a=123 key_b=[456, true] key_c=789",);
 	}
 
 	#[test]
@@ -572,12 +610,12 @@ mod map_tests {
 		let mut attr = Map::new();
 
 		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", 456.to_value());
-		attr.insert("key_c", 789.to_value());
+		attr.insert_multi("key_b", &[456.to_value(), true.to_value()]);
+		attr.insert_multi("key_c", &[789.to_value(), false.to_value()]);
 		attr.insert("error", "first error".to_value());
 
 		attr.insert_ephemeral("key_b", "overwrite!".to_value());
-		attr.insert_ephemeral("key_d", "new key".to_value());
+		attr.insert_ephemeral_multi("key_d", &["new".to_value(), " key".to_value()]);
 		attr.insert_ephemeral("error", "new error".to_value());
 
 		let mut got: Vec<(&str, Vec<Value>)> = Vec::new();
@@ -591,8 +629,8 @@ mod map_tests {
 				("error", vec!["new error".to_value()]),
 				("key_a", vec![123.to_value()]),
 				("key_b", vec!["overwrite!".to_value()]),
-				("key_c", vec![789.to_value()]),
-				("key_d", vec!["new key".to_value()]),
+				("key_c", vec![789.to_value(), false.to_value()]),
+				("key_d", vec!["new".to_value(), " key".to_value()]),
 			]
 		);
 	}
@@ -602,12 +640,12 @@ mod map_tests {
 		let mut attr = Map::new();
 
 		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", 456.to_value());
-		attr.insert("key_c", 789.to_value());
+		attr.insert_multi("key_b", &[456.to_value(), true.to_value()]);
+		attr.insert_multi("key_c", &[789.to_value(), false.to_value()]);
 		attr.insert("error", "first error".to_value());
 
 		attr.insert_ephemeral("key_b", "overwrite!".to_value());
-		attr.insert_ephemeral("key_d", "new key".to_value());
+		attr.insert_ephemeral_multi("key_d", &["new".to_value(), " key".to_value()]);
 		attr.insert_ephemeral("error", "new error".to_value());
 
 		let mut got_keys: Vec<&str> = Vec::new();
