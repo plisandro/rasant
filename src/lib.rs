@@ -58,7 +58,7 @@
 //! ## Stacking
 //!
 //! All [`Logger`]s can be cheaply cloned, inheriting all settings from its
-//! parent - including [Level][`level::Level`]s, [`sink`]s, [`filter`]s
+//! parents - including [Level][`level::Level`]s, [`sink`]s, [`filter`]s
 //! and fixed [attributes](#attributes), allowing for very flexible setups.
 //!
 //! For example, to have all errors (or higher) within a thread logged to
@@ -75,8 +75,8 @@
 //! let mut thread_log = log.clone();
 //! thread::spawn(move || {
 //!     thread_log.add_sink(r::sink::stderr::default()).set_level(r::Level::Error);
-//!
 //! 	r::set!(thread_log, thread_id = thread::current().id());
+//!
 //! 	r::info!(thread_log, "this will not log anything");
 //! 	r::fatal!(thread_log, "but this will log to both stdout and stderr");
 //! });
@@ -147,14 +147,24 @@
 //!
 //! ```rust
 //! use rasant as r;
+//! use std::time::Duration;
 //!
+//! // Log a maximum of 10 Debug, Warning and Fatal updates per second, to keep SREs happy.
 //! let mut log = r::Logger::new();
-//! log.add_sink(r::sink::stdout::default()).set_all_levels();
-//! log.add_filter(
-//!     r::filter::level::In::new(
-//!         r::filter::level::InConfig {
-//!             levels: [r::Level::Debug, r::Level::Warning, r::Level::Fatal],
-//!         }));
+//! log
+//!     .add_sink(r::sink::stdout::default())
+//!     .set_all_levels()
+//!     .add_filter(
+//!         r::filter::level::In::new(
+//!             r::filter::level::InConfig {
+//!                 levels: [r::Level::Debug, r::Level::Warning, r::Level::Fatal],
+//!             }))
+//!     .add_filter(
+//!         r::filter::sample::Burst::new(
+//!             r::filter::sample::BurstConfig {
+//!                 period: Duration::from_millis(1000),
+//!                 max_updates: 10,
+//!             }));
 //!
 //! r::info!(log, "this will not log");
 //! r::debug!(log, "but");

@@ -49,7 +49,7 @@ fn burst() {
 		log.set_level(Level::Info)
 			.add_filter(filter::sample::Burst::new(filter::sample::BurstConfig {
 				period: ntime::Duration::from_millis(5),
-				max_messages: 2,
+				max_updates: 2,
 			}))
 			.add_sink(string_sink);
 

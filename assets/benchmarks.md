@@ -24,7 +24,7 @@ intended to gauge performance progress across versions, wich can be run via
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
 
-### Version 0.6.0 (2026-04-07)
+### Version 0.6.0 (2026-04-16)
 
 Zero allocation for all attribute types, excluding long `String`s.
 

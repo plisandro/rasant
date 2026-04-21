@@ -125,7 +125,7 @@ mod sample {
 		let mut log = init_logger();
 		log.add_filter(filter::sample::Burst::new(filter::sample::BurstConfig {
 			period: Duration::from_millis(100),
-			max_messages: 1500,
+			max_updates: 1500,
 		}));
 		run(bencher, log);
 	}

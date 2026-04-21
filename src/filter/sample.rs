@@ -170,8 +170,8 @@ impl filter::Filter for RandomStep {
 pub struct BurstConfig {
 	/// Burst period.
 	pub period: ntime::Duration,
-	/// Maximum number of messages allowed per burst period.
-	pub max_messages: u64,
+	/// Maximum number of log updates allowed per burst period.
+	pub max_updates: u64,
 }
 
 /// A burst sampling [filter][`filter::Filter`], selecting a given maximum
@@ -181,18 +181,18 @@ pub struct Burst {
 	period: Duration,
 	period_end: Timestamp,
 	period_count: u64,
-	max_messages: u64,
+	max_updates: u64,
 }
 
 impl Burst {
 	/// Initializes a new [`Burst`] sampling log [`filter`], from a given [`BurstConfig`].
 	pub fn new(conf: BurstConfig) -> Self {
 		Self {
-			name: format!("burst sample filter (max {max} per {period:?})", max = conf.max_messages, period = conf.period),
+			name: format!("burst sample filter (max {max} per {period:?})", max = conf.max_updates, period = conf.period),
 			period: conf.period,
 			period_end: ntime::Timestamp::epoch(),
 			period_count: 0,
-			max_messages: conf.max_messages,
+			max_updates: conf.max_updates,
 		}
 	}
 }
@@ -214,7 +214,7 @@ impl filter::Filter for Burst {
 			self.period_count = 0;
 		}
 
-		if self.period_count >= self.max_messages {
+		if self.period_count >= self.max_updates {
 			return false;
 		}
 
@@ -316,7 +316,7 @@ mod burst {
 		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
 		let mut filter = Burst::new(BurstConfig {
 			period: Duration::from_millis(5),
-			max_messages: 3,
+			max_updates: 3,
 		});
 
 		let mut got: Vec<usize> = Vec::new();

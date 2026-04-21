@@ -48,9 +48,9 @@ rasant = "0.6.0"
 Rasant is under active development and on track for a v1.0.0 release. You may see small public
 API changes until then, but the library is otherwise stable and fully functional.
 
-## Getting started
+## Getting Started
 
-### Basic examples
+### Basic Examples
 
 Loggers can be easily initialized using sink defaults, and accessed via methods...
 
@@ -88,7 +88,7 @@ r::debug!(log, "and i'm ignored :(");
 
 ### Stacking
 
-All loggers can be cheaply cloned, inheriting all settings from its parent - including
+All loggers can be cheaply cloned, inheriting all settings from its parents - including
 levels, sinks, filters and fixed attributes - allowing for very flexible setups. For example,
 to have all errors (or higher) within a thread logged to `stderr`:
 
@@ -103,8 +103,8 @@ r::info!(log, "main logs to stdout only");
 let mut thread_log = log.clone();
 thread::spawn(move || {
 	thread_log.add_sink(r::sink::stderr::default()).set_level(r::Level::Error);
-
 	r::set!(thread_log, thread_id = thread::current().id());
+
 	r::info!(thread_log, "this will not log anything");
 	r::fatal!(thread_log, "but this will log to both stdout and stderr");
 });
@@ -166,17 +166,28 @@ and multiple sampling filters for statistical and monitoring purposes.
 
 ```rust
 use rasant as r;
+use std::time::Duration;
 
+// Log a maximum of 10 Debug, Warning and Fatal updates per second, to keep SREs happy.
 let mut log = r::Logger::new();
-log.add_sink(r::sink::stdout::default()).set_all_levels();
-log.add_filter(
-    r::filter::level::In::new(
-        r::filter::level::InConfig {
-            levels: [Level::Debug, Level::Warning],
-        }));
+log
+    .add_sink(r::sink::stdout::default())
+    .set_all_levels()
+    .add_filter(
+        r::filter::level::In::new(
+            r::filter::level::InConfig {
+                levels: [r::Level::Debug, r::Level::Warning, r::Level::Fatal],
+            }))
+    .add_filter(
+        r::filter::sample::Burst::new(
+            r::filter::sample::BurstConfig {
+                period: Duration::from_millis(1000),
+                max_updates: 10,
+            }));
 
-r::info!(log, "this will not log"):
-r::debug!(log, "but these");
+r::info!(log, "this will not log");
+r::debug!(log, "but");
+r::fatal!(log, "these");
 r::warn!(log, "will");
 ```
 
