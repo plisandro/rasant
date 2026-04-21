@@ -22,9 +22,9 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
-/// Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
-	compact::write_value(out, val)
+/// Serializes a set of [`Value`]s for [`OutputFormat::ColorCompact`] into a [`io::Write`].
+pub fn write_values<T: io::Write>(out: &mut T, vals: &[Value]) -> io::Result<()> {
+	compact::write_values(out, vals)
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
@@ -46,17 +46,17 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	)?;
 
 	// append fields
-	for (key, val) in attrs.iter() {
+	for (key, vals) in attrs.iter() {
 		write!(
 			out,
-			" {key_open}{key}{key_close}={val_open}",
+			" {key_open}{key}{key_close}={vals_open}",
 			key_open = Color::Cyan.to_escape_str(),
 			key_close = Color::Default.to_escape_str(),
 			// error attributes are highlighted in red
-			val_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
+			vals_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
 		)?;
-		write_value(out, val)?;
-		write!(out, "{val_close}", val_close = Color::Default.to_escape_str())?;
+		write_values(out, vals)?;
+		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;
 	}
 
 	Ok(())
@@ -72,25 +72,19 @@ mod tests {
 	//use ntime::Timestamp;
 
 	#[test]
-	fn serialize_write() {
-		for tc in [
-			(Value::Bool(true), "true"),
-			(Value::String("".into()), "\"\""),
-			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Value::Int(-123), "-123"),
-			(Value::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
-			(Value::Size(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Uint(123456), "123456"),
-			(Value::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
-			(Value::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
-			(Value::Float(-1.2345), "-1.2345"),
-		] {
-			let (v, want): (Value, &str) = tc;
+	fn serialize_multi_value() {
+		let vals = &[
+			Value::Bool(true),
+			Value::String("abcd 1234".into()),
+			Value::Int(-123),
+			Value::Size(89801234567890123),
+			Value::Float(5678901.2345),
+		];
+		let want = "[true, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]";
 
-			let mut out = Vec::new();
-			assert!(write_value(&mut out, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
-		}
+		let mut out = Vec::new();
+		assert!(write_values(&mut out, vals).is_ok());
+		assert_eq!(String::from_utf8(out).unwrap(), want);
 	}
 
 	// TODO: enable tests once color support can be overriden
@@ -109,6 +103,7 @@ mod tests {
 		attrs.insert("a_float", (-456.789).to_value());
 		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
+		// TODO: add attribute with multiple values
 
 		let want = "1776016599123000456 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mtest compact update\u{1b}[0m \u{1b}[36man_int\u{1b}[0m=123\u{1b}[0m \u{1b}[36ma_float\u{1b}[0m=-456.789\u{1b}[0m \u{1b}[36ma_usize\u{1b}[0m=0x14da0eb6\u{1b}[0m \u{1b}[36msome_string\u{1b}[0m=\"hi there!\"\u{1b}[0m";
 		let mut out = Vec::new();
@@ -130,6 +125,7 @@ mod tests {
 		attrs.insert("a_float", (-456.789).to_value());
 		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
+		// TODO: add attribute with multiple values
 
 		let want = "1776016599123000456 [WRN] test compact update an_int=123 a_float=-456.789 a_usize=0x14da0eb6 some_string=\"hi there!\"";
 		let mut out = Vec::new();

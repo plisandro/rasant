@@ -27,6 +27,7 @@ struct KvStore {
 	keys: String,
 	values: Vec<Value>,
 	key_idxs: Vec<(usize, usize)>,
+	value_idxs: Vec<(usize, usize)>,
 }
 
 impl KvStore {
@@ -35,6 +36,7 @@ impl KvStore {
 			keys: String::new(),
 			values: Vec::new(),
 			key_idxs: Vec::new(),
+			value_idxs: Vec::new(),
 		}
 	}
 
@@ -42,6 +44,7 @@ impl KvStore {
 		self.keys.clear();
 		self.values.clear();
 		self.key_idxs.clear();
+		self.value_idxs.clear();
 	}
 
 	fn key_to_idx(&self, key: &str) -> Option<usize> {
@@ -70,40 +73,71 @@ impl KvStore {
 		}
 	}
 
-	fn value_by_idx(&self, i: usize) -> &Value {
-		&self.values[i]
+	fn values_by_idx(&self, i: usize) -> &[Value] {
+		let (start, end) = self.value_idxs[i];
+		&self.values[start..end + 1]
 	}
 
 	fn len(&self) -> usize {
 		self.key_idxs.len()
 	}
 
+	fn store_size(&self) -> usize {
+		self.values.len()
+	}
+
 	fn has(&self, key: &str) -> bool {
 		self.key_to_idx(key).is_some()
 	}
 
-	fn get(&self, key: &str) -> Option<&Value> {
+	fn get(&self, key: &str) -> Option<&[Value]> {
 		match self.key_to_idx(key) {
-			Some(i) => Some(&self.values[i]),
+			Some(i) => Some(self.values_by_idx(i)),
 			None => None,
 		}
 	}
 
-	fn set(&mut self, key: &str, val: Value) {
+	fn set<const N: usize>(&mut self, key: &str, vals: &[Value; N]) {
 		if key.len() == 0 {
-			panic!("empty log attribute key {{\"\" -> {val}}}");
+			panic!("empty log attribute key {{\"\" -> {vals:?}}}");
+		}
+		if vals.len() == 0 {
+			panic!("empty log attribute values {{\"{key}\" -> {vals:?}}}");
 		}
 		if key.chars().any(|c| c.is_whitespace()) {
-			panic!("invalid log attribute key {{\"{key}\" -> {val}}}");
+			panic!("invalid log attribute key {{\"{key}\" -> {vals:?}}}");
 		}
 		if is_key_restricted(key) {
-			panic!("cannot use restricted log attribute key {{\"{key}\" -> {val}}}");
+			panic!("cannot use restricted log attribute key {{\"{key}\" -> {vals:?}}}");
 		}
 
 		match self.key_to_idx(key) {
 			Some(i) => {
 				// overwrite existing key
-				self.values[i] = val;
+				let (pre_start, pre_end) = self.value_idxs[i];
+				let pre_size = pre_end - pre_start + 1;
+				match vals.len() == pre_size {
+					true => {
+						// yay, new values fit in the existing slot
+						// TODO: is there any way to copy instead?
+						self.values[pre_start..pre_end + 1].clone_from_slice(vals);
+					}
+					false => {
+						// we need to resize :'(
+						for (start, end) in &mut self.value_idxs {
+							if *start >= pre_size && *start > pre_start {
+								*start -= pre_size;
+								*end -= pre_size;
+							}
+						}
+
+						self.values.drain(pre_start..pre_end + 1);
+						let start_idx = self.values.len();
+						let end_idx = start_idx + vals.len() - 1;
+						self.values.extend_from_slice(vals);
+						self.value_idxs[i] = (start_idx, end_idx);
+					}
+				}
 			}
 			None => {
 				// new key
@@ -116,15 +150,23 @@ impl KvStore {
 					}
 					self.keys.insert_str(0, key);
 					self.key_idxs.insert(0, (0, key_len - 1));
-					self.values.insert(0, val);
+
+					let start_idx = self.values.len();
+					let end_idx = start_idx + vals.len() - 1;
+					self.values.extend_from_slice(vals);
+					self.value_idxs.insert(0, (start_idx, end_idx));
 				} else {
 					// insert new key last
 					let key_start = self.keys.len();
 					let key_end = key_start + key_len - 1;
 					self.key_idxs.push((key_start, key_end));
 					self.keys.push_str(key);
-					self.values.push(val);
-				};
+
+					let start_idx = self.values.len();
+					let end_idx = start_idx + vals.len() - 1;
+					self.values.extend_from_slice(vals);
+					self.value_idxs.push((start_idx, end_idx));
+				}
 			}
 		}
 	}
@@ -164,18 +206,18 @@ impl Map {
 		self.main.has(key) || self.ephemeral_new.has(key) || self.ephemeral_priority.has(key)
 	}
 
-	pub fn get(&self, key: &str) -> Option<&Value> {
-		if let Some(val) = self.ephemeral_new.get(key) {
-			return Some(val);
+	pub fn get(&self, key: &str) -> Option<&[Value]> {
+		if let Some(vals) = self.ephemeral_new.get(key) {
+			return Some(vals);
 		}
-		if let Some(val) = self.ephemeral_priority.get(key) {
-			return Some(val);
+		if let Some(vals) = self.ephemeral_priority.get(key) {
+			return Some(vals);
 		}
 		self.main.get(key)
 	}
 
 	pub fn insert(&mut self, key: &str, val: Value) {
-		_ = self.main.set(key, val);
+		_ = self.main.set(key, &[val]);
 	}
 
 	pub fn clear_ephemeral(&mut self) {
@@ -187,10 +229,10 @@ impl Map {
 	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
 		match self.main.has(key) {
 			false => match is_key_priority(key) {
-				true => self.ephemeral_priority.set(key, val),
-				false => self.ephemeral_new.set(key, val),
+				true => self.ephemeral_priority.set(key, &[val]),
+				false => self.ephemeral_new.set(key, &[val]),
 			},
-			true => self.ephemeral_overlap.set(key, val),
+			true => self.ephemeral_overlap.set(key, &[val]),
 		}
 	}
 }
@@ -268,16 +310,16 @@ impl<'i> MapIter<'i> {
 
 impl<'i> Iterator for MapIter<'i> {
 	// {key: value}
-	type Item = (&'i str, &'i Value);
+	type Item = (&'i str, &'i [Value]);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		// iterate over priority ephemeral KVs
 		match self.map.ephemeral_priority.key_by_idx(self.ephemeral_priority_idx) {
 			None => (),
 			Some(key) => {
-				let val = self.map.ephemeral_priority.value_by_idx(self.ephemeral_priority_idx);
+				let vals = self.map.ephemeral_priority.values_by_idx(self.ephemeral_priority_idx);
 				self.ephemeral_priority_idx += 1;
-				return Some((key, val));
+				return Some((key, vals));
 			}
 		}
 
@@ -285,13 +327,13 @@ impl<'i> Iterator for MapIter<'i> {
 		match self.map.main.key_by_idx(self.main_idx) {
 			None => (),
 			Some(key) => {
-				let val = match self.map.ephemeral_overlap.get(key) {
-					Some(v) => v,
-					None => self.map.main.value_by_idx(self.main_idx),
+				let vals = match self.map.ephemeral_overlap.get(key) {
+					Some(vs) => vs,
+					None => self.map.main.values_by_idx(self.main_idx),
 				};
 
 				self.main_idx += 1;
-				return Some((key, val));
+				return Some((key, vals));
 			}
 		}
 
@@ -299,9 +341,9 @@ impl<'i> Iterator for MapIter<'i> {
 		match self.map.ephemeral_new.key_by_idx(self.ephemeral_new_idx) {
 			None => None,
 			Some(key) => {
-				let val = self.map.ephemeral_new.value_by_idx(self.ephemeral_new_idx);
+				let vals = self.map.ephemeral_new.values_by_idx(self.ephemeral_new_idx);
 				self.ephemeral_new_idx += 1;
-				Some((key, val))
+				Some((key, vals))
 			}
 		}
 	}
@@ -310,8 +352,12 @@ impl<'i> Iterator for MapIter<'i> {
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut first: bool = true;
-		for (key, val) in self.iter() {
-			write!(f, "{spacer}{key}={val}", spacer = if first { "" } else { " " })?;
+		for (key, vals) in self.iter() {
+			write!(f, "{spacer}{key}=", spacer = if first { "" } else { " " })?;
+			for i in 0..vals.len() {
+				let sep = if i != 0 { ", " } else { "" };
+				write!(f, "{sep}{val}", val = vals[i])?;
+			}
 			first = false;
 		}
 		Ok(())
@@ -329,13 +375,14 @@ mod kv_store_tests {
 	fn indexed_keys_order() {
 		let mut kv = KvStore::new();
 
-		kv.set("key_a", 123.to_value());
-		kv.set("key_b", 456.to_value());
-		kv.set("key_c", 789.to_value());
-		kv.set("key_b", "overwrites should not change key order".to_value());
-		kv.set("error", "priority keys should go first".to_value());
+		kv.set("key_a", &[123.to_value()]);
+		kv.set("key_b", &[456.to_value()]);
+		kv.set("key_c", &[789.to_value(), "abc".to_value()]);
+		kv.set("key_b", &["overwrites should not change key order".to_value()]);
+		kv.set("error", &["priority keys should go first".to_value()]);
 
 		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 5);
 		assert_eq!(kv.key_to_idx("error"), Some(0));
 		assert_eq!(kv.key_to_idx("key_a"), Some(1));
 		assert_eq!(kv.key_to_idx("key_b"), Some(2));
@@ -348,35 +395,101 @@ mod kv_store_tests {
 		let mut kv = KvStore::new();
 
 		assert_eq!(kv.len(), 0);
+		assert_eq!(kv.store_size(), 0);
 
-		kv.set("c", (-5678).to_value());
-		kv.set("d", (9012.3456).to_value());
-		kv.set("b", (1234).to_value());
+		kv.set("c", &[(-5678).to_value()]);
+		kv.set("d", &[(9012.3456).to_value()]);
+		kv.set("b", &[(1234).to_value()]);
+		assert_eq!(kv.len(), 3);
+		assert_eq!(kv.store_size(), 3);
+
 		// overwrite existing key
-		kv.set("d", (7890.1234).to_value());
-		kv.set("error", "first!".to_value());
-		kv.set("e", Value::Size(77889900));
-		kv.set("a", "lalala".to_value());
-
+		kv.set("d", &[(7890.1234).to_value()]);
+		kv.set("error", &["first!".to_value()]);
+		kv.set("e", &[Value::Size(7788), Value::Size(9900)]);
+		kv.set("a", &["lalala".to_value()]);
 		assert_eq!(kv.len(), 6);
+		assert_eq!(kv.store_size(), 7);
+	}
+
+	#[test]
+	fn key_overwrite() {
+		let mut kv = KvStore::new();
+
+		kv.set("a", &[1234.to_value(), (-5678).to_value()]);
+		kv.set("b", &[("lalala").to_value()]);
+		kv.set("c", &[true.to_value(), false.to_value(), true.to_value()]);
+		kv.set("d", &[false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 7);
+
+		// same size overwrite
+		kv.set("b", &[(123.456).to_value()]);
+		assert_eq!(kv.get("a").unwrap(), &[(1234).to_value(), (-5678).to_value()]);
+		assert_eq!(kv.get("b").unwrap(), &[(123.456).to_value()]);
+		assert_eq!(kv.get("c").unwrap(), &[true.to_value(), false.to_value(), true.to_value()]);
+		assert_eq!(kv.get("d").unwrap(), &[false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 7);
+
+		// overwrite with size increasee
+		kv.set("b", &[1.to_value(), 2.to_value(), 3.to_value(), 4.to_value()]);
+		assert_eq!(kv.get("a").unwrap(), &[(1234).to_value(), (-5678).to_value()]);
+		assert_eq!(kv.get("b").unwrap(), &[1.to_value(), 2.to_value(), 3.to_value(), 4.to_value()]);
+		assert_eq!(kv.get("c").unwrap(), &[true.to_value(), false.to_value(), true.to_value()]);
+		assert_eq!(kv.get("d").unwrap(), &[false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 10);
+
+		// overwrite with size decrease
+		kv.set("c", &["lololo".to_value()]);
+		assert_eq!(kv.get("a").unwrap(), &[(1234).to_value(), (-5678).to_value()]);
+		assert_eq!(kv.get("b").unwrap(), &[1.to_value(), 2.to_value(), 3.to_value(), 4.to_value()]);
+		assert_eq!(kv.get("c").unwrap(), &["lololo".to_value()]);
+		assert_eq!(kv.get("d").unwrap(), &[false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 8);
+
+		// modify the first and last attribute sizes to check edge handling
+		kv.set("a", &[(1234).to_value()]);
+		assert_eq!(kv.get("a").unwrap(), &[(1234).to_value()]);
+		assert_eq!(kv.get("b").unwrap(), &[1.to_value(), 2.to_value(), 3.to_value(), 4.to_value()]);
+		assert_eq!(kv.get("c").unwrap(), &["lololo".to_value()]);
+		assert_eq!(kv.get("d").unwrap(), &[false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 7);
+
+		kv.set("d", &[true.to_value(), false.to_value()]);
+		assert_eq!(kv.get("a").unwrap(), &[(1234).to_value()]);
+		assert_eq!(kv.get("b").unwrap(), &[1.to_value(), 2.to_value(), 3.to_value(), 4.to_value()]);
+		assert_eq!(kv.get("c").unwrap(), &["lololo".to_value()]);
+		assert_eq!(kv.get("d").unwrap(), &[true.to_value(), false.to_value()]);
+		assert_eq!(kv.len(), 4);
+		assert_eq!(kv.store_size(), 8);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_key() {
-		KvStore::new().set("", "oh no".to_value());
+		KvStore::new().set("", &["oh no".to_value()]);
+	}
+
+	#[test]
+	#[should_panic]
+	fn insert_empty_values() {
+		KvStore::new().set("a_key", &[]);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_invalid_key() {
-		KvStore::new().set("no\twhitespace\tin\tkeys", "please!".to_value());
+		KvStore::new().set("no\twhitespace\tin\tkeys", &["please!".to_value()]);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_restricted_key() {
-		KvStore::new().set("level", 55555i32.to_value());
+		KvStore::new().set("level", &[55555i32.to_value()]);
 	}
 }
 
@@ -467,19 +580,19 @@ mod map_tests {
 		attr.insert_ephemeral("key_d", "new key".to_value());
 		attr.insert_ephemeral("error", "new error".to_value());
 
-		let mut got: Vec<(&str, &Value)> = Vec::new();
-		for kv in attr.iter() {
-			got.push(kv);
+		let mut got: Vec<(&str, Vec<Value>)> = Vec::new();
+		for kvs in attr.iter() {
+			got.push((kvs.0, kvs.1.to_vec()));
 		}
 
 		assert_eq!(
 			got.as_array::<5>().expect("invalid number of keys"),
 			&[
-				("error", &"new error".to_value()),
-				("key_a", &123.to_value()),
-				("key_b", &"overwrite!".to_value()),
-				("key_c", &789.to_value()),
-				("key_d", &"new key".to_value()),
+				("error", vec!["new error".to_value()]),
+				("key_a", vec![123.to_value()]),
+				("key_b", vec!["overwrite!".to_value()]),
+				("key_c", vec![789.to_value()]),
+				("key_d", vec!["new key".to_value()]),
 			]
 		);
 	}

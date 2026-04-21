@@ -8,6 +8,7 @@
 //! and attribute value of every log update received.
 //!
 
+use std::cmp;
 use std::string;
 
 use crate::attributes;
@@ -167,6 +168,7 @@ pub struct AttributeValue {
 	has: Vec<String>,
 	has_not: Vec<String>,
 	match_all: bool,
+	str_cache: String,
 }
 
 impl AttributeValue {
@@ -184,6 +186,7 @@ impl AttributeValue {
 			match_all: conf.match_all,
 			has: conf.has.iter().map(|x: &&str| x.to_string()).collect(),
 			has_not: conf.has_not.iter().map(|x: &&str| x.to_string()).collect(),
+			str_cache: String::new(),
 		}
 	}
 }
@@ -194,31 +197,40 @@ impl filter::Filter for AttributeValue {
 	}
 
 	fn pass(&mut self, _: &sink::LogUpdate, attrs: &attributes::Map) -> bool {
-		let val = match attrs.get(self.key.as_str()) {
-			Some(v) => (*v).to_string(),
-			None => return false,
+		let Some(vals) = attrs.get(self.key.as_str()) else {
+			return false;
 		};
+		if self.has.is_empty() && self.has_not.is_empty() {
+			return true;
+		}
 
-		match self.match_all {
-			true => {
-				if !self.has.iter().all(|x| val.contains((*x).as_str())) {
-					return false;
+		// TODO: optimize?
+		let mut has_matches: usize = 0;
+		let mut has_not_matches: usize = 0;
+		for i in 0..cmp::max(self.has.len(), self.has_not.len()) {
+			let mut found_has: bool = false;
+			let mut found_has_not: bool = false;
+			for v in vals {
+				v.into_string(&mut self.str_cache);
+				if !found_has && i < self.has.len() {
+					found_has = self.str_cache.contains(self.has[i].as_str())
 				}
-				if !self.has_not.iter().all(|x| !val.contains((*x).as_str())) {
-					return false;
+				if !found_has_not && i < self.has_not.len() {
+					found_has_not = self.str_cache.contains(self.has_not[i].as_str());
 				}
 			}
-			false => {
-				if !self.has.is_empty() && !self.has.iter().any(|x| val.contains((*x).as_str())) {
-					return false;
-				}
-				if !self.has_not.is_empty() && !self.has_not.iter().any(|x| !val.contains((*x).as_str())) {
-					return false;
-				}
+			if found_has {
+				has_matches += 1;
+			}
+			if !found_has_not {
+				has_not_matches += 1;
 			}
 		}
 
-		true
+		match self.match_all {
+			true => (has_matches == self.has.len()) && (has_not_matches == self.has_not.len()),
+			false => (!self.has.is_empty() && has_matches > 0) || (!self.has_not.is_empty() && has_not_matches > 0),
+		}
 	}
 }
 
@@ -433,7 +445,7 @@ mod tests {
 	}
 
 	#[test]
-	fn attribute_keys() {
+	fn attribute_keys_single() {
 		fn run(mut filter: AttributeKey, want: bool) {
 			let mut args = attributes::Map::new();
 			args.insert("a_string", "hello there!".to_value());
@@ -538,6 +550,11 @@ mod tests {
 			}),
 			false,
 		);
+	}
+
+	#[test]
+	fn attribute_keys_multi() {
+		// TODO: implement me
 	}
 
 	#[test]

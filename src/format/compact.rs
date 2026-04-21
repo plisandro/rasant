@@ -21,7 +21,7 @@ pub fn default_format_config() -> FormatterConfig {
 
 /// Serializes a [`Value`] for [`OutputFormat::Compact`] into a [`io::Write`].
 pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
-	match &val {
+	match val {
 		Value::Bool(b) => write!(out, "{}", b),
 		Value::ShortString(ss) => write!(out, "\"{}\"", ss.as_str()),
 		Value::String(s) => write!(out, "\"{}\"", s),
@@ -44,7 +44,27 @@ pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 		Value::LongUint(u) => write!(out, "0x{:x}", u),
 		Value::Usize(u) => write!(out, "0x{:x}", u),
 		Value::Float(f) => write!(out, "{}", f),
+	}?;
+
+	Ok(())
+}
+
+/// Serializes a set of [`Value`]s for [`OutputFormat::Compact`] into a [`io::Write`].
+pub fn write_values<T: io::Write>(out: &mut T, vals: &[Value]) -> io::Result<()> {
+	if vals.len() == 1 {
+		return write_value(out, &vals[0]);
 	}
+
+	write!(out, "[")?;
+	for i in 0..vals.len() {
+		if i != 0 {
+			write!(out, ", ")?;
+		}
+		write_value(out, &vals[i])?;
+	}
+	write!(out, "]")?;
+
+	Ok(())
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::Compact`] into a [`io::Write`].
@@ -54,9 +74,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
 
 	// append fields
-	for (key, val) in attrs.iter() {
+	for (key, vals) in attrs.iter() {
 		write!(out, " {key}=")?;
-		write_value(out, val)?;
+		write_values(out, vals)?;
 	}
 
 	Ok(())
@@ -72,7 +92,7 @@ mod tests {
 	use ntime::Timestamp;
 
 	#[test]
-	fn serialize_write() {
+	fn serialize_single_value() {
 		for tc in [
 			(Value::Bool(true), "true"),
 			(Value::String("".into()), "\"\""),
@@ -94,6 +114,22 @@ mod tests {
 	}
 
 	#[test]
+	fn serialize_multi_value() {
+		let vals = &[
+			Value::Bool(true),
+			Value::String("abcd 1234".into()),
+			Value::Int(-123),
+			Value::Size(89801234567890123),
+			Value::Float(5678901.2345),
+		];
+		let want = "[true, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]";
+
+		let mut out = Vec::new();
+		assert!(write_values(&mut out, vals).is_ok());
+		assert_eq!(String::from_utf8(out).unwrap(), want);
+	}
+
+	#[test]
 	fn serialize() {
 		let update = LogUpdate::new(
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
@@ -107,6 +143,7 @@ mod tests {
 		attrs.insert("a_float", (-456.789).to_value());
 		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
+		// TODO: add attribute with multiple values
 
 		let want = "1776016599123000456 [WRN] test compact update an_int=123 a_float=-456.789 a_usize=0x14da0eb6 some_string=\"hi there!\"";
 		let mut out = Vec::new();

@@ -1,5 +1,6 @@
 use ntime::{Duration, Timestamp};
 use std::fmt;
+use std::fmt::Write;
 use std::thread;
 
 use crate::types;
@@ -203,6 +204,14 @@ impl fmt::Display for Value {
 	}
 }
 
+impl Value {
+	/// Serializes a [`Value`] into a pre-existing [`String`], whose contents are overwritten.
+	pub fn into_string(&self, out: &mut String) {
+		out.clear();
+		write!(*out, "{}", self).expect("failed to serialize Value into_string()");
+	}
+}
+
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
@@ -266,5 +275,12 @@ mod tests {
 		assert_eq!(format!("{}", Value::Usize(89801234567890123)), "0x13f09bf3ecf84cb");
 		assert_eq!(format!("{}", Value::Float(-1.2345)), "-1.2345");
 		assert_eq!(format!("{}", Value::Float(6.78901)), "6.78901");
+	}
+
+	#[test]
+	fn into_string() {
+		let mut out = String::from("lalalala!");
+		Value::LongInt(89801234567890123).into_string(&mut out);
+		assert_eq!(out, "0x13f09bf3ecf84cb");
 	}
 }

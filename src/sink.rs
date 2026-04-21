@@ -19,6 +19,7 @@ use crate::level;
 /// Depth for a [`crate::logger::Logger`] - i.e. how many parent instances it has.
 pub type LogDepth = u16;
 
+// TOOD: rework LogUpdate so it's third-party-sink friendly.
 /// Encapsulates a single log update, without attributes.
 #[derive(Clone, Debug)]
 pub struct LogUpdate {

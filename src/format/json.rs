@@ -32,7 +32,27 @@ pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 		Value::LongUint(u) => write!(out, "{}", u),
 		Value::Usize(s) => write!(out, "{}", s),
 		Value::Float(f) => write!(out, "{0:e}", f),
+	}?;
+
+	Ok(())
+}
+
+/// Serializes a set of [`Value`]s for [`OutputFormat::Json`] into a [`io::Write`].
+pub fn write_values<T: io::Write>(out: &mut T, vals: &[Value]) -> io::Result<()> {
+	if vals.len() == 1 {
+		return write_value(out, &vals[0]);
 	}
+
+	write!(out, "[")?;
+	for i in 0..vals.len() {
+		if i != 0 {
+			write!(out, ",")?;
+		}
+		write_value(out, &vals[i])?;
+	}
+	write!(out, "]")?;
+
+	Ok(())
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::Json`] into a [`io::Write`].
@@ -60,9 +80,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	}
 
 	// append fields
-	for (key, val) in attrs.iter() {
+	for (key, vals) in attrs.iter() {
 		write!(out, ",\"{key}\":")?;
-		write_value(out, val)?;
+		write_values(out, vals)?;
 	}
 	write!(out, "}}")?;
 
@@ -79,7 +99,7 @@ mod tests {
 	use ntime::Timestamp;
 
 	#[test]
-	fn serialize_value() {
+	fn serialize_single_value() {
 		for tc in [
 			(Value::Bool(true), "true"),
 			(Value::String("".into()), "\"\""),
@@ -102,6 +122,21 @@ mod tests {
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
+	#[test]
+	fn serialize_multi_value() {
+		let vals = &[
+			Value::Bool(false),
+			Value::String("abcd 1234".into()),
+			Value::Int(-123),
+			Value::Size(89801234567890123),
+			Value::Float(5678901.2345),
+		];
+		let want = "[false,\"abcd 1234\",-123,89801234567890123,5.6789012345e6]";
+
+		let mut out = Vec::new();
+		assert!(write_values(&mut out, vals).is_ok());
+		assert_eq!(String::from_utf8(out).unwrap(), want);
+	}
 
 	#[test]
 	fn serialize() {
@@ -118,6 +153,7 @@ mod tests {
 		attrs.insert("a_float", (-456.789).to_value());
 		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
+		// TODO: add attribute with multiple values
 
 		let want =
 			"{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update\",\"an_int\":123,\"a_float\":-4.56789e2,\"a_usize\":349834934,\"some_string\":\"hi there!\"}";
