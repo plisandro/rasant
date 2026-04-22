@@ -19,7 +19,7 @@ use std::string;
 use std::sync::Arc;
 
 use crate::attributes;
-use crate::attributes::value::ToValue;
+use crate::attributes::ToValue;
 use crate::constant::ATTRIBUTE_KEY_LOGGER_ID;
 use crate::format;
 use crate::sink;

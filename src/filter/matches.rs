@@ -197,7 +197,7 @@ impl filter::Filter for AttributeValue {
 	}
 
 	fn pass(&mut self, _: &sink::LogUpdate, attrs: &attributes::Map) -> bool {
-		let Some(vals) = attrs.get(self.key.as_str()) else {
+		let Some(val) = attrs.get(self.key.as_str()) else {
 			return false;
 		};
 		if self.has.is_empty() && self.has_not.is_empty() {
@@ -210,8 +210,14 @@ impl filter::Filter for AttributeValue {
 		for i in 0..cmp::max(self.has.len(), self.has_not.len()) {
 			let mut found_has: bool = false;
 			let mut found_has_not: bool = false;
-			for v in vals {
-				v.into_string(&mut self.str_cache);
+
+			let ss = match val {
+				attributes::Value::Scalar(ref s) => &[s.clone()],
+				attributes::Value::Set(ss) => ss,
+			};
+
+			for s in ss {
+				s.into_string(&mut self.str_cache);
 				if !found_has && i < self.has.len() {
 					found_has = self.str_cache.contains(self.has[i].as_str())
 				}
@@ -241,8 +247,9 @@ mod tests {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes::ToValue;
 	use crate::filter::Filter;
-	use crate::{Level, ToValue};
+	use crate::level::Level;
 
 	#[test]
 	fn message() {

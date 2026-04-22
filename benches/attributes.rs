@@ -24,7 +24,7 @@ fn init_logger() -> Logger {
 	log
 }
 
-fn build_attrs(total: usize) -> Vec<(String, Value)> {
+fn build_attrs<'i>(total: usize) -> Vec<(String, Value<'i>)> {
 	let mut res: Vec<(String, Value)> = Vec::new();
 
 	for i in 0..total {

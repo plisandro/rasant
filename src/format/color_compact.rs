@@ -1,6 +1,6 @@
 /// Formatter for colorized compact text output.
 ///
-/// `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`
+/// `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=[value_2, value3]`
 use ntime::Format;
 use std::io;
 
@@ -22,9 +22,9 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
-/// Serializes a set of [`Value`]s for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write_values<T: io::Write>(out: &mut T, vals: &[Value]) -> io::Result<()> {
-	compact::write_values(out, vals)
+/// Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
+pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
+	compact::write_value(out, val)
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
@@ -46,7 +46,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	)?;
 
 	// append fields
-	for (key, vals) in attrs.iter() {
+	for (key, val) in attrs.iter() {
 		write!(
 			out,
 			" {key_open}{key}{key_close}={vals_open}",
@@ -55,7 +55,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 			// error attributes are highlighted in red
 			vals_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
 		)?;
-		write_values(out, vals)?;
+		write_value(out, &val)?;
 		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;
 	}
 
@@ -67,24 +67,34 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::attributes::{ToScalar, ToValue};
 	//use crate::attributes::value::ToValue;
 	//use crate::level::Level;
 	//use ntime::Timestamp;
 
 	#[test]
-	fn serialize_multi_value() {
-		let vals = &[
-			Value::Bool(true),
-			Value::String("abcd 1234".into()),
-			Value::Int(-123),
-			Value::Size(89801234567890123),
-			Value::Float(5678901.2345),
-		];
-		let want = "[true, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]";
+	fn serialize_value() {
+		for tc in [
+			(true.to_value(), "true"),
+			((89801234567890123 as usize).to_value(), "0x13f09bf3ecf84cb"),
+			(
+				[
+					false.to_scalar(),
+					"abcd 1234".to_scalar(),
+					(-123).to_scalar(),
+					(89801234567890123 as usize).to_scalar(),
+					(5678901.2345).to_scalar(),
+				]
+				.to_value(),
+				"[false, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]",
+			),
+		] {
+			let (v, want): (Value, &str) = tc;
 
-		let mut out = Vec::new();
-		assert!(write_values(&mut out, vals).is_ok());
-		assert_eq!(String::from_utf8(out).unwrap(), want);
+			let mut out = Vec::new();
+			assert!(write_value(&mut out, &v).is_ok());
+			assert_eq!(String::from_utf8(out).unwrap(), want);
+		}
 	}
 
 	// TODO: enable tests once color support can be overriden
@@ -99,13 +109,12 @@ mod tests {
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		let mut attrs = Map::new();
-		attrs.insert("an_int", 123.to_value());
+		attrs.insert("an_int", (123 as i32).to_value());
 		attrs.insert("a_float", (-456.789).to_value());
-		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
-		// TODO: add attribute with multiple values
+		attrs.insert("a_set", [(349834934 as usize).to_scalar(), true.to_scalar()].to_value());
 
-		let want = "1776016599123000456 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mtest compact update\u{1b}[0m \u{1b}[36man_int\u{1b}[0m=123\u{1b}[0m \u{1b}[36ma_float\u{1b}[0m=-456.789\u{1b}[0m \u{1b}[36ma_usize\u{1b}[0m=0x14da0eb6\u{1b}[0m \u{1b}[36msome_string\u{1b}[0m=\"hi there!\"\u{1b}[0m";
+		let want = "1776016599123000456 [WRN] test compact update an_int=123 a_float=-456.789 some_string=\"hi there!\" a_set=[0x14da0eb6, true]";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, &update, &attrs).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
@@ -121,13 +130,13 @@ mod tests {
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		let mut attrs = Map::new();
-		attrs.insert("an_int", 123.to_value());
-		attrs.insert("a_float", (-456.789).to_value());
-		attrs.insert("a_usize", (349834934 as usize).to_value());
-		attrs.insert("some_string", "hi there!".to_value());
-		// TODO: add attribute with multiple values
 
-		let want = "1776016599123000456 [WRN] test compact update an_int=123 a_float=-456.789 a_usize=0x14da0eb6 some_string=\"hi there!\"";
+		attrs.insert("an_int", (123 as i32).to_value());
+		attrs.insert("a_float", (-456.789).to_value());
+		attrs.insert("some_string", "hi there!".to_value());
+		attrs.insert("a_set", [(349834934 as usize).to_scalar(), true.to_scalar()].to_value());
+
+		let want = "1776016599123000456 [WRN] test compact update an_int=123 a_float=-456.789 some_string=\"hi there!\" a_set=[0x14da0eb6, true]";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, &update, &attrs).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

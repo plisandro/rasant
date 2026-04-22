@@ -1,11 +1,11 @@
 /// Formatter for JSON output.
 ///
-/// `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
+/// `{"timestamp":123456,"level":"info","message":"some log message","key_1":value_1,"key_2":[value_3, value_4]}`
 use ntime::Format;
 use std::io;
 
 use crate::attributes::Map;
-use crate::attributes::value::Value;
+use crate::attributes::{Scalar, Value};
 use crate::constant::{ATTRIBUTE_KEY_MESSAGE, DEFAULT_LOG_DELIMITER_STRING};
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
@@ -19,40 +19,39 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
-/// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
-	match val {
-		Value::Bool(b) => write!(out, "{}", b),
-		Value::ShortString(ss) => write!(out, "\"{}\"", ss.as_str()),
-		Value::String(s) => write!(out, "\"{}\"", s),
-		Value::Int(i) => write!(out, "{}", i),
-		Value::LongInt(i) => write!(out, "{}", i),
-		Value::Size(s) => write!(out, "{}", s),
-		Value::Uint(i) => write!(out, "{}", i),
-		Value::LongUint(u) => write!(out, "{}", u),
-		Value::Usize(s) => write!(out, "{}", s),
-		Value::Float(f) => write!(out, "{0:e}", f),
+/// Serializes a [`Scalar`] for [`OutputFormat::Json`] into a [`io::Write`].
+pub fn write_scalar<T: io::Write>(out: &mut T, s: &Scalar) -> io::Result<()> {
+	match s {
+		Scalar::Bool(b) => write!(out, "{}", b),
+		Scalar::ShortString(ss) => write!(out, "\"{}\"", ss.as_str()),
+		Scalar::String(s) => write!(out, "\"{}\"", s),
+		Scalar::Int(i) => write!(out, "{}", i),
+		Scalar::LongInt(i) => write!(out, "{}", i),
+		Scalar::Size(s) => write!(out, "{}", s),
+		Scalar::Uint(i) => write!(out, "{}", i),
+		Scalar::LongUint(u) => write!(out, "{}", u),
+		Scalar::Usize(s) => write!(out, "{}", s),
+		Scalar::Float(f) => write!(out, "{0:e}", f),
 	}?;
 
 	Ok(())
 }
 
-/// Serializes a set of [`Value`]s for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_values<T: io::Write>(out: &mut T, vals: &[Value]) -> io::Result<()> {
-	if vals.len() == 1 {
-		return write_value(out, &vals[0]);
-	}
-
-	write!(out, "[")?;
-	for i in 0..vals.len() {
-		if i != 0 {
-			write!(out, ",")?;
+/// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
+pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
+	match val {
+		Value::Scalar(s) => write_scalar(out, &s),
+		Value::Set(ss) => {
+			write!(out, "[")?;
+			for i in 0..ss.len() {
+				if i != 0 {
+					write!(out, ",")?;
+				}
+				write_scalar(out, &ss[i])?;
+			}
+			write!(out, "]")
 		}
-		write_value(out, &vals[i])?;
 	}
-	write!(out, "]")?;
-
-	Ok(())
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::Json`] into a [`io::Write`].
@@ -80,9 +79,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	}
 
 	// append fields
-	for (key, vals) in attrs.iter() {
+	for (key, val) in attrs.iter() {
 		write!(out, ",\"{key}\":")?;
-		write_values(out, vals)?;
+		write_value(out, &val)?;
 	}
 	write!(out, "}}")?;
 
@@ -94,48 +93,57 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::attributes::value::ToValue;
+	use crate::attributes::{ToScalar, ToValue};
 	use crate::level::Level;
 	use ntime::Timestamp;
 
 	#[test]
-	fn serialize_single_value() {
+	fn serialize_scalar() {
 		for tc in [
-			(Value::Bool(true), "true"),
-			(Value::String("".into()), "\"\""),
-			(Value::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Value::Int(-123), "-123"),
-			(Value::LongInt(-12345678901234567), "-12345678901234567"),
-			(Value::LongInt(89801234567890123), "89801234567890123"),
-			(Value::Size(-12345678901234567), "-12345678901234567"),
-			(Value::Size(89801234567890123), "89801234567890123"),
-			(Value::Uint(123456), "123456"),
-			(Value::LongUint(12345678901234567), "12345678901234567"),
-			(Value::Usize(89801234567890123), "89801234567890123"),
-			(Value::Float(-1234.56789012345), "-1.23456789012345e3"),
-			(Value::Float(5678901.2345), "5.6789012345e6"),
+			(Scalar::Bool(true), "true"),
+			(Scalar::String("".into()), "\"\""),
+			(Scalar::String("abcd 1234".into()), "\"abcd 1234\""),
+			(Scalar::Int(-123), "-123"),
+			(Scalar::LongInt(-12345678901234567), "-12345678901234567"),
+			(Scalar::LongInt(89801234567890123), "89801234567890123"),
+			(Scalar::Size(-12345678901234567), "-12345678901234567"),
+			(Scalar::Size(89801234567890123), "89801234567890123"),
+			(Scalar::Uint(123456), "123456"),
+			(Scalar::LongUint(12345678901234567), "12345678901234567"),
+			(Scalar::Usize(89801234567890123), "89801234567890123"),
+			(Scalar::Float(-1234.56789012345), "-1.23456789012345e3"),
+			(Scalar::Float(5678901.2345), "5.6789012345e6"),
+		] {
+			let (s, want): (Scalar, &str) = tc;
+
+			let mut out = Vec::new();
+			assert!(write_scalar(&mut out, &s).is_ok());
+			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+		}
+	}
+	#[test]
+	fn serialize_value() {
+		for tc in [
+			(true.to_value(), "true"),
+			((89801234567890123 as usize).to_value(), "89801234567890123"),
+			(
+				[
+					false.to_scalar(),
+					"abcd 1234".to_scalar(),
+					(-123).to_scalar(),
+					(89801234567890123 as isize).to_scalar(),
+					(5678901.2345).to_scalar(),
+				]
+				.to_value(),
+				"[false,\"abcd 1234\",-123,89801234567890123,5.6789012345e6]",
+			),
 		] {
 			let (v, want): (Value, &str) = tc;
 
 			let mut out = Vec::new();
 			assert!(write_value(&mut out, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
-	}
-	#[test]
-	fn serialize_multi_value() {
-		let vals = &[
-			Value::Bool(false),
-			Value::String("abcd 1234".into()),
-			Value::Int(-123),
-			Value::Size(89801234567890123),
-			Value::Float(5678901.2345),
-		];
-		let want = "[false,\"abcd 1234\",-123,89801234567890123,5.6789012345e6]";
-
-		let mut out = Vec::new();
-		assert!(write_values(&mut out, vals).is_ok());
-		assert_eq!(String::from_utf8(out).unwrap(), want);
 	}
 
 	#[test]
@@ -149,14 +157,13 @@ mod tests {
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		let mut attrs = Map::new();
-		attrs.insert("an_int", 123.to_value());
+		attrs.insert("an_int", (123 as i32).to_value());
 		attrs.insert("a_float", (-456.789).to_value());
-		attrs.insert("a_usize", (349834934 as usize).to_value());
 		attrs.insert("some_string", "hi there!".to_value());
-		// TODO: add attribute with multiple values
+		attrs.insert("a_set", [(349834934 as usize).to_scalar(), true.to_scalar()].to_value());
 
 		let want =
-			"{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update\",\"an_int\":123,\"a_float\":-4.56789e2,\"a_usize\":349834934,\"some_string\":\"hi there!\"}";
+			"{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"a_set\":[349834934,true]}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, time_key, &update, &attrs).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

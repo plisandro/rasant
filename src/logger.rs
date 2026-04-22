@@ -3,7 +3,7 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
-use crate::attributes::value::{ToValue, Value};
+use crate::attributes::{ToScalar, ToValue, Value};
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
@@ -68,10 +68,10 @@ impl Logger {
 	/// Sets log [`Level`] for this [`Logger`] instance. Log updates below the
 	/// given [`Level`] are ignored.
 	pub fn set_level(&mut self, level: Level) -> &mut Self {
-		self.level = level;
 		if self.has_sinks() {
-			self.trace_with("log level updated", [("name", Value::from(level.to_string())), ("new_level", Value::from(level.value()))]);
+			self.trace_with("log level updated", [("name", level.to_string().to_value()), ("old_level", self.level.to_string().to_value())]);
 		}
+		self.level = level;
 
 		self
 	}
@@ -133,7 +133,7 @@ impl Logger {
 
 		self.trace_with(
 			"added new log sink",
-			[("name", Value::from(name)), ("total", Value::from(self.sinks.len() as u64)), ("async", Value::from(self.is_async()))],
+			[("name", name.to_value()), ("total", (self.sinks.len() as u64).to_value()), ("async", self.is_async().to_value())],
 		);
 
 		self
@@ -148,7 +148,7 @@ impl Logger {
 		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
 
 		if self.has_sinks() {
-			self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
+			self.trace_with("added new log filter", [("name", name.to_value()), ("total", (self.filters.len() as u64).to_value())]);
 		}
 
 		self
@@ -161,7 +161,7 @@ impl Logger {
 	/// it is overwritten.
 	///
 	/// The provided value must implement [`crate::ToValue`].
-	pub fn set<T: ToValue>(&mut self, key: &str, v: T) -> &mut Self {
+	pub fn set<T: ToScalar>(&mut self, key: &str, v: T) -> &mut Self {
 		self.attributes.insert(key, v.to_value());
 		self
 	}
@@ -243,7 +243,8 @@ impl Logger {
 
 	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
 	pub fn trace_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, Value::from(self.id))])
+		let id = self.id;
+		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, id.to_value())])
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.

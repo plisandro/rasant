@@ -277,6 +277,7 @@ mod types;
 // Public exported symbols
 pub mod filter;
 pub mod sink;
+pub use attributes::scalar::{Scalar, ToScalar};
 pub use attributes::value::{ToValue, Value};
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
