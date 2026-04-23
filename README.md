@@ -202,7 +202,9 @@ r::warn!(log, "will");
 Rasant is under active development, with more features planned for future versions.
 
   - New output formants (hierarchical pretty print?)
+  - Support for structured values (sets, maps)
   - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
+  - Support for third-party log sinks
   - Binary output formats, such as [CBOR](https://cbor.io/) and [protobuf](https://protobuf.dev/).
 
 ## License
