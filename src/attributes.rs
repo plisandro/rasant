@@ -2,6 +2,7 @@ pub mod scalar;
 pub mod value;
 
 use std::fmt;
+use std::slice;
 
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 
@@ -25,264 +26,227 @@ fn is_key_restricted(key: &str) -> bool {
 	check_match!(key, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP)
 }
 
-#[derive(Clone, Debug)]
-struct ScalarKvStore {
-	keys: String,
-	scalars: Vec<Scalar>,
-	key_idxs: Vec<(usize, usize)>,
-	scalar_idxs: Vec<(usize, usize)>,
-}
-
-impl ScalarKvStore {
-	fn new() -> Self {
-		Self {
-			keys: String::new(),
-			scalars: Vec::new(),
-			key_idxs: Vec::new(),
-			scalar_idxs: Vec::new(),
-		}
-	}
-
-	fn clear(&mut self) {
-		self.keys.clear();
-		self.scalars.clear();
-		self.key_idxs.clear();
-		self.scalar_idxs.clear();
-	}
-
-	fn key_to_idx(&self, key: &str) -> Option<usize> {
-		let key_size = key.len();
-		let res = self.key_idxs.iter().enumerate().find(|(_, (key_start, key_end))| {
-			let (key_start, key_end) = (*key_start, *key_end);
-			if (key_end - key_start + 1) != key_size {
-				return false;
-			}
-			let target = &self.keys[key_start..(key_end + 1)];
-			key == target
-		});
-		match res {
-			Some((i, (_, _))) => Some(i),
-			None => None,
-		}
-	}
-
-	fn key_by_idx(&self, i: usize) -> Option<&str> {
-		match i < self.key_idxs.len() {
-			true => {
-				let (key_start, key_end) = self.key_idxs[i];
-				Some(&self.keys[key_start..(key_end + 1)])
-			}
-			false => None,
-		}
-	}
-
-	fn scalars_by_idx(&self, i: usize) -> &[Scalar] {
-		let (start, end) = self.scalar_idxs[i];
-		&self.scalars[start..end + 1]
-	}
-
-	fn value_by_idx(&self, i: usize) -> Value<'_> {
-		let (start, end) = self.scalar_idxs[i];
-
-		// TODO: fix me
-		if start == end {
-			Value::Scalar(self.scalars[start].clone())
-		} else {
-			Value::Set(&self.scalars[start..end + 1])
-		}
-	}
-
-	fn len(&self) -> usize {
-		self.key_idxs.len()
-	}
-
-	fn store_size(&self) -> usize {
-		self.scalars.len()
-	}
-
-	fn has(&self, key: &str) -> bool {
-		self.key_to_idx(key).is_some()
-	}
-
-	fn get(&self, key: &str) -> Option<&[Scalar]> {
-		match self.key_to_idx(key) {
-			Some(i) => Some(self.scalars_by_idx(i)),
-			None => None,
-		}
-	}
-
-	fn set(&mut self, key: &str, ss: &[Scalar]) {
-		if key.len() == 0 {
-			panic!("empty log attribute key {{\"\" -> {ss:?}}}");
-		}
-		if ss.len() == 0 {
-			panic!("empty log attribute scalar value {{\"{key}\" -> {ss:?}}}");
-		}
-		if key.chars().any(|c| c.is_whitespace()) {
-			panic!("invalid log attribute key {{\"{key}\" -> {ss:?}}}");
-		}
-		if is_key_restricted(key) {
-			panic!("cannot use restricted log attribute key {{\"{key}\" -> {ss:?}}}");
-		}
-
-		match self.key_to_idx(key) {
-			Some(i) => {
-				// overwrite existing key
-				let (pre_start, pre_end) = self.scalar_idxs[i];
-				let pre_size = pre_end - pre_start + 1;
-				match ss.len() == pre_size {
-					true => {
-						// yay, new values fit in the existing slot
-						// TODO: is there any way to copy instead?
-						self.scalars[pre_start..pre_end + 1].clone_from_slice(ss);
-					}
-					false => {
-						// we need to resize :'(
-						for (start, end) in &mut self.scalar_idxs {
-							if *start >= pre_size && *start > pre_start {
-								*start -= pre_size;
-								*end -= pre_size;
-							}
-						}
-
-						self.scalars.drain(pre_start..pre_end + 1);
-						let start_idx = self.scalars.len();
-						let end_idx = start_idx + ss.len() - 1;
-						self.scalars.extend_from_slice(ss);
-						self.scalar_idxs[i] = (start_idx, end_idx);
-					}
-				}
-			}
-			None => {
-				// new key
-				let key_len = key.len();
-				if is_key_priority(key) {
-					// insert new priority key first
-					for (key_start, key_end) in self.key_idxs.iter_mut() {
-						*key_start += key_len;
-						*key_end += key_len;
-					}
-					self.keys.insert_str(0, key);
-					self.key_idxs.insert(0, (0, key_len - 1));
-
-					let start_idx = self.scalars.len();
-					let end_idx = start_idx + ss.len() - 1;
-					self.scalars.extend_from_slice(ss);
-					self.scalar_idxs.insert(0, (start_idx, end_idx));
-				} else {
-					// insert new key last
-					let key_start = self.keys.len();
-					let key_end = key_start + key_len - 1;
-					self.key_idxs.push((key_start, key_end));
-					self.keys.push_str(key);
-
-					let start_idx = self.scalars.len();
-					let end_idx = start_idx + ss.len() - 1;
-					self.scalars.extend_from_slice(ss);
-					self.scalar_idxs.push((start_idx, end_idx));
-				}
-			}
-		}
-	}
-}
-
+/// A store for a ordered map of (key -> [`Value`])
 #[derive(Clone, Debug)]
 pub struct Map {
-	main: ScalarKvStore,
-	ephemeral_new: ScalarKvStore,
-	ephemeral_priority: ScalarKvStore,
-	ephemeral_overlap: ScalarKvStore,
+	/// A container for all keys in this store
+	keys: String,
+	/// String indeces for every key: [start, end)
+	key_str_idxs: Vec<(usize, usize)>,
+	/// A container for all Scalars used by Values in this store.
+	scalar_pool: Vec<Scalar>,
+	/// Indeces for Scalar's associated with each key, as [start, end)
+	scalar_idxs: Vec<(usize, usize)>,
 }
 
 impl Map {
 	pub fn new() -> Self {
 		Self {
-			main: ScalarKvStore::new(),
-			ephemeral_new: ScalarKvStore::new(),
-			ephemeral_priority: ScalarKvStore::new(),
-			ephemeral_overlap: ScalarKvStore::new(),
+			keys: String::new(),
+			key_str_idxs: Vec::new(),
+			scalar_pool: Vec::new(),
+			scalar_idxs: Vec::new(),
 		}
 	}
 
-	pub fn iter(&self) -> MapIter<'_> {
-		MapIter::new(self)
+	pub fn clear(&mut self) {
+		self.keys.clear();
+		self.key_str_idxs.clear();
+		self.scalar_pool.clear();
+		self.scalar_idxs.clear();
+	}
+
+	pub fn copy_from(&mut self, other: &Self) {
+		self.keys.clear();
+		self.keys.push_str(&other.keys);
+		self.key_str_idxs.clear();
+		self.key_str_idxs.extend(&other.key_str_idxs);
+		self.scalar_pool.clear();
+		// iterating over scalar_pool yields &Clone instead of Clone >:()
+		self.scalar_pool.extend_from_slice(&other.scalar_pool);
+		self.scalar_idxs.clear();
+		self.scalar_idxs.extend(&other.scalar_idxs);
+	}
+
+	fn len(&self) -> usize {
+		self.key_str_idxs.len()
+	}
+
+	fn is_empty(&self) -> bool {
+		self.key_str_idxs.is_empty()
+	}
+
+	fn store_size(&self) -> usize {
+		self.scalar_pool.len()
 	}
 
 	pub fn key_iter(&self) -> MapKeyIter<'_> {
 		MapKeyIter::new(self)
 	}
 
-	pub fn len(&self) -> usize {
-		self.main.len() + self.ephemeral_new.len() + self.ephemeral_priority.len()
+	pub fn iter(&self) -> MapIter<'_> {
+		MapIter::new(self)
+	}
+
+	// for key strings (relatively short, and small in number), linear
+	// search turns out to be the most efficient way to seek, by far.
+	fn idx_by_key(&self, key: &str) -> Option<usize> {
+		let key_size = key.len();
+		for i in 0..self.key_str_idxs.len() {
+			let (key_start, key_end) = self.key_str_idxs[i];
+			if (key_end - key_start) != key_size {
+				continue;
+			}
+			if key == &self.keys[key_start..key_end] {
+				return Some(i);
+			}
+		}
+
+		None
+	}
+
+	fn key_by_idx(&self, i: usize) -> Option<&str> {
+		match i < self.key_str_idxs.len() {
+			false => None,
+			true => {
+				let (start, end) = self.key_str_idxs[i];
+				Some(&self.keys[start..end])
+			}
+		}
+	}
+
+	fn value_by_idx(&self, i: usize) -> Value<'_> {
+		let (start, end) = self.scalar_idxs[i];
+
+		if start == end - 1 {
+			// TODO: fix me
+			return Value::Scalar(self.scalar_pool[start].clone());
+		}
+
+		Value::Set(&self.scalar_pool[start..end])
 	}
 
 	pub fn has(&self, key: &str) -> bool {
-		self.main.has(key) || self.ephemeral_new.has(key) || self.ephemeral_priority.has(key)
+		self.idx_by_key(key).is_some()
+	}
+
+	fn has_idx(&self, idx: usize) -> bool {
+		idx < self.key_str_idxs.len()
 	}
 
 	pub fn get(&self, key: &str) -> Option<Value<'_>> {
-		let scalars: Option<&[Scalar]>;
-		if let Some(ss) = self.ephemeral_new.get(key) {
-			scalars = Some(ss);
-		} else if let Some(ss) = self.ephemeral_priority.get(key) {
-			scalars = Some(ss);
-		} else {
-			scalars = self.main.get(key);
+		match self.idx_by_key(key) {
+			Some(i) => {
+				let (start, end) = self.scalar_idxs[i];
+				let ss = &self.scalar_pool[start..end];
+				Some(if ss.len() == 1 { Value::Scalar(ss[0].clone()) } else { Value::Set(ss) })
+			}
+			None => None,
+		}
+	}
+
+	fn set(&mut self, key: &str, val: &Value) {
+		if key.is_empty() {
+			panic!("empty log attribute key {{\"\" -> {val:?}}}");
+		}
+		if key.chars().any(|c| c.is_whitespace()) {
+			panic!("invalid log attribute key {{\"{key}\" -> {val:?}}}");
+		}
+		if is_key_restricted(key) {
+			panic!("cannot use restricted log attribute key {{\"{key}\" -> {val:?}}}");
 		}
 
-		match scalars {
-			None => None,
-			// TODO: fix me
-			Some(ss) => Some(if ss.len() == 1 { Value::Scalar(ss[0].clone()) } else { Value::Set(ss) }),
+		let ss: &[Scalar] = match val {
+			Value::Scalar(s) => slice::from_ref(s),
+			Value::Set(ss) => *ss,
+		};
+		if ss.is_empty() {
+			panic!("no scalars for attribute key {{\"{key}\" -> {val:?}}}");
 		}
+
+		if let Some(i) = self.idx_by_key(key) {
+			// overwrite existing key
+			let (pre_start, pre_end) = self.scalar_idxs[i];
+			let pre_size = pre_end - pre_start;
+			match ss.len() == pre_size {
+				true => {
+					// yay, new values fit in the existing slot
+					// TODO: is there any way to copy instead?
+					self.scalar_pool[pre_start..pre_end].clone_from_slice(ss);
+				}
+				false => {
+					// we need to resize :'(
+					self.scalar_idxs.iter_mut().for_each(|(start, end)| {
+						if *start >= pre_size && *start > pre_start {
+							*start -= pre_size;
+							*end -= pre_size;
+						}
+					});
+
+					self.scalar_pool.drain(pre_start..pre_end);
+					let start = self.scalar_pool.len();
+					let end = start + ss.len();
+					self.scalar_pool.extend_from_slice(ss);
+					self.scalar_idxs[i] = (start, end);
+				}
+			}
+
+			return;
+		}
+
+		// insert new key
+		let key_len = key.len();
+		let new_key_idx: usize;
+
+		if is_key_priority(key) {
+			// priority keys are inserted first...
+			new_key_idx = 0;
+
+			// ...which means shifting all existing key idxs references :'(
+			self.key_str_idxs.iter_mut().for_each(|(start, end)| {
+				*start += key_len;
+				*end += key_len;
+			});
+
+			self.keys.insert_str(0, key);
+			self.key_str_idxs.insert(0, (0, key_len));
+
+			let ss_idx_start = self.scalar_pool.len();
+			let ss_idx_end = ss_idx_start + ss.len();
+			self.scalar_pool.extend_from_slice(ss);
+			self.scalar_idxs.insert(new_key_idx, (ss_idx_start, ss_idx_end));
+		} else {
+			// insert new key last
+			let key_start = self.keys.len();
+			let key_end = key_start + key_len;
+			self.key_str_idxs.push((key_start, key_end));
+			self.keys.push_str(key);
+
+			let ss_idx_start = self.scalar_pool.len();
+			let ss_idx_end = ss_idx_start + ss.len();
+			self.scalar_pool.extend_from_slice(ss);
+			self.scalar_idxs.push((ss_idx_start, ss_idx_end));
+		}
+	}
+
+	pub fn insert_ref(&mut self, key: &str, val: &Value) {
+		self.set(key, val);
 	}
 
 	pub fn insert(&mut self, key: &str, val: Value) {
-		let ss = match val {
-			Value::Scalar(s) => &[s][..],
-			Value::Set(ss) => ss,
-		};
-		_ = self.main.set(key, ss);
-	}
-
-	pub fn clear_ephemeral(&mut self) {
-		self.ephemeral_new.clear();
-		self.ephemeral_priority.clear();
-		self.ephemeral_overlap.clear();
-	}
-
-	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
-		let ss = match val {
-			Value::Scalar(s) => &[s][..],
-			Value::Set(ss) => ss,
-		};
-
-		match self.main.has(key) {
-			false => match is_key_priority(key) {
-				true => self.ephemeral_priority.set(key, ss),
-				false => self.ephemeral_new.set(key, ss),
-			},
-			true => self.ephemeral_overlap.set(key, ss),
-		}
+		self.set(key, &val);
 	}
 }
 
 /// A key iterator for [`Map`]
 pub struct MapKeyIter<'s> {
 	map: &'s Map,
-	main_idx: usize,
-	ephemeral_new_idx: usize,
-	ephemeral_priority_idx: usize,
+	idx: usize,
 }
 
 impl<'i> MapKeyIter<'i> {
 	pub fn new(map: &'i Map) -> Self {
-		Self {
-			map: map,
-			main_idx: 0,
-			ephemeral_new_idx: 0,
-			ephemeral_priority_idx: 0,
-		}
+		Self { map: map, idx: 0 }
 	}
 }
 
@@ -290,51 +254,22 @@ impl<'i> Iterator for MapKeyIter<'i> {
 	type Item = &'i str;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		// iterate over priority ephemeral keys
-		match self.map.ephemeral_priority.key_by_idx(self.ephemeral_priority_idx) {
-			None => (),
-			Some(key) => {
-				self.ephemeral_priority_idx += 1;
-				return Some(key);
-			}
-		}
+		let key = self.map.key_by_idx(self.idx);
+		self.idx += 1;
 
-		// iterate over main and ephemeral key overlaps
-		match self.map.main.key_by_idx(self.main_idx) {
-			None => (),
-			Some(key) => {
-				self.main_idx += 1;
-				return Some(key);
-			}
-		}
-
-		// iterate over the rest of ephemeral keys
-		match self.map.ephemeral_new.key_by_idx(self.ephemeral_new_idx) {
-			None => None,
-			Some(key) => {
-				self.ephemeral_new_idx += 1;
-				Some(key)
-			}
-		}
+		key
 	}
 }
 
 /// A key:value iterator for [`Map`].
 pub struct MapIter<'s> {
 	map: &'s Map,
-	main_idx: usize,
-	ephemeral_new_idx: usize,
-	ephemeral_priority_idx: usize,
+	idx: usize,
 }
 
 impl<'i> MapIter<'i> {
 	pub fn new(map: &'i Map) -> Self {
-		Self {
-			map: map,
-			main_idx: 0,
-			ephemeral_new_idx: 0,
-			ephemeral_priority_idx: 0,
-		}
+		Self { map: map, idx: 0 }
 	}
 }
 
@@ -343,40 +278,12 @@ impl<'i> Iterator for MapIter<'i> {
 	type Item = (&'i str, Value<'i>);
 
 	fn next(&mut self) -> Option<Self::Item> {
-		// iterate over priority ephemeral KVs
-		match self.map.ephemeral_priority.key_by_idx(self.ephemeral_priority_idx) {
-			None => (),
-			Some(key) => {
-				let val = self.map.ephemeral_priority.value_by_idx(self.ephemeral_priority_idx);
-				self.ephemeral_priority_idx += 1;
-				return Some((key, val));
-			}
-		}
-
-		// iterate over main KV and ephemeral value overlaps
-		match self.map.main.key_by_idx(self.main_idx) {
-			None => (),
-			Some(key) => {
-				let val: Value;
-				if let Some(s) = self.map.ephemeral_overlap.get(key) {
-					// TODO: fix me
-					val = if s.len() == 1 { Value::Scalar(s[0].clone()) } else { Value::Set(s) };
-					//val = s.to_value();
-				} else {
-					val = self.map.main.value_by_idx(self.main_idx);
-				};
-
-				self.main_idx += 1;
-				return Some((key, val));
-			}
-		}
-
-		// iterate over the rest of ephemeral KVs
-		match self.map.ephemeral_new.key_by_idx(self.ephemeral_new_idx) {
+		match self.map.key_by_idx(self.idx) {
 			None => None,
 			Some(key) => {
-				let val = self.map.ephemeral_new.value_by_idx(self.ephemeral_new_idx);
-				self.ephemeral_new_idx += 1;
+				let val = self.map.value_by_idx(self.idx);
+				self.idx += 1;
+
 				Some((key, val))
 			}
 		}
@@ -397,230 +304,130 @@ impl fmt::Display for Map {
 
 /* ----------------------- Tests ----------------------- */
 
+// TODO: add tests for unordered kv stores
 #[cfg(test)]
-mod kv_store_tests {
+mod map {
 	use super::*;
 
 	#[test]
 	fn indexed_keys_order() {
-		let mut kv = ScalarKvStore::new();
+		let mut attr = Map::new();
 
-		kv.set("key_a", [Scalar::Int(123)].as_slice());
-		kv.set("key_b", [Scalar::Int(456)].as_slice());
-		kv.set("key_c", [Scalar::Int(789), Scalar::String("abc".into())].as_slice());
-		kv.set("key_b", [Scalar::String("overwrites should not change key order".into())].as_slice());
-		kv.set("error", [Scalar::String("priority keys should go first".into())].as_slice());
+		attr.set("key_a", &Value::Scalar(Scalar::Int(123)));
+		attr.set("key_b", &Value::Scalar(Scalar::Int(456)));
+		attr.set("key_c", &Value::Set([Scalar::Int(789), Scalar::String("abc".into())].as_slice()));
+		attr.set("key_b", &Value::Scalar(Scalar::String("overwrites should not change key order".into())));
+		attr.set("error", &Value::Scalar(Scalar::String("priority keys should go first".into())));
 
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 5);
-		assert_eq!(kv.key_to_idx("error"), Some(0));
-		assert_eq!(kv.key_to_idx("key_a"), Some(1));
-		assert_eq!(kv.key_to_idx("key_b"), Some(2));
-		assert_eq!(kv.key_to_idx("key_c"), Some(3));
-		assert_eq!(kv.key_to_idx("bad_key"), None);
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 5);
+		assert_eq!(attr.idx_by_key("error"), Some(0));
+		assert_eq!(attr.idx_by_key("key_a"), Some(1));
+		assert_eq!(attr.idx_by_key("key_b"), Some(2));
+		assert_eq!(attr.idx_by_key("key_c"), Some(3));
+		assert_eq!(attr.idx_by_key("bad_key"), None);
 	}
 
 	#[test]
 	fn basic_operations() {
-		let mut kv = ScalarKvStore::new();
+		let mut attr = Map::new();
 
-		assert_eq!(kv.len(), 0);
-		assert_eq!(kv.store_size(), 0);
+		assert_eq!(attr.len(), 0);
+		assert_eq!(attr.store_size(), 0);
 
-		kv.set("c", [Scalar::Int(-5678)].as_slice());
-		kv.set("d", [Scalar::Float(9012.3456)].as_slice());
-		kv.set("b", [Scalar::Int(1234)].as_slice());
-		assert_eq!(kv.len(), 3);
-		assert_eq!(kv.store_size(), 3);
+		attr.set("c", &Value::Scalar(Scalar::Int(-5678)));
+		attr.set("d", &Value::Scalar(Scalar::Float(9012.3456)));
+		attr.set("b", &Value::Scalar(Scalar::Int(1234)));
+		assert_eq!(attr.len(), 3);
+		assert_eq!(attr.store_size(), 3);
 
 		// overwrite existing key
-		kv.set("d", [Scalar::Float(7890.1234)].as_slice());
-		kv.set("error", [Scalar::String("first!".into())].as_slice());
-		kv.set("e", [Scalar::Size(7788), Scalar::Size(9900)].as_slice());
-		kv.set("a", [Scalar::String("lalala".into())].as_slice());
-		assert_eq!(kv.len(), 6);
-		assert_eq!(kv.store_size(), 7);
+		attr.set("d", &Value::Scalar(Scalar::Float(7890.1234)));
+		attr.set("error", &Value::Scalar(Scalar::String("first!".into())));
+		attr.set("e", &Value::Set([Scalar::Size(7788), Scalar::Int(9900)].as_slice()));
+		attr.set("a", &Value::Scalar(Scalar::String("lalala".into())));
+		assert_eq!(attr.len(), 6);
+		assert_eq!(attr.store_size(), 7);
 	}
 
 	#[test]
 	fn key_overwrite() {
-		let mut kv = ScalarKvStore::new();
+		let mut attr = Map::new();
 
-		kv.set("a", [Scalar::Int(1234), Scalar::Int(-5678)].as_slice());
-		kv.set("b", [Scalar::String("lalala".into())].as_slice());
-		kv.set("c", [Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice());
-		kv.set("d", [Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 7);
+		attr.set("a", &Value::Set([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
+		attr.set("b", &Value::Scalar(Scalar::String("lalala".into())));
+		attr.set("c", &Value::Set([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
+		attr.set("d", &Value::Scalar(Scalar::Bool(false)));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 7);
 
 		// same size overwrite
-		kv.set("b", &[Scalar::Float(123.456)].as_slice());
-		assert_eq!(kv.get("a").unwrap(), [Scalar::Int(1234), Scalar::Int(-5678)].as_slice());
-		assert_eq!(kv.get("b").unwrap(), [Scalar::Float(123.456)].as_slice());
-		assert_eq!(kv.get("c").unwrap(), [Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice());
-		assert_eq!(kv.get("d").unwrap(), [Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 7);
+		attr.set("b", &Value::Scalar(Scalar::Float(123.456)));
+		assert_eq!(attr.get("a").unwrap(), Value::Set([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
+		assert_eq!(attr.get("b").unwrap(), Value::Scalar(Scalar::Float(123.456)));
+		assert_eq!(attr.get("c").unwrap(), Value::Set([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
+		assert_eq!(attr.get("d").unwrap(), Value::Scalar(Scalar::Bool(false)));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 7);
 
 		// overwrite with size increasee
-		kv.set("b", &[Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice());
-		assert_eq!(kv.get("a").unwrap(), [Scalar::Int(1234), Scalar::Int(-5678)].as_slice());
-		assert_eq!(kv.get("b").unwrap(), [Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice());
-		assert_eq!(kv.get("c").unwrap(), [Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice());
-		assert_eq!(kv.get("d").unwrap(), [Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 10);
+		attr.set("b", &Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		assert_eq!(attr.get("a").unwrap(), Value::Set([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
+		assert_eq!(attr.get("b").unwrap(), Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		assert_eq!(attr.get("c").unwrap(), Value::Set([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
+		assert_eq!(attr.get("d").unwrap(), Value::Scalar(Scalar::Bool(false)));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 10);
 
 		// overwrite with size decrease
-		kv.set("c", &[Scalar::String("lololo".into())].as_slice());
-		assert_eq!(kv.get("a").unwrap(), [Scalar::Int(1234), Scalar::Int(-5678)].as_slice());
-		assert_eq!(kv.get("b").unwrap(), [Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice());
-		assert_eq!(kv.get("c").unwrap(), [Scalar::String("lololo".into())].as_slice());
-		assert_eq!(kv.get("d").unwrap(), [Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 8);
+		attr.set("c", &Value::Scalar(Scalar::String("lololo".into())));
+		assert_eq!(attr.get("a").unwrap(), Value::Set([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
+		assert_eq!(attr.get("b").unwrap(), Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		assert_eq!(attr.get("c").unwrap(), Value::Scalar(Scalar::String("lololo".into())));
+		assert_eq!(attr.get("d").unwrap(), Value::Scalar(Scalar::Bool(false)));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 8);
 
 		// modify the first and last attribute sizes to check edge handling
-		kv.set("a", &[Scalar::Int(1234)].as_slice());
-		assert_eq!(kv.get("a").unwrap(), [Scalar::Int(1234)].as_slice());
-		assert_eq!(kv.get("b").unwrap(), [Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice());
-		assert_eq!(kv.get("c").unwrap(), [Scalar::String("lololo".into())].as_slice());
-		assert_eq!(kv.get("d").unwrap(), [Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 7);
+		attr.set("a", &Value::Scalar(Scalar::Int(1234)));
+		assert_eq!(attr.get("a").unwrap(), Value::Scalar(Scalar::Int(1234)));
+		assert_eq!(attr.get("b").unwrap(), Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		assert_eq!(attr.get("c").unwrap(), Value::Scalar(Scalar::String("lololo".into())));
+		assert_eq!(attr.get("d").unwrap(), Value::Scalar(Scalar::Bool(false)));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 7);
 
-		kv.set("d", &[Scalar::Bool(true), Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.get("a").unwrap(), [Scalar::Int(1234)].as_slice());
-		assert_eq!(kv.get("b").unwrap(), [Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice());
-		assert_eq!(kv.get("c").unwrap(), [Scalar::String("lololo".into())].as_slice());
-		assert_eq!(kv.get("d").unwrap(), [Scalar::Bool(true), Scalar::Bool(false)].as_slice());
-		assert_eq!(kv.len(), 4);
-		assert_eq!(kv.store_size(), 8);
+		attr.set("d", &Value::Set([Scalar::Bool(true), Scalar::Bool(false)].as_slice()));
+		assert_eq!(attr.get("a").unwrap(), Value::Scalar(Scalar::Int(1234)));
+		assert_eq!(attr.get("b").unwrap(), Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		assert_eq!(attr.get("c").unwrap(), Value::Scalar(Scalar::String("lololo".into())));
+		assert_eq!(attr.get("d").unwrap(), Value::Set([Scalar::Bool(true), Scalar::Bool(false)].as_slice()));
+		assert_eq!(attr.len(), 4);
+		assert_eq!(attr.store_size(), 8);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_key() {
-		ScalarKvStore::new().set("", [Scalar::String("oh no".into())].as_slice());
+		Map::new().set("", &Value::Scalar(Scalar::String("oh no".into())));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_values() {
-		ScalarKvStore::new().set("a_key", [].as_slice());
+		Map::new().set("a_key", &Value::Set([].as_slice()));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_invalid_key() {
-		ScalarKvStore::new().set("no\twhitespace\tin\tkeys", [Scalar::String("please!".into())].as_slice());
+		Map::new().set("no\twhitespace\tin\tkeys", &Value::Scalar(Scalar::String("please!".into())));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_restricted_key() {
-		ScalarKvStore::new().set("level", [Scalar::Int(55555)].as_slice());
-	}
-}
-
-#[cfg(test)]
-mod map_tests {
-	use super::*;
-	use crate::attributes::{ToScalar, ToValue};
-
-	#[test]
-	fn indexed_keys_order() {
-		let mut attr = Map::new();
-
-		attr.insert("key_a", (123 as i32).to_value());
-		attr.insert("key_b", (456 as i32).to_value());
-		attr.insert("key_c", [Scalar::Int(789), Scalar::Bool(true)].to_value());
-		attr.insert("key_b", "overwrites should not change key order".to_value());
-		attr.insert("error", "priority keys should go first".to_value());
-
-		assert_eq!(attr.len(), 4);
-		assert_eq!(attr.main.store_size(), 5);
-		assert_eq!(
-			attr.to_string(),
-			"error=\"priority keys should go first\" key_a=123 key_b=\"overwrites should not change key order\" key_c=[789, true]"
-		);
-	}
-
-	#[test]
-	fn ephemeral_attributes() {
-		let mut attr = Map::new();
-
-		attr.insert("key_a", [123.to_scalar(), "lalala".to_scalar()].to_value());
-		attr.insert("key_b", [456.to_scalar(), "lololo".to_scalar()].to_value());
-		attr.insert("key_c", 789.to_value());
-		attr.insert("error", "first error".to_value());
-
-		attr.insert_ephemeral("key_b", "overwrites should not change key order".to_value());
-		attr.insert_ephemeral("key_d", "new key".to_value());
-		attr.insert_ephemeral("error", ["new".to_scalar(), "error".to_scalar()].to_value());
-
-		assert_eq!(attr.len(), 5);
-		assert_eq!(attr.main.len(), 4);
-		assert_eq!(attr.main.store_size(), 6);
-		assert_eq!(attr.ephemeral_new.len(), 1);
-		assert_eq!(attr.ephemeral_new.store_size(), 1);
-		assert_eq!(attr.ephemeral_priority.len(), 0);
-		assert_eq!(attr.ephemeral_priority.store_size(), 0);
-		assert_eq!(attr.ephemeral_overlap.len(), 2);
-		assert_eq!(attr.ephemeral_overlap.store_size(), 3);
-		assert_eq!(
-			attr.to_string(),
-			"error=[\"new\", \"error\"] key_a=[123, \"lalala\"] key_b=\"overwrites should not change key order\" key_c=789 key_d=\"new key\"",
-		);
-
-		attr.clear_ephemeral();
-
-		assert_eq!(attr.len(), 4);
-		assert_eq!(attr.main.len(), 4);
-		assert_eq!(attr.main.store_size(), 6);
-		assert_eq!(attr.ephemeral_new.len(), 0);
-		assert_eq!(attr.ephemeral_new.store_size(), 0);
-		assert_eq!(attr.ephemeral_priority.len(), 0);
-		assert_eq!(attr.ephemeral_priority.store_size(), 0);
-		assert_eq!(attr.ephemeral_overlap.len(), 0);
-		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
-		assert_eq!(attr.to_string(), "error=\"first error\" key_a=[123, \"lalala\"] key_b=[456, \"lololo\"] key_c=789",);
-	}
-
-	#[test]
-	fn ephemeral_new_priority_keys() {
-		let mut attr = Map::new();
-
-		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", [456.to_scalar(), true.to_scalar()].to_value());
-		attr.insert("key_c", 789.to_value());
-
-		attr.insert_ephemeral("error", ["oh".to_scalar(), "no!".to_scalar()].to_value());
-		attr.insert_ephemeral("key_d", "new key".to_value());
-
-		assert_eq!(attr.len(), 5);
-		assert_eq!(attr.main.len(), 3);
-		assert_eq!(attr.main.store_size(), 4);
-		assert_eq!(attr.ephemeral_new.len(), 1);
-		assert_eq!(attr.ephemeral_new.store_size(), 1);
-		assert_eq!(attr.ephemeral_priority.len(), 1);
-		assert_eq!(attr.ephemeral_priority.store_size(), 2);
-		assert_eq!(attr.ephemeral_overlap.len(), 0);
-		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
-		assert_eq!(attr.to_string(), "error=[\"oh\", \"no!\"] key_a=123 key_b=[456, true] key_c=789 key_d=\"new key\"",);
-
-		attr.clear_ephemeral();
-
-		assert_eq!(attr.len(), 3);
-		assert_eq!(attr.main.len(), 3);
-		assert_eq!(attr.main.store_size(), 4);
-		assert_eq!(attr.ephemeral_new.len(), 0);
-		assert_eq!(attr.ephemeral_new.store_size(), 0);
-		assert_eq!(attr.ephemeral_priority.len(), 0);
-		assert_eq!(attr.ephemeral_priority.store_size(), 0);
-		assert_eq!(attr.ephemeral_overlap.len(), 0);
-		assert_eq!(attr.ephemeral_overlap.store_size(), 0);
-		assert_eq!(attr.to_string(), "key_a=123 key_b=[456, true] key_c=789",);
+		Map::new().set("level", &Value::Scalar(Scalar::Int(55555)));
 	}
 
 	#[test]
@@ -630,11 +437,8 @@ mod map_tests {
 		attr.insert("key_a", 123.to_value());
 		attr.insert("key_b", [456.to_scalar(), true.to_scalar()].to_value());
 		attr.insert("key_c", [789.to_scalar(), false.to_scalar()].to_value());
-		attr.insert("error", "first error".to_value());
-
-		attr.insert_ephemeral("key_b", "overwrite!".to_value());
-		attr.insert_ephemeral("key_d", ["new".to_scalar(), " key".to_scalar()].to_value());
-		attr.insert_ephemeral("error", "new error".to_value());
+		attr.insert("error", "an error".to_value());
+		attr.insert("key_d", ["new".to_scalar(), " key".to_scalar()].to_value());
 
 		let mut got: Vec<(&str, Value)> = Vec::new();
 		for kvs in attr.iter() {
@@ -644,9 +448,9 @@ mod map_tests {
 		assert_eq!(
 			got.as_array::<5>().expect("invalid number of keys"),
 			&[
-				("error", "new error".to_value()),
+				("error", "an error".to_value()),
 				("key_a", 123.to_value()),
-				("key_b", "overwrite!".to_value()),
+				("key_b", [456.to_scalar(), true.to_scalar()].to_value()),
 				("key_c", [789.to_scalar(), false.to_scalar()].to_value()),
 				("key_d", ["new".to_scalar(), " key".to_scalar()].to_value()),
 			]
@@ -659,12 +463,9 @@ mod map_tests {
 
 		attr.insert("key_a", 123.to_value());
 		attr.insert("key_b", [456.to_scalar(), true.to_scalar()].to_value());
-		attr.insert("key_c", [789.to_scalar(), false.to_scalar()].to_value());
 		attr.insert("error", "first error".to_value());
-
-		attr.insert_ephemeral("key_b", "overwrite!".to_value());
-		attr.insert_ephemeral("key_d", ["new".to_scalar(), " key".to_scalar()].to_value());
-		attr.insert_ephemeral("error", "new error".to_value());
+		attr.insert("key_c", [789.to_scalar(), false.to_scalar()].to_value());
+		attr.insert("key_d", (3.14159).to_value());
 
 		let mut got_keys: Vec<&str> = Vec::new();
 		for key in attr.key_iter() {

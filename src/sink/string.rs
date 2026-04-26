@@ -61,6 +61,7 @@ pub struct String {
 	frozen_now: Option<ntime::Timestamp>,
 	frozen_now_tick: Option<ntime::Duration>,
 	delimiter: string::String,
+	mock_attributes: attributes::Map,
 }
 
 impl String {
@@ -85,6 +86,7 @@ impl String {
 			},
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
 			delimiter: delimiter,
+			mock_attributes: attributes::Map::new(),
 		}
 	}
 
@@ -114,27 +116,20 @@ impl sink::Sink for String {
 
 		let line = if self.frozen_now.is_some() || self.frozen_logger_id.is_some() {
 			// apply mocks
-			let mut nupdate = update.clone();
-			let mut mock_attrs: Option<attributes::Map> = None;
+			let mut mock_update = update.clone();
+			self.mock_attributes.copy_from(attrs);
 
 			if let Some(t) = self.frozen_now.as_mut() {
-				nupdate.when = t.clone();
+				mock_update.when = t.clone();
 			}
 			if let Some(id) = self.frozen_logger_id {
-				if attrs.has(ATTRIBUTE_KEY_LOGGER_ID) {
-					mock_attrs = Some(attrs.clone());
-					mock_attrs.as_mut().unwrap().insert_ephemeral(ATTRIBUTE_KEY_LOGGER_ID, id.to_value());
+				if self.mock_attributes.has(ATTRIBUTE_KEY_LOGGER_ID) {
+					self.mock_attributes.insert(ATTRIBUTE_KEY_LOGGER_ID, id.to_value());
 					self.frozen_logger_id = Some(id + 1);
 				};
 			}
 
-			self.formatter.as_string(
-				&nupdate,
-				match mock_attrs.as_ref() {
-					Some(a) => a,
-					None => attrs,
-				},
-			)
+			self.formatter.as_string(&mock_update, &self.mock_attributes)
 		} else {
 			self.formatter.as_string(update, attrs)
 		};

@@ -25,6 +25,7 @@ pub struct Logger {
 	sinks: Vec<SinkRef>,
 	filters: Vec<FilterRef>,
 	common_update: LogUpdate,
+	common_attributes: attributes::Map,
 }
 
 impl Logger {
@@ -48,6 +49,7 @@ impl Logger {
 			sinks: Vec::new(),
 			filters: Vec::new(),
 			common_update: LogUpdate::blank(),
+			common_attributes: attributes::Map::new(),
 		}
 	}
 
@@ -162,13 +164,13 @@ impl Logger {
 	///
 	/// The provided value must implement [`crate::ToValue`].
 	pub fn set<T: ToScalar>(&mut self, key: &str, v: T) -> &mut Self {
-		self.attributes.insert(key, v.to_value());
+		self.attributes.insert_ref(key, &v.to_value());
 		self
 	}
 
 	/// Sets an attribute [`Value`] for a [`Logger`].
 	pub fn set_value(&mut self, key: &str, val: Value) -> &mut Self {
-		self.attributes.insert(key, val);
+		self.attributes.insert_ref(key, &val);
 		self
 	}
 
@@ -181,19 +183,23 @@ impl Logger {
 			return self;
 		}
 
-		self.attributes.clear_ephemeral();
-		for (k, v) in attrs_1 {
-			self.attributes.insert_ephemeral(k, v);
-		}
-		for (k, v) in attrs_2 {
-			self.attributes.insert_ephemeral(k, v);
-		}
+		let attrs = match attrs_1.is_empty() && attrs_2.is_empty() {
+			true => &self.attributes,
+			false => {
+				// straight up copying and extending ephemeral attributes is the most efficient
+				// way to deal with potential collisions. trust me, i've tried everything else.
+				self.common_attributes.copy_from(&self.attributes);
+				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref(k, &v));
+				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref(k, &v));
+
+				&self.common_attributes
+			}
+		};
 
 		self.common_update.set_when(Timestamp::now());
 		self.common_update.set_level(level);
 		self.common_update.set_msg(msg);
 		let update = &self.common_update;
-		let attrs = &self.attributes;
 
 		// apply filters, if any
 		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update, &attrs)) {
@@ -358,6 +364,7 @@ impl Clone for Logger {
 			sinks: self.sinks.clone(),
 			filters: self.filters.clone(),
 			common_update: LogUpdate::blank(),
+			common_attributes: attributes::Map::new(),
 		};
 		clone.set_async(self.is_async());
 

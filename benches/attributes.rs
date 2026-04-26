@@ -64,7 +64,7 @@ fn in_update<const N: usize>(bencher: Bencher) {
 	let attrs = attrs.iter().map(|x| (x.0.as_str(), x.1.clone())).collect::<Vec<(&str, Value)>>();
 	let attrs = attrs.as_array::<N>().unwrap();
 
-	bencher.with_inputs(|| (log.clone(), attrs.clone())).bench_values(|(mut log, attrs)| {
+	bencher.with_inputs(|| (log.clone(), attrs.clone())).bench_local_values(|(mut log, attrs)| {
 		log.info_with::<N>("attributes benchmark test", attrs);
 	});
 }
