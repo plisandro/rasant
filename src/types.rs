@@ -19,7 +19,7 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 
 /// ShortString is a string stored in a (small) fixed-size buffer, to avoid heap allocations.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct ShortString {
 	buf: [u8; SHORT_STRING_MAX_SIZE],
 	size: usize,
@@ -36,9 +36,8 @@ impl ShortString {
 			buf: [0; SHORT_STRING_MAX_SIZE],
 			size: s.len(),
 		};
-		// TODO: make me faster?
-		for (dest, src) in res.buf.iter_mut().zip(s.bytes()) {
-			*dest = src
+		for i in 0..res.size {
+			res.buf[i] = s.as_bytes()[i];
 		}
 
 		Ok(res)
@@ -52,6 +51,22 @@ impl ShortString {
 	/// Returns a [`&str`] slice for this [`ShortString`].
 	pub fn as_str(&self) -> &str {
 		str::from_utf8(&self.buf[0..self.size]).expect("failed to deserialize ShortString")
+	}
+}
+
+impl PartialEq for ShortString {
+	fn eq(&self, other: &Self) -> bool {
+		if self.size != other.size {
+			return false;
+		}
+
+		for i in 0..self.size {
+			if self.buf[i] != other.buf[i] {
+				return false;
+			}
+		}
+
+		true
 	}
 }
 
