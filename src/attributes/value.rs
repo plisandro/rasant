@@ -12,7 +12,8 @@ pub enum Value<'e> {
 	Scalar(scalar::Scalar),
 	/// An ordered set of [Scalar][`scalar::Scalar`] values.
 	Set(&'e [scalar::Scalar]),
-	// TODO: add Map?
+	/// A map-like ordered set of { [Scalar][`scalar::Scalar`] -> [Scalar][`scalar::Scalar`] } tuples.
+	Map(&'e [scalar::Scalar], &'e [scalar::Scalar]),
 }
 
 /* ----------------------- Value implementation ----------------------- */
@@ -30,6 +31,16 @@ impl<'i> fmt::Display for Value<'i> {
 					write!(f, "{}", ss[i])?;
 				}
 				write!(f, "]")
+			}
+			Self::Map(keys, ss) => {
+				write!(f, "{{")?;
+				for i in 0..keys.len() {
+					if i != 0 {
+						write!(f, ", ")?;
+					}
+					write!(f, "{key}: {val}", key = keys[i], val = ss[i])?;
+				}
+				write!(f, "}}")
 			}
 		}
 	}
@@ -72,18 +83,6 @@ impl ToValue for &[Scalar] {
 	}
 }
 
-/*
-impl ToValue for [Scalar] {
-	fn to_value(&self) -> Value {
-		if self.len() == 1 {
-			return Value::Scalar(self[0].clone());
-		}
-
-		Value::Set(self)
-	}
-}
-*/
-
 impl<const N: usize> ToValue for [Scalar; N] {
 	fn to_value(&self) -> Value<'_> {
 		if self.len() == 1 {
@@ -91,6 +90,42 @@ impl<const N: usize> ToValue for [Scalar; N] {
 		}
 
 		Value::Set(self.as_slice())
+	}
+}
+
+impl<const N: usize> ToValue for [&[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0], self[1])
+	}
+}
+
+impl<const N: usize> ToValue for &[&[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0], self[1])
+	}
+}
+
+impl<const N: usize> ToValue for (&[Scalar; N], &[Scalar; N]) {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self.0, self.1)
+	}
+}
+
+impl<const N: usize> ToValue for [[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0].as_slice(), self[1].as_slice())
+	}
+}
+
+impl<const N: usize> ToValue for &[[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0].as_slice(), self[1].as_slice())
+	}
+}
+
+impl<const N: usize> ToValue for ([Scalar; N], [Scalar; N]) {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self.0.as_slice(), self.1.as_slice())
 	}
 }
 
@@ -122,6 +157,7 @@ impl<'i, const N: usize> ToValue for [Value<'i>; N] {
 
 /* ----------------------- Tests ----------------------- */
 
+// TODO: add tests for Map
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -169,11 +205,33 @@ mod tests {
 		assert_eq!((&Timestamp::from_millis(67890)).to_value(), Value::Scalar(Scalar::Uint(67)));
 	}
 
-	fn to_value() {
+	#[test]
+	fn to_value_set() {
 		let arr = [Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
 		let slice = &[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
 		assert_eq!(arr.to_value(), Value::Set(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
 		assert_eq!(slice.to_value(), Value::Set(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+	}
+
+	#[test]
+	fn to_value_map() {
+		let arrays = [
+			[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
+			[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)],
+		];
+		let slices = &[&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)]];
+
+		assert_eq!(
+			arrays.to_value(),
+			Value::Map(
+				&[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
+				&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)]
+			)
+		);
+		assert_eq!(
+			slices.to_value(),
+			Value::Map(&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)])
+		);
 	}
 
 	#[test]
@@ -195,6 +253,16 @@ mod tests {
 				])
 			),
 			"[true, \"boo\", \"abcd 1234\", -0x2bdc545d6b4b87, 123456]"
+		);
+		assert_eq!(
+			format!(
+				"{}",
+				Value::Map(
+					&[Scalar::Int(123), Scalar::Int(456), Scalar::Int(-789)],
+					&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-111)],
+				)
+			),
+			"{123: true, 456: \"boo\", -789: -0x6f}",
 		);
 	}
 

@@ -78,6 +78,7 @@ impl Scalar {
 /* ----------------------- Casting helpers ----------------------- */
 
 /// Trait for known types/structs which can be casted into [`Scalar`].
+// TODO: handle types by value instead of reference, so we can cleanly deal with long strings.
 pub trait ToScalar {
 	/// Casts the type to a [`Scalar`].
 	fn to_scalar(&self) -> Scalar;

@@ -51,6 +51,18 @@ pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 			}
 			write!(out, "]")
 		}
+		Value::Map(keys, ss) => {
+			write!(out, "{{")?;
+			for i in 0..keys.len() {
+				if i != 0 {
+					write!(out, ",")?;
+				}
+				write_scalar(out, &keys[i])?;
+				write!(out, ":")?;
+				write_scalar(out, &ss[i])?;
+			}
+			write!(out, "}}")
+		}
 	}
 }
 
@@ -136,6 +148,14 @@ mod tests {
 				]
 				.to_value(),
 				"[false,\"abcd 1234\",-123,89801234567890123,5.6789012345e6]",
+			),
+			(
+				(
+					["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()],
+					[false.to_scalar(), (-123).to_scalar(), (456.789).to_scalar()],
+				)
+					.to_value(),
+				"{\"key_a\":false,\"key_b\":-123,\"key_c\":4.56789e2}",
 			),
 		] {
 			let (v, want): (Value, &str) = tc;

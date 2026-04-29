@@ -214,6 +214,7 @@ impl filter::Filter for AttributeValue {
 			let ss = match val {
 				attributes::Value::Scalar(ref s) => &[s.clone()],
 				attributes::Value::Set(ss) => ss,
+				attributes::Value::Map(_, ss) => ss,
 			};
 
 			for s in ss {
@@ -664,4 +665,6 @@ mod tests {
 			false,
 		);
 	}
+
+	// TODO: add tests for AttributeValue on Sets and Maps.
 }
