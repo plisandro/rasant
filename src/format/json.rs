@@ -20,10 +20,10 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_scalar<T: io::Write>(out: &mut T, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::Bool(b) => write!(out, "{}", b),
-		Scalar::String(s) => s.write_quoted_escaped(out),
+		Scalar::String(s) => s.write_quoted_escaped(out, attrs),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => write!(out, "{}", i),
 		Scalar::Size(s) => write!(out, "{}", s),
@@ -37,16 +37,16 @@ pub fn write_scalar<T: io::Write>(out: &mut T, s: &Scalar) -> io::Result<()> {
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
+pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, &s),
+		Value::Scalar(s) => write_scalar(out, attrs, &s),
 		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
 				if i != 0 {
 					write!(out, ",")?;
 				}
-				write_scalar(out, &ss[i])?;
+				write_scalar(out, attrs, &ss[i])?;
 			}
 			write!(out, "]")
 		}
@@ -56,9 +56,9 @@ pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 				if i != 0 {
 					write!(out, ",")?;
 				}
-				write_scalar(out, &keys[i])?;
+				write_scalar(out, attrs, &keys[i])?;
 				write!(out, ":")?;
-				write_scalar(out, &ss[i])?;
+				write_scalar(out, attrs, &ss[i])?;
 			}
 			write!(out, "}}")
 		}
@@ -92,7 +92,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	// append fields
 	for (key, val) in attrs.iter() {
 		write!(out, ",\"{key}\":")?;
-		write_value(out, &val)?;
+		write_value(out, attrs, &val)?;
 	}
 	write!(out, "}}")?;
 
@@ -129,7 +129,8 @@ mod tests {
 			let (s, want): (Scalar, &str) = tc;
 
 			let mut out = Vec::new();
-			assert!(write_scalar(&mut out, &s).is_ok());
+			let attrs = Map::new();
+			assert!(write_scalar(&mut out, &attrs, &s).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
@@ -159,7 +160,8 @@ mod tests {
 			let (v, want): (Value, &str) = tc;
 
 			let mut out = Vec::new();
-			assert!(write_value(&mut out, &v).is_ok());
+			let attrs = Map::new();
+			assert!(write_value(&mut out, &attrs, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}

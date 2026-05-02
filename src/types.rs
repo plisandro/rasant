@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
 
-use crate::constant::SHORT_STRING_MAX_SIZE;
 use crate::filter::Filter;
 use crate::queue::AsyncSinkOp;
 use crate::sink::Sink;
@@ -19,62 +18,59 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 /// A sender channel for [`AsyncSinkOp`] async log operations.
 pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 
-/// AttributeString is a container for all string types supported as attibutes.
-#[derive(Clone, Debug)]
+/// A string container for any of the types supported in attributes: [`String`], static [`&str`], or an index within a string container.
+#[derive(Clone, Debug, PartialEq)]
 pub struct AttributeString {
-	static_buf: Option<&'static str>,
 	heap_string: Option<String>,
-	buf: [u8; SHORT_STRING_MAX_SIZE],
-	buf_size: usize,
+	static_buf: Option<&'static str>,
+	idx: usize,
 	needs_escaping: bool,
+}
+
+/// Defines a trait to resolve indexed [`AttributeString`]s from a container.
+pub trait AttributeStringSeek {
+	/// Resolves an indexed [`AttributeString`] to [`&str`].
+	fn str_seek<'f>(&'f self, idx: usize) -> &'f str;
+}
+
+impl From<String> for AttributeString {
+	fn from(s: String) -> Self {
+		let needs_escaping = Self::has_escapable_chars(s.as_str());
+		Self {
+			heap_string: Some(s),
+			static_buf: None,
+			idx: 0,
+			needs_escaping: needs_escaping,
+		}
+	}
 }
 
 impl From<&'static str> for AttributeString {
 	fn from(s: &'static str) -> Self {
 		Self {
-			static_buf: Some(s),
 			heap_string: None,
-			buf: [0; SHORT_STRING_MAX_SIZE],
-			buf_size: 0,
-			needs_escaping: AttributeString::has_escapable_chars(s),
+			static_buf: Some(s),
+			idx: 0,
+			needs_escaping: Self::has_escapable_chars(s),
 		}
 	}
 }
 
-impl From<String> for AttributeString {
-	fn from(s: String) -> Self {
-		let needs_escaping = AttributeString::has_escapable_chars(s.as_str());
-
-		if s.len() <= SHORT_STRING_MAX_SIZE {
-			// we can store this string locally \o/
-			let mut res = Self {
-				static_buf: None,
-				heap_string: None,
-				buf: [0; SHORT_STRING_MAX_SIZE],
-				buf_size: s.len(),
-				needs_escaping: needs_escaping,
-			};
-			for i in 0..res.buf_size {
-				res.buf[i] = s.as_bytes()[i];
-			}
-
-			return res;
-		}
-
+impl From<(usize, bool)> for AttributeString {
+	fn from(args: (usize, bool)) -> Self {
+		let (idx, needs_escaping) = args;
 		Self {
+			heap_string: None,
 			static_buf: None,
-			heap_string: Some(s),
-			buf: [0; SHORT_STRING_MAX_SIZE],
-			buf_size: 0,
+			idx: idx,
 			needs_escaping: needs_escaping,
 		}
 	}
 }
 
 impl<'i> AttributeString {
-	/// Evaluates whether a given [`&str`] contains escapable characters.
+	/// Evaluates whether a source string needs escaping.
 	fn has_escapable_chars(s: &str) -> bool {
-		// this is horrible, alas...
 		let mut escaped_iter = s.escape_default();
 		for c in s.chars() {
 			match escaped_iter.next() {
@@ -86,61 +82,87 @@ impl<'i> AttributeString {
 				}
 			}
 		}
+
 		false
 	}
 
-	/// Returns a binary length for this [`AttributeString`].
-	pub fn len(&self) -> usize {
-		if let Some(s) = self.static_buf {
-			return s.len();
-		}
-		if let Some(s) = &self.heap_string {
-			return s.len();
-		}
-		return self.buf_size;
+	/// Checks if this [`AttributeString`] requires escaping.
+	pub fn needs_escaping(&self) -> bool {
+		self.needs_escaping
 	}
 
-	/// Returns a [`&str`] slice for this [`AttributeString`].
-	pub fn as_str(&self) -> &str {
-		if let Some(s) = self.static_buf {
-			return s;
+	/// Returns a [`&str`] for this [`AttributeString`], if it's heap-stored.
+	pub fn as_heap_str(&'i self) -> Option<&'i str> {
+		match &self.heap_string {
+			Some(s) => Some(s.as_str()),
+			None => None,
 		}
+	}
+
+	/// Casts a [`AttributeString`] to a [`&str`], resolving indexed strings via [`AttributeStringSeek`] when necessary.
+	pub fn as_str<S: AttributeStringSeek>(&'i self, seeker: &'i S) -> &'i str {
 		if let Some(s) = &self.heap_string {
 			return s.as_str();
 		}
-		str::from_utf8(&self.buf[0..self.buf_size]).expect("failed to deserialize AttributeString buffer")
+		if let Some(s) = self.static_buf {
+			return s;
+		}
+
+		seeker.str_seek(self.idx)
+	}
+
+	/// Returns the container index for this [`AttributeString], if any.
+	pub fn idx(&self) -> Option<usize> {
+		match self.heap_string.is_some() || self.static_buf.is_some() {
+			false => Some(self.idx),
+			true => None,
+		}
+	}
+
+	/// Creates an indexed [`AttributeString`] copy, preserving original settings.
+	pub fn to_indexed(&self, idx: usize) -> Self {
+		Self {
+			heap_string: None,
+			static_buf: None,
+			idx: idx,
+			needs_escaping: self.needs_escaping,
+		}
+	}
+
+	/// Re-aligns string container indeces for an [`AttributeString`], given a deleted index.
+	pub fn realign_by_deleted_idx(&mut self, deleted_idx: usize) {
+		if self.heap_string.is_some() || self.static_buf.is_some() {
+			return;
+		}
+		if self.idx != 0 && self.idx >= deleted_idx {
+			self.idx -= 1;
+		}
 	}
 
 	/// Writes an [`AttributeString`] into a [`io::Write`].
-	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		write!(out, "{}", self.as_str())
+	pub fn write<O: io::Write, S: AttributeStringSeek>(&self, out: &mut O, seeker: &'i S) -> io::Result<()> {
+		write!(out, "{}", self.as_str(seeker))
 	}
 
 	/// Writes an [`AttributeString`] into a [`io::Write`], escaping characters when needed.
-	pub fn write_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+	pub fn write_escaped<O: io::Write, S: AttributeStringSeek>(&self, out: &mut O, seeker: &'i S) -> io::Result<()> {
 		match self.needs_escaping {
-			false => write!(out, "{}", self.as_str()),
-			true => write!(out, "{}", self.as_str().escape_default()),
+			false => write!(out, "{}", self.as_str(seeker)),
+			true => write!(out, "{}", self.as_str(seeker).escape_default()),
 		}
 	}
 
 	/// Writes an [`AttributeString`] into a [`io::Write`], between quotes.
-	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		write!(out, "\"{}\"", self.as_str())
+	pub fn write_quoted<O: io::Write, S: AttributeStringSeek>(&self, out: &mut O, seeker: &'i S) -> io::Result<()> {
+		write!(out, "\"{}\"", self.as_str(seeker))
 	}
 
 	/// Writes an [`AttributeString`] into a [`io::Write`], between quotes, and escaping characters when needed.
-	pub fn write_quoted_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+	pub fn write_quoted_escaped<O: io::Write, S: AttributeStringSeek>(&self, out: &mut O, seeker: &'i S) -> io::Result<()> {
 		match self.needs_escaping {
-			false => write!(out, "\"{}\"", self.as_str()),
-			true => write!(out, "\"{}\"", self.as_str().escape_default()),
+			false => write!(out, "\"{}\"", self.as_str(seeker)),
+			true => write!(out, "\"{}\"", self.as_str(seeker).escape_default()),
 		}
-	}
-}
-
-impl PartialEq for AttributeString {
-	fn eq(&self, other: &Self) -> bool {
-		self.as_str() == other.as_str()
 	}
 }
 
@@ -172,37 +194,83 @@ impl Rand {
 
 /* ----------------------- Tests ----------------------- */
 
-/*
 #[cfg(test)]
-mod short_string {
+mod attribute_string {
 	use super::*;
 
-	#[test]
-	fn invalid() {
-		assert_eq!(
-			ShortString::from("this is a very long string, which surely will cause problems down the line :("),
-			Err("max string size exceeded")
-		);
+	struct DummySeeker {}
+	impl AttributeStringSeek for DummySeeker {
+		fn str_seek<'f>(&'f self, _: usize) -> &'f str {
+			"indexed string"
+		}
 	}
 
 	#[test]
-	fn valid() {
-		// a string of length < SHORT_STRING_MAX_SIZE.
-		let s = "this is a short enough string";
-		let ss = ShortString::from(s).expect("ShortString initialization failed");
+	fn slice() {
+		let s = AttributeString::from("static slice");
+		let seeker = DummySeeker {};
 
-		assert_eq!(ss.as_str(), s);
-		assert_eq!(ss.len(), s.len());
+		assert_eq!(s.as_heap_str(), None);
+		assert_eq!(s.as_str(&seeker), "static slice");
+		assert_eq!(s.idx(), None);
+		assert_eq!(s.needs_escaping(), false);
+	}
 
-		// a string of length == SHORT_STRING_MAX_SIZE.
-		let s = (0..SHORT_STRING_MAX_SIZE).map(|_| "X").collect::<String>();
-		let ss = ShortString::from(&s).expect("ShortString initialization failed");
+	#[test]
+	fn string() {
+		let s = AttributeString::from(String::from("heap string"));
+		let seeker = DummySeeker {};
 
-		assert_eq!(ss.as_str(), s);
-		assert_eq!(ss.len(), SHORT_STRING_MAX_SIZE)
+		assert_eq!(s.as_heap_str(), Some("heap string"));
+		assert_eq!(s.as_str(&seeker), "heap string");
+		assert_eq!(s.idx(), None);
+		assert_eq!(s.needs_escaping(), false);
+	}
+
+	#[test]
+	fn indexed() {
+		let mut s = AttributeString::from((1, false));
+		let seeker = DummySeeker {};
+
+		assert_eq!(s.as_heap_str(), None);
+		assert_eq!(s.as_str(&seeker), "indexed string");
+		assert_eq!(s.idx(), Some(1));
+
+		s.realign_by_deleted_idx(3);
+		assert_eq!(s.idx(), Some(1));
+		s.realign_by_deleted_idx(0);
+		assert_eq!(s.idx(), Some(0));
+		s.realign_by_deleted_idx(0);
+		assert_eq!(s.idx(), Some(0));
+	}
+
+	#[test]
+	fn escaping() {
+		let s = AttributeString::from("declaró\nen\tcontra");
+		let seeker = DummySeeker {};
+
+		assert_eq!(s.as_heap_str(), None);
+		assert_eq!(s.as_str(&seeker), "declaró\nen\tcontra");
+		assert_eq!(s.idx(), None);
+		assert_eq!(s.needs_escaping(), true);
+
+		let mut out: Vec<u8> = Vec::new();
+		s.write(&mut out, &seeker).unwrap();
+		assert_eq!(str::from_utf8(&out).unwrap(), "declaró\nen\tcontra");
+
+		out.clear();
+		s.write_quoted(&mut out, &seeker).unwrap();
+		assert_eq!(str::from_utf8(&out).unwrap(), "\"declaró\nen\tcontra\"");
+
+		out.clear();
+		s.write_escaped(&mut out, &seeker).unwrap();
+		assert_eq!(str::from_utf8(&out).unwrap(), "declar\\u{f3}\\nen\\tcontra");
+
+		out.clear();
+		s.write_quoted_escaped(&mut out, &seeker).unwrap();
+		assert_eq!(str::from_utf8(&out).unwrap(), "\"declar\\u{f3}\\nen\\tcontra\"");
 	}
 }
-*/
 
 #[cfg(test)]
 mod rand {

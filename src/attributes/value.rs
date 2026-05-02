@@ -1,6 +1,6 @@
 use std::fmt;
-use std::fmt::Write;
 
+use crate::attributes::Map;
 use crate::attributes::scalar::Scalar;
 
 /// Value definition for all log operations.
@@ -17,40 +17,40 @@ pub enum Value<'e> {
 
 /* ----------------------- Value implementation ----------------------- */
 
-impl<'i> fmt::Display for Value<'i> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'i> Value<'i> {
+	/// Writes a string representation of a [`Value`] into an [`fmt::Write`].
+	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match &self {
-			Self::Scalar(s) => write!(f, "{}", s),
+			Self::Scalar(s) => s.write_str(out, attrs),
 			Self::List(ss) => {
-				write!(f, "[")?;
+				write!(out, "[")?;
 				for i in 0..ss.len() {
 					if i != 0 {
-						write!(f, ", ")?;
+						write!(out, ", ")?;
 					}
-					write!(f, "{}", ss[i])?;
+					ss[i].write_str(out, attrs)?;
 				}
-				write!(f, "]")
+				write!(out, "]")
 			}
 			Self::Map(keys, ss) => {
-				write!(f, "{{")?;
+				write!(out, "{{")?;
 				for i in 0..keys.len() {
 					if i != 0 {
-						write!(f, ", ")?;
+						write!(out, ", ")?;
 					}
-					write!(f, "{key}: {val}", key = keys[i], val = ss[i])?;
+					keys[i].write_str(out, attrs)?;
+					write!(out, ": ")?;
+					ss[i].write_str(out, attrs)?;
 				}
-				write!(f, "}}")
+				write!(out, "}}")
 			}
 		}
 	}
-}
 
-// Trait for known types/structs which can be casted into a [`Value`].
-impl<'i> Value<'i> {
 	/// Serializes a [`Value`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_string(&self, out: &mut String) {
+	pub fn into_string(&self, out: &mut String, attrs: &Map) {
 		out.clear();
-		write!(*out, "{}", self).expect("failed to serialize Value into_string()");
+		self.write_str(out, attrs).expect("failed to serialize Value into_string()");
 	}
 }
 
@@ -157,9 +157,12 @@ mod tests {
 
 		assert_eq!(Value::from(true), Value::Scalar(Scalar::Bool(true)));
 		assert_eq!(Value::from(short_string), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
-		assert_eq!(Value::from(String::from(short_string)), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
-		assert_eq!(Value::from(long_string), Value::Scalar(Scalar::String(long_string.into())));
-		assert_eq!(Value::from(String::from(long_string)), Value::Scalar(Scalar::String(long_string.into())));
+		assert_eq!(
+			Value::from(String::from(short_string)),
+			Value::Scalar(Scalar::String(AttributeString::from(String::from(short_string))))
+		);
+		assert_eq!(Value::from(long_string), Value::Scalar(Scalar::String(AttributeString::from(long_string))));
+		assert_eq!(Value::from(String::from(long_string)), Value::Scalar(Scalar::String(AttributeString::from(String::from(long_string)))));
 		assert_eq!(Value::from(-12 as i8), Value::Scalar(Scalar::Int(-12)));
 		assert_eq!(Value::from(345 as i16), Value::Scalar(Scalar::Int(345)));
 		assert_eq!(Value::from(-678 as i32), Value::Scalar(Scalar::Int(-678)));
@@ -215,40 +218,38 @@ mod tests {
 	}
 
 	#[test]
-	fn dbg_format() {
-		assert_eq!(format!("{}", Value::Scalar(Scalar::Bool(true))), "true");
-		assert_eq!(format!("{}", Value::Scalar(Scalar::String(AttributeString::from("boo")))), "\"boo\"");
-		assert_eq!(format!("{}", Value::Scalar(Scalar::Size(-12345678901234567))), "-0x2bdc545d6b4b87");
-		assert_eq!(format!("{}", Value::Scalar(Scalar::Uint(123456))), "123456");
-		assert_eq!(
-			format!(
-				"{}",
+	fn into_string() {
+		for tc in [
+			(Value::Scalar(Scalar::Bool(true)), "true"),
+			(Value::Scalar(Scalar::String("boo".into())), "\"boo\""),
+			(Value::Scalar(Scalar::String(AttributeString::from("abcd 1234"))), "\"abcd 1234\""),
+			(Value::Scalar(Scalar::Size(-12345678901234567)), "-0x2bdc545d6b4b87"),
+			(Value::Scalar(Scalar::Uint(123456)), "123456"),
+			(
 				Value::List(&[
 					Scalar::Bool(true),
 					Scalar::String("boo".into()),
-					Scalar::String(AttributeString::from("abcd 1234")),
+					Scalar::String("abcd 1234".into()),
 					Scalar::Size(-12345678901234567),
 					Scalar::Uint(123456),
-				])
+				]),
+				"[true, \"boo\", \"abcd 1234\", -0x2bdc545d6b4b87, 123456]",
 			),
-			"[true, \"boo\", \"abcd 1234\", -0x2bdc545d6b4b87, 123456]"
-		);
-		assert_eq!(
-			format!(
-				"{}",
+			(
 				Value::Map(
 					&[Scalar::Int(123), Scalar::Int(456), Scalar::Int(-789)],
 					&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-111)],
-				)
+				),
+				"{123: true, 456: \"boo\", -789: -0x6f}",
 			),
-			"{123: true, 456: \"boo\", -789: -0x6f}",
-		);
-	}
+		] {
+			let (v, want): (Value, &str) = tc;
 
-	#[test]
-	fn into_string() {
-		let mut out = String::from("lolololo!");
-		Value::Scalar(Scalar::LongInt(-12345678901234567)).into_string(&mut out);
-		assert_eq!(out, "-0x2bdc545d6b4b87");
+			let mut out = String::from("lalalala!");
+			let attrs = Map::new();
+
+			v.into_string(&mut out, &attrs);
+			assert_eq!(out, want);
+		}
 	}
 }

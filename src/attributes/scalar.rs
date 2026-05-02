@@ -1,8 +1,8 @@
 use ntime::{Duration, Timestamp};
 use std::fmt;
-use std::fmt::Write;
 use std::thread;
 
+use crate::attributes::Map;
 use crate::level::Level;
 use crate::types::AttributeString;
 
@@ -32,44 +32,43 @@ pub enum Scalar {
 
 /* ----------------------- Implementation ----------------------- */
 
-impl fmt::Display for Scalar {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'i> Scalar {
+	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
+	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match &self {
-			Self::Bool(b) => write!(f, "{}", b),
-			Self::String(s) => write!(f, "\"{}\"", s.as_str()),
-			Self::Int(i) => write!(f, "{}", i),
+			Self::Bool(b) => write!(out, "{}", b),
+			Self::String(s) => write!(out, "\"{}\"", s.as_str(attrs)),
+			Self::Int(i) => write!(out, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
-					write!(f, "-0x{:x}", -i)
+					write!(out, "-0x{:x}", -i)
 				} else {
-					write!(f, "0x{:x}", i)
+					write!(out, "0x{:x}", i)
 				}
 			}
 			Self::Size(s) => {
 				if *s < 1 {
-					write!(f, "-0x{:x}", -s)
+					write!(out, "-0x{:x}", -s)
 				} else {
-					write!(f, "0x{:x}", s)
+					write!(out, "0x{:x}", s)
 				}
 			}
-			Self::Uint(i) => write!(f, "{}", i),
-			Self::LongUint(u) => write!(f, "0x{:x}", u),
-			Self::Usize(u) => write!(f, "0x{:x}", u),
-			Self::Float(fl) => write!(f, "{}", fl),
+			Self::Uint(i) => write!(out, "{}", i),
+			Self::LongUint(u) => write!(out, "0x{:x}", u),
+			Self::Usize(u) => write!(out, "0x{:x}", u),
+			Self::Float(fl) => write!(out, "{}", fl),
 		}
 	}
-}
 
-impl<'i> Scalar {
 	/// Creates an array of [`Scalar`]s from a suitable type.
 	pub fn to_array<const N: usize, T: ToScalarArray<'i, N>>(v: T) -> [Self; N] {
 		v.to_scalar_array()
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_string(&self, out: &mut String) {
+	pub fn into_string(&self, out: &mut String, attrs: &Map) {
 		out.clear();
-		write!(*out, "{}", self).expect("failed to serialize Scalar into_string()");
+		self.write_str(out, attrs).expect("failed to serialize Scalar into_string()");
 	}
 }
 
@@ -256,9 +255,9 @@ mod tests {
 
 		assert_eq!(Scalar::from(true), Scalar::Bool(true));
 		assert_eq!(Scalar::from(short_string), Scalar::String(AttributeString::from(short_string)));
-		assert_eq!(Scalar::from(String::from(short_string)), Scalar::String(AttributeString::from(short_string)));
+		assert_eq!(Scalar::from(String::from(short_string)), Scalar::String(AttributeString::from(String::from(short_string))));
 		assert_eq!(Scalar::from(long_string), Scalar::String(long_string.into()));
-		assert_eq!(Scalar::from(String::from(long_string)), Scalar::String(long_string.into()));
+		assert_eq!(Scalar::from(String::from(long_string)), Scalar::String(AttributeString::from(String::from(long_string))));
 		assert_eq!(Scalar::from(-12 as i8), Scalar::Int(-12));
 		assert_eq!(Scalar::from(345 as i16), Scalar::Int(345));
 		assert_eq!(Scalar::from(-678 as i32), Scalar::Int(-678));
@@ -281,28 +280,32 @@ mod tests {
 	}
 
 	#[test]
-	fn dbg_format() {
-		assert_eq!(format!("{}", Scalar::Bool(true)), "true");
-		assert_eq!(format!("{}", Scalar::Bool(false)), "false");
-		assert_eq!(format!("{}", Scalar::String("".into())), "\"\"");
-		assert_eq!(format!("{}", Scalar::String("abcd 1234".into())), "\"abcd 1234\"");
-		assert_eq!(format!("{}", Scalar::Int(-123)), "-123");
-		assert_eq!(format!("{}", Scalar::Int(456)), "456");
-		assert_eq!(format!("{}", Scalar::LongInt(-12345678901234567)), "-0x2bdc545d6b4b87");
-		assert_eq!(format!("{}", Scalar::LongInt(89801234567890123)), "0x13f09bf3ecf84cb");
-		assert_eq!(format!("{}", Scalar::Size(-12345678901234567)), "-0x2bdc545d6b4b87");
-		assert_eq!(format!("{}", Scalar::Size(89801234567890123)), "0x13f09bf3ecf84cb");
-		assert_eq!(format!("{}", Scalar::Uint(123456)), "123456");
-		assert_eq!(format!("{}", Scalar::LongUint(12345678901234567)), "0x2bdc545d6b4b87");
-		assert_eq!(format!("{}", Scalar::Usize(89801234567890123)), "0x13f09bf3ecf84cb");
-		assert_eq!(format!("{}", Scalar::Float(-1.2345)), "-1.2345");
-		assert_eq!(format!("{}", Scalar::Float(6.78901)), "6.78901");
-	}
-
-	#[test]
 	fn into_string() {
-		let mut out = String::from("lalalala!");
-		Scalar::LongInt(89801234567890123).into_string(&mut out);
-		assert_eq!(out, "0x13f09bf3ecf84cb");
+		for tc in [
+			(Scalar::Bool(true), "true"),
+			(Scalar::Bool(false), "false"),
+			(Scalar::String("".into()), "\"\""),
+			(Scalar::String("abcd 1234".into()), "\"abcd 1234\""),
+			(Scalar::String(String::from("heap String").into()), "\"heap String\""),
+			(Scalar::Int(-123), "-123"),
+			(Scalar::Int(456), "456"),
+			(Scalar::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
+			(Scalar::LongInt(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Scalar::Size(-12345678901234567), "-0x2bdc545d6b4b87"),
+			(Scalar::Size(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Scalar::Uint(123456), "123456"),
+			(Scalar::LongUint(12345678901234567), "0x2bdc545d6b4b87"),
+			(Scalar::Usize(89801234567890123), "0x13f09bf3ecf84cb"),
+			(Scalar::Float(-1.2345), "-1.2345"),
+			(Scalar::Float(6.78901), "6.78901"),
+		] {
+			let (s, want): (Scalar, &str) = tc;
+
+			let mut out = String::from("lalalala!");
+			let attrs = Map::new();
+
+			s.into_string(&mut out, &attrs);
+			assert_eq!(out, want);
+		}
 	}
 }

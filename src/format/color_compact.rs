@@ -23,8 +23,8 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
-	compact::write_value(out, val)
+pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
+	compact::write_value(out, attrs, val)
 }
 
 /// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
@@ -55,7 +55,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 			// error attributes are highlighted in red
 			vals_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
 		)?;
-		write_value(out, &val)?;
+		write_value(out, attrs, &val)?;
 		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;
 	}
 
@@ -97,7 +97,8 @@ mod tests {
 			let (v, want): (Value, &str) = tc;
 
 			let mut out = Vec::new();
-			assert!(write_value(&mut out, &v).is_ok());
+			let attrs = Map::new();
+			assert!(write_value(&mut out, &attrs, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}

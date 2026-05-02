@@ -321,4 +321,4 @@ pub use level::Level;
 pub use logger::Logger;
 /// [`ntime::Format`], re-exported for convenience.
 pub use ntime::Format as TimeFormat;
-pub use types::AttributeString;
+pub use types::{AttributeString, AttributeStringSeek};
