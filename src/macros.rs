@@ -1,4 +1,4 @@
-/// Creates a [List][`crate::Value::Set`] from types which can be cast to [Scalar][`crate::Scalar`].
+/// Creates a [List][`crate::Value::List`] from types which can be cast to a collection of [Scalar][`crate::Scalar`]s.
 #[macro_export]
 macro_rules! list {
     // list!(scalar_collection)
@@ -8,13 +8,13 @@ macro_rules! list {
 
     // list!(scalar_a, scalar_b, ...)
 	($( $s:expr ),*) => {
-	    rasant::Value::Set(&[
+	    rasant::Value::List(&[
 			$( rasant::Scalar::from($s) ),*
 		])
 	};
 }
 
-/// Creates a [Map][`crate::Value::Map`] from key/value types which can be cast to [Scalar][`crate::Scalar`].
+/// Creates a [Map][`crate::Value::Map`] from key/value types which can be cast to collections of [Scalar][`crate::Scalar`]s.
 #[macro_export]
 macro_rules! map {
     // list!(keys_collection, values_collection)

@@ -50,7 +50,7 @@ pub fn write_scalar<T: io::Write>(out: &mut T, s: &Scalar) -> io::Result<()> {
 pub fn write_value<T: io::Write>(out: &mut T, val: &Value) -> io::Result<()> {
 	match val {
 		Value::Scalar(s) => write_scalar(out, &s),
-		Value::Set(ss) => {
+		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
 				if i != 0 {

@@ -10,7 +10,7 @@ pub enum Value<'e> {
 	/// A single [`Scalar`] value.
 	Scalar(Scalar),
 	/// An ordered set of [`Scalar`] values.
-	Set(&'e [Scalar]),
+	List(&'e [Scalar]),
 	/// A map-like ordered set of { [`Scalar`] -> [`Scalar`] } value tuples.
 	Map(&'e [Scalar], &'e [Scalar]),
 }
@@ -21,7 +21,7 @@ impl<'i> fmt::Display for Value<'i> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Scalar(s) => write!(f, "{}", s),
-			Self::Set(ss) => {
+			Self::List(ss) => {
 				write!(f, "[")?;
 				for i in 0..ss.len() {
 					if i != 0 {
@@ -83,13 +83,13 @@ impl<'i, T: ToScalar> ToValue for T {
 // casters for List of Scalar's
 impl<'i> ToValue for &'i [Scalar] {
 	fn to_value(&self) -> Value<'_> {
-		Value::Set(self)
+		Value::List(self)
 	}
 }
 
 impl<'i, const N: usize> ToValue for [Scalar; N] {
 	fn to_value(&self) -> Value<'_> {
-		Value::Set(self.as_slice())
+		Value::List(self.as_slice())
 	}
 }
 
@@ -134,7 +134,7 @@ impl<'i, const N: usize> ToValue for [&[Scalar; N]; 2] {
 // casters for List of ToScalar's.
 impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
 	fn to_value(&self) -> Value<'_> {
-		Value::Set(self.map(|x| x.to_scalar()).as_slice())
+		Value::List(self.map(|x| x.to_scalar()).as_slice())
 	}
 }
 */
@@ -193,8 +193,8 @@ mod tests {
 	fn to_value_set() {
 		let arr = [Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
 		let slice = &[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
-		assert_eq!(arr.to_value(), Value::Set(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
-		assert_eq!(slice.to_value(), Value::Set(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		assert_eq!(arr.to_value(), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		assert_eq!(slice.to_value(), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
 	}
 
 	#[test]
@@ -228,7 +228,7 @@ mod tests {
 		assert_eq!(
 			format!(
 				"{}",
-				Value::Set(&[
+				Value::List(&[
 					Scalar::Bool(true),
 					Scalar::String("boo".into()),
 					Scalar::ShortString(types::ShortString::from("abcd 1234").unwrap()),

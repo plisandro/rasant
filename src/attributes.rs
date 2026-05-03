@@ -134,7 +134,7 @@ impl Map {
 					// TODO: fix me
 					Value::Scalar(self.scalar_pool[start].clone())
 				} else {
-					Value::Set(&self.scalar_pool[start..end])
+					Value::List(&self.scalar_pool[start..end])
 				}
 			}
 			(start_2, end_2) => {
@@ -262,7 +262,7 @@ impl Map {
 
 		let (ss_1, ss_2): (&[Scalar], &[Scalar]) = match val {
 			Value::Scalar(s) => (slice::from_ref(s), &[]),
-			Value::Set(ss) => (*ss, &[]),
+			Value::List(ss) => (*ss, &[]),
 			Value::Map(keys, vals) => {
 				if keys.len() != vals.len() {
 					panic!("Map scalars mismatch for attribute key {{\"{key}\" -> {val:?}}}");
@@ -396,7 +396,7 @@ mod map {
 
 		attr.set("key_a", &Value::Scalar(Scalar::Int(123)));
 		attr.set("key_b", &Value::Scalar(Scalar::Int(456)));
-		attr.set("key_c", &Value::Set([Scalar::Int(789), Scalar::String("abc".into())].as_slice()));
+		attr.set("key_c", &Value::List([Scalar::Int(789), Scalar::String("abc".into())].as_slice()));
 		attr.set("key_b", &Value::Scalar(Scalar::String("overwrites should not change key order".into())));
 		attr.set("error", &Value::Scalar(Scalar::String("priority keys should go first".into())));
 
@@ -427,7 +427,7 @@ mod map {
 		// overwrite existing key
 		attr.set("d", &Value::Scalar(Scalar::Float(7890.1234)));
 		attr.set("error", &Value::Scalar(Scalar::String("first!".into())));
-		attr.set("e", &Value::Set([Scalar::Size(7788), Scalar::Int(9900)].as_slice()));
+		attr.set("e", &Value::List([Scalar::Size(7788), Scalar::Int(9900)].as_slice()));
 		attr.set("a", &Value::Scalar(Scalar::String("lalala".into())));
 		assert_eq!(attr.len(), 6);
 		assert_eq!(attr.store_size(), 7);
@@ -438,9 +438,9 @@ mod map {
 	fn key_overwrite() {
 		let mut attr = Map::new();
 
-		attr.set("a", &Value::Set([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
+		attr.set("a", &Value::List([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
 		attr.set("b", &Value::Scalar(Scalar::String("lalala".into())));
-		attr.set("c", &Value::Set([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
+		attr.set("c", &Value::List([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
 		attr.set("d", &Value::Scalar(Scalar::Bool(false)));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
@@ -453,7 +453,7 @@ mod map {
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=123.456 c=[true, false, true] d=false");
 
 		// overwrite with size increasee
-		attr.set("b", &Value::Set([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		attr.set("b", &Value::List([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=[1, 2, 3, 4] c=[true, false, true] d=false");
@@ -502,8 +502,8 @@ mod map {
 
 	#[test]
 	#[should_panic]
-	fn insert_empty_set() {
-		Map::new().set("a_key", &Value::Set(&[]));
+	fn insert_empty_list() {
+		Map::new().set("a_key", &Value::List(&[]));
 	}
 
 	#[test]
@@ -511,6 +511,7 @@ mod map {
 	fn invalid_empty_map() {
 		Map::new().set("wrong_map", &Value::Map(&[], &[]));
 	}
+
 	#[test]
 	#[should_panic]
 	fn insert_invalid_map() {
