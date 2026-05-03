@@ -3,7 +3,7 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
-use crate::attributes::{ToScalar, ToValue, Value};
+use crate::attributes::{ToValue, Value};
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
@@ -162,13 +162,14 @@ impl Logger {
 	/// to all log operations performed by the [`Logger`]. If the attribute already exists,
 	/// it is overwritten.
 	///
-	/// The provided value must implement [`crate::ToValue`].
-	pub fn set<T: ToScalar>(&mut self, key: &str, v: T) -> &mut Self {
+	/// The provided value must implement [ToValue][`crate::ToValue`].
+	pub fn set<T: ToValue>(&mut self, key: &str, v: T) -> &mut Self {
 		self.attributes.insert_ref(key, &v.to_value());
 		self
 	}
 
 	/// Sets an attribute [`Value`] for a [`Logger`].
+	// TODO: delete me
 	pub fn set_value(&mut self, key: &str, val: Value) -> &mut Self {
 		self.attributes.insert_ref(key, &val);
 		self

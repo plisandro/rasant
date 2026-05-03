@@ -6,6 +6,8 @@ use std::slice;
 
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 
+// TODO: fix imports;
+#[allow(unused_imports)]
 pub use scalar::{Scalar, ToScalar};
 pub use value::{ToValue, Value};
 
