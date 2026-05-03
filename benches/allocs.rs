@@ -1,7 +1,7 @@
 use divan::{AllocProfiler, Bencher};
 use rasant as r;
+use rasant::Logger;
 use rasant::sink::black_hole;
-use rasant::{Logger, ToValue};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -74,10 +74,10 @@ mod multi_argument {
 
 	fn run(bencher: Bencher, mut log: Logger) {
 		bencher.bench_local(move || {
-			log.set_value("some_bool", true.to_value());
-			log.set_value("short_string", "hello_there".to_value());
-			log.set_value("a_float", (3.1415926).to_value());
-			log.set_value("an_usize", (374943849439 as usize).to_value());
+			log.set("some_bool", true);
+			log.set("short_string", "hello_there");
+			log.set("a_float", 3.1415926);
+			log.set("an_usize", 374943849439 as usize);
 			r::info!(log, "benchmark test!", foo = 12345);
 		});
 	}
@@ -102,14 +102,14 @@ mod with_long_strings {
 
 	fn run(bencher: Bencher, mut log: Logger) {
 		bencher.bench_local(move || {
-			log.set_value("some_bool", true.to_value());
-			log.set_value("short_string", "hello_there".to_value());
-			log.set_value(
+			log.set("some_bool", true);
+			log.set("short_string", "hello_there");
+			log.set(
 				"long_string",
-				"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.".to_value(),
+				"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
 			);
-			log.set_value("a_float", (3.1415926).to_value());
-			log.set_value("an_usize", (374943849439 as usize).to_value());
+			log.set("a_float", 3.1415926);
+			log.set("an_usize", 374943849439 as usize);
 			r::info!(log, "benchmark test!", foo = 12345);
 		});
 	}

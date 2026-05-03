@@ -1,19 +1,18 @@
 use std::fmt;
 use std::fmt::Write;
 
-use crate::attributes::scalar;
-use crate::attributes::scalar::Scalar;
+use crate::attributes::scalar::{Scalar, ToScalar};
 
 /// Value definition for all log operations.
 /// These are associated with a single [`&str`] key in attribute maps for [Logger][`crate::Logger`]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value<'e> {
-	/// A single [Scalar][`scalar::Scalar`] value.
-	Scalar(scalar::Scalar),
-	/// An ordered set of [Scalar][`scalar::Scalar`] values.
-	Set(&'e [scalar::Scalar]),
-	/// A map-like ordered set of { [Scalar][`scalar::Scalar`] -> [Scalar][`scalar::Scalar`] } tuples.
-	Map(&'e [scalar::Scalar], &'e [scalar::Scalar]),
+	/// A single [`Scalar`] value.
+	Scalar(Scalar),
+	/// An ordered set of [`Scalar`] values.
+	Set(&'e [Scalar]),
+	/// A map-like ordered set of { [`Scalar`] -> [`Scalar`] } value tuples.
+	Map(&'e [Scalar], &'e [Scalar]),
 }
 
 /* ----------------------- Value implementation ----------------------- */
@@ -46,10 +45,11 @@ impl<'i> fmt::Display for Value<'i> {
 	}
 }
 
+// Trait for known types/structs which can be casted into a [`Value`].
 impl<'i> Value<'i> {
-	/// Creates a [`Value`] from any type which can be casted to a single [`Scalar`].
-	pub fn from_scalar<T: scalar::ToScalar>(v: T) -> Self {
-		Self::Scalar(scalar::Scalar::from(v))
+	/// Creates a [`Value`] from a suitable type.
+	pub fn from<T: ToValue>(v: &'i T) -> Value<'i> {
+		v.to_value()
 	}
 
 	/// Serializes a [`Value`] into a pre-existing [`String`], whose contents are overwritten.
@@ -67,90 +67,74 @@ pub trait ToValue {
 	fn to_value(&self) -> Value<'_>;
 }
 
-impl<T: scalar::ToScalar> ToValue for T {
+impl<'i> ToValue for Value<'i> {
+	fn to_value(&self) -> Value<'_> {
+		// TODO: fix me!
+		self.clone()
+	}
+}
+
+impl<'i, T: ToScalar> ToValue for T {
 	fn to_value(&self) -> Value<'_> {
 		Value::Scalar(self.to_scalar())
 	}
 }
 
-impl ToValue for &[Scalar] {
+// casters for List of Scalar's
+impl<'i> ToValue for &'i [Scalar] {
 	fn to_value(&self) -> Value<'_> {
-		if self.len() == 1 {
-			return Value::Scalar(self[0].clone());
-		}
-
 		Value::Set(self)
 	}
 }
 
-impl<const N: usize> ToValue for [Scalar; N] {
+impl<'i, const N: usize> ToValue for [Scalar; N] {
 	fn to_value(&self) -> Value<'_> {
-		if self.len() == 1 {
-			return Value::Scalar(self[0].clone());
-		}
-
 		Value::Set(self.as_slice())
 	}
 }
 
-impl<const N: usize> ToValue for [&[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0], self[1])
-	}
-}
-
-impl<const N: usize> ToValue for &[&[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0], self[1])
-	}
-}
-
-impl<const N: usize> ToValue for (&[Scalar; N], &[Scalar; N]) {
+// casters for Map of Scalar's.
+impl<'i> ToValue for (&'i [Scalar], &'i [Scalar]) {
 	fn to_value(&self) -> Value<'_> {
 		Value::Map(self.0, self.1)
 	}
 }
 
-impl<const N: usize> ToValue for [[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0].as_slice(), self[1].as_slice())
-	}
-}
-
-impl<const N: usize> ToValue for &[[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0].as_slice(), self[1].as_slice())
-	}
-}
-
-impl<const N: usize> ToValue for ([Scalar; N], [Scalar; N]) {
+impl<'i, const N: usize> ToValue for ([Scalar; N], [Scalar; N]) {
 	fn to_value(&self) -> Value<'_> {
 		Value::Map(self.0.as_slice(), self.1.as_slice())
 	}
 }
 
-/*
-impl<'i> ToValue for &[Value<'i>] {
-	fn to_value(&self) -> Value {
-		// TOOD: horrrible, please fix me
-		let ss: Vec<Scalar> = self
-			.iter()
-			.map(|x| match x {
-				Value::Scalar(s) => s.clone(),
-				_ => panic!("invalid value type to convert to Set"),
-			})
-			.collect();
-		if ss.len() == 1 {
-			return Value::Scalar(ss[0].clone());
-		}
-
-		Value::Set(ss.as_slice())
+impl<'i, const N: usize> ToValue for (&[Scalar; N], &[Scalar; N]) {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self.0.as_slice(), self.1.as_slice())
 	}
 }
 
-impl<'i, const N: usize> ToValue for [Value<'i>; N] {
-	fn to_value(&self) -> Value {
-		&self.as_slice().to_value();
+impl<'i> ToValue for [&'i [Scalar]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0], self[1])
+	}
+}
+
+impl<'i, const N: usize> ToValue for [[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0].as_slice(), self[1].as_slice())
+	}
+}
+
+impl<'i, const N: usize> ToValue for [&[Scalar; N]; 2] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Map(self[0].as_slice(), self[1].as_slice())
+	}
+}
+
+/*/
+// casters for List of ToScalar's.
+impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
+	fn to_value(&self) -> Value<'_> {
+		Value::Set(self.map(|x| x.to_scalar()).as_slice())
 	}
 }
 */

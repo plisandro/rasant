@@ -62,10 +62,15 @@ impl fmt::Display for Scalar {
 	}
 }
 
-impl Scalar {
+impl<'i> Scalar {
 	/// Creates a [`Scalar`] from a suitable type.
 	pub fn from<T: ToScalar>(v: T) -> Self {
 		v.to_scalar()
+	}
+
+	/// Creates an array of [`Scalar`]s from a suitable type.
+	pub fn to_array<const N: usize, T: ToScalarArray<'i, N>>(v: T) -> [Self; N] {
+		v.to_scalar_array()
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
@@ -83,6 +88,15 @@ pub trait ToScalar {
 	/// Casts the type to a [`Scalar`].
 	fn to_scalar(&self) -> Scalar;
 }
+
+/*
+impl ToScalar for Scalar {
+	fn to_scalar(&self) -> Scalar {
+		// FIX ME!
+		self.clone()
+	}
+}
+*/
 
 impl ToScalar for bool {
 	fn to_scalar(&self) -> Scalar {
@@ -212,6 +226,35 @@ macro_rules! cast_float_to_scalar {
 
 cast_float_to_scalar!(f32);
 cast_float_to_scalar!(f64);
+
+/* ----------------------- Scalar slice helper implementation ----------------------- */
+
+/// Trait for known types/structs which can be casted into an array of [`Scalar`].
+pub trait ToScalarArray<'t, const N: usize> {
+	/// Casts the type to a [`Scalar`] array.
+	fn to_scalar_array(self) -> [Scalar; N];
+}
+
+impl<'i, T: ToScalar> ToScalarArray<'i, 1> for T {
+	fn to_scalar_array(self) -> [Scalar; 1] {
+		[Scalar::from(self)]
+	}
+}
+
+impl<'i, T: ToScalar, const N: usize> ToScalarArray<'i, N> for [T; N] {
+	fn to_scalar_array(self) -> [Scalar; N] {
+		self.map(|x| Scalar::from(x))
+	}
+}
+
+/*
+impl<'i, T: ToScalar, const N: usize> ToScalarArray<'i, N> for &[T] {
+	fn to_scalar_array(self) -> [Scalar; N] {
+		let out: [Scalar; N] = array::from_fn(|i| self[i].to_scalar());
+		out
+	}
+}
+*/
 
 /* ----------------------- Tests ----------------------- */
 

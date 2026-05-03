@@ -48,7 +48,7 @@ fn in_logger<const N: usize>(bencher: Bencher) {
 	let mut log = init_logger();
 
 	for attr in build_attrs(N) {
-		log.set_value(attr.0.as_str(), attr.1);
+		log.set(attr.0.as_str(), attr.1);
 	}
 
 	bencher.bench_local(|| {

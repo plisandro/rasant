@@ -28,7 +28,7 @@ pub struct Logger {
 	common_attributes: attributes::Map,
 }
 
-impl Logger {
+impl<'i> Logger {
 	fn next_uuid() -> u32 {
 		let mut next_id = GLOBAL_LOGGER_NEXT_UUID.lock().unwrap();
 		let id = *next_id;
@@ -163,19 +163,12 @@ impl Logger {
 	/// it is overwritten.
 	///
 	/// The provided value must implement [ToValue][`crate::ToValue`].
-	pub fn set<T: ToValue>(&mut self, key: &str, v: T) -> &mut Self {
-		self.attributes.insert_ref(key, &v.to_value());
+	pub fn set<T: ToValue + 'i>(&mut self, key: &'i str, v: T) -> &mut Self {
+		self.attributes.insert(key, v.to_value());
 		self
 	}
 
-	/// Sets an attribute [`Value`] for a [`Logger`].
-	// TODO: delete me
-	pub fn set_value(&mut self, key: &str, val: Value) -> &mut Self {
-		self.attributes.insert_ref(key, &val);
-		self
-	}
-
-	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &str, attrs_1: [(&str, Value); X], attrs_2: [(&str, Value); Y]) -> &mut Self {
+	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &'i str, attrs_1: [(&'i str, Value); X], attrs_2: [(&'i str, Value); Y]) -> &mut Self {
 		if !self.has_sinks() {
 			panic!("tried to log without sinks configured for logger {id}", id = self.id);
 		}
@@ -234,93 +227,93 @@ impl Logger {
 	}
 
 	/// Logs a message with a given level, and no additional attributes.
-	pub fn log(&mut self, level: Level, msg: &str) -> &mut Self {
+	pub fn log(&mut self, level: Level, msg: &'i str) -> &mut Self {
 		self.log_with_two(level, msg, [], [])
 	}
 
 	/// Logs a message with a given level and additional attribute [`Value`]s.
-	pub fn log_with<const L: usize>(&mut self, level: Level, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn log_with<const L: usize>(&mut self, level: Level, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with_two(level, msg, attrs, [])
 	}
 
 	/// Logs a [`Level::Trace`] message, with no additional attributes.
-	pub fn trace(&mut self, msg: &str) -> &mut Self {
+	pub fn trace(&mut self, msg: &'i str) -> &mut Self {
 		self.trace_with(msg, [])
 	}
 
 	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
-	pub fn trace_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn trace_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		let id = self.id;
 		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, id.to_value())])
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.
-	pub fn debug(&mut self, msg: &str) -> &mut Self {
+	pub fn debug(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Debug, msg)
 	}
 
 	/// Logs a [`Level::Debug`] message, with additional attribute [`Value`]s.
-	pub fn debug_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn debug_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Debug, msg, attrs)
 	}
 
 	/// Logs a [`Level::Info`] message, with no additional attributes.
-	pub fn info(&mut self, msg: &str) -> &mut Self {
+	pub fn info(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Info, msg)
 	}
 
 	/// Logs a [`Level::Info`] message, with additional attribute [`Value`]s.
-	pub fn info_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn info_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Info, msg, attrs)
 	}
 
 	/// Logs a [`Level::Warning`] message, with no additional attributes.
-	pub fn warn(&mut self, msg: &str) -> &mut Self {
+	pub fn warn(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Warning, msg)
 	}
 
 	/// Logs a [`Level::Warning`] message, with additional attribute [`Value`]s.
-	pub fn warn_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn warn_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Warning, msg, attrs)
 	}
 
 	/// Logs a [`Level::Error`] message, with no additional attributes.
-	pub fn err(&mut self, msg: &str) -> &mut Self {
+	pub fn err(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Error, msg)
 	}
 
 	/// Logs a [`Level::Error`] message, with additional attribute [`Value`]s.
-	pub fn err_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn err_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Error, msg, attrs)
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
-	pub fn error<T: Error>(&mut self, error: T, msg: &str) -> &mut Self {
+	pub fn error<T: Error>(&mut self, error: T, msg: &'i str) -> &mut Self {
 		self.log_with(Level::Error, msg, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
-	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with_two(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
 	}
 
 	/// Logs a [`Level::Fatal`] message, with no additional attributes.
-	pub fn fatal(&mut self, msg: &str) -> &mut Self {
+	pub fn fatal(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Fatal, msg)
 	}
 
 	/// Logs a [`Level::Fatal`] message, with additional attribute [`Value`]s.
-	pub fn fatal_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn fatal_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Fatal, msg, attrs)
 	}
 
 	/// Logs a [`Level::Panic`] message, with no additional attributes, and panics the current process.
-	pub fn panic(&mut self, msg: &str) -> &mut Self {
+	pub fn panic(&mut self, msg: &'i str) -> &mut Self {
 		self.log(Level::Panic, msg)
 	}
 
 	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s.
-	pub fn panic_with<const L: usize>(&mut self, msg: &str, attrs: [(&str, Value); L]) -> &mut Self {
+	pub fn panic_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Panic, msg, attrs)
 	}
 
@@ -427,6 +420,22 @@ mod basic {
 		for _ in 0..MAX_LOGGER_DEPTH + 1 {
 			log = log.clone();
 		}
+	}
+}
+
+#[cfg(test)]
+mod attribute_handling {
+	use super::*;
+	use crate::attributes::ToScalar;
+
+	#[test]
+	fn set_casting() {
+		let mut log = Logger::new();
+		log.set("scalar", 12345);
+		log.set("value_scalar", "hello!");
+		log.set("casted_value_scalar", "hello!".to_value());
+		log.set("value_list", [(12345 as u32).to_scalar(), "hello!".to_scalar()]);
+		log.set("value_map", (["key_a".to_scalar(), "key_b".to_scalar()], [(12345 as u32).to_scalar(), "hello!".to_scalar()]));
 	}
 }
 

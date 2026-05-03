@@ -1,10 +1,50 @@
+/// Creates a [List][`crate::Value::Set`] from types which can be cast to [Scalar][`crate::Scalar`].
+#[macro_export]
+macro_rules! list {
+    // list!(scalar_collection)
+    ($ss:expr) => {
+	    rasant::Value::from(&rasant::Scalar::to_array($ss))
+	};
+
+    // list!(scalar_a, scalar_b, ...)
+	($( $s:expr ),*) => {
+	    rasant::Value::Set(&[
+			$( rasant::Scalar::from($s) ),*
+		])
+	};
+}
+
+/// Creates a [Map][`crate::Value::Map`] from key/value types which can be cast to [Scalar][`crate::Scalar`].
+#[macro_export]
+macro_rules! map {
+    // list!(keys_collection, values_collection)
+    ($keys:expr, $values:expr) => {
+	    rasant::Value::Map(
+	        &rasant::Scalar::to_array($keys),
+	        &rasant::Scalar::to_array($values)
+		)
+	};
+
+    // map!(scalar_key_a => scalar_value_a, scalar_key_b => scalar_value_b, ...)
+	($( $key:expr => $val:expr ),*) => {
+	    rasant::Value::Map(
+			&[
+			    $( rasant::Scalar::from($key) ),*
+			],
+			&[
+			    $( rasant::Scalar::from($val) ),*
+			],
+		)
+	};
+}
+
 /// Sets a number of attributes for a given [logger][`crate::Logger`].
 #[macro_export]
 macro_rules! set {
     // set!(logger, key=value...)
 	($logger:ident, $( $key:ident = $value:expr ),*) => {
 	    $(
-			_ = $logger.set_value(stringify!($key), rasant::Value::from_scalar($value));
+			_ = $logger.set(stringify!($key), $value);
 		)*
 	};
 }
@@ -21,7 +61,7 @@ macro_rules! trace {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.trace_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -39,7 +79,7 @@ macro_rules! debug {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.debug_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -57,7 +97,7 @@ macro_rules! info {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.info_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -75,7 +115,7 @@ macro_rules! warn {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.warn_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -93,7 +133,7 @@ macro_rules! error {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.err_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -107,7 +147,7 @@ macro_rules! error {
 	($logger:ident, $error:expr, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.error_with($error, $msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -125,7 +165,7 @@ macro_rules! fatal {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.fatal_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
@@ -142,7 +182,7 @@ macro_rules! panic {
 	($logger:ident, $msg:expr, $( $key:ident = $value:expr ),*) => {
 		_ = $logger.panic_with($msg, [
 		    $(
-				(stringify!($key), rasant::Value::from_scalar($value))
+				(stringify!($key), rasant::Value::from(&$value))
 			),*
 		]);
 	};
