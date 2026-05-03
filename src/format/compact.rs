@@ -22,8 +22,8 @@ pub fn default_format_config() -> FormatterConfig {
 pub fn write_scalar<T: io::Write>(out: &mut T, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::Bool(b) => write!(out, "{}", b),
-		Scalar::ShortString(ss) => write!(out, "\"{}\"", ss.as_str()),
-		Scalar::String(s) => write!(out, "\"{}\"", s),
+		Scalar::ShortString(ss) => write!(out, "\"{}\"", ss.as_str().escape_default()),
+		Scalar::String(s) => write!(out, "\"{}\"", s.escape_default()),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => {
 			if *i < 1 {
@@ -105,6 +105,7 @@ mod tests {
 			(Scalar::Bool(true), "true"),
 			(Scalar::String("".into()), "\"\""),
 			(Scalar::String("abcd 1234".into()), "\"abcd 1234\""),
+			(Scalar::String("quizás\n\"lala\"".into()), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
 			(Scalar::Int(-123), "-123"),
 			(Scalar::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
 			(Scalar::Size(89801234567890123), "0x13f09bf3ecf84cb"),
