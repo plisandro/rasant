@@ -65,16 +65,19 @@ impl Map {
 
 	pub fn copy_from(&mut self, other: &Self) {
 		self.keys.clear();
-		self.keys.push_str(&other.keys);
 		self.key_str_idxs.clear();
-		self.key_str_idxs.extend(&other.key_str_idxs);
 		self.scalar_pool.clear();
-		// iterating over scalar_pool yields &Clone instead of Clone >:()
-		self.scalar_pool.extend_from_slice(&other.scalar_pool);
 		self.scalar_1_idxs.clear();
-		self.scalar_1_idxs.extend(&other.scalar_1_idxs);
 		self.scalar_2_idxs.clear();
-		self.scalar_2_idxs.extend(&other.scalar_2_idxs);
+
+		if !other.is_empty() {
+			self.keys.push_str(&other.keys);
+			self.key_str_idxs.extend(&other.key_str_idxs);
+			// iterating over scalar_pool yields &Clone instead of Clone >:(
+			self.scalar_pool.extend_from_slice(&other.scalar_pool);
+			self.scalar_1_idxs.extend(&other.scalar_1_idxs);
+			self.scalar_2_idxs.extend(&other.scalar_2_idxs);
+		}
 	}
 
 	fn len(&self) -> usize {
