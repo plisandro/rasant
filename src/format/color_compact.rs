@@ -67,33 +67,30 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::attributes::{ToScalar, ToValue};
-	//use crate::attributes::value::ToValue;
+	use crate::attributes::{Scalar, Value};
 	//use crate::level::Level;
 	//use ntime::Timestamp;
 
 	#[test]
 	fn serialize_value() {
 		for tc in [
-			(true.to_value(), "true"),
-			((89801234567890123 as usize).to_value(), "0x13f09bf3ecf84cb"),
+			(Value::from(true), "true"),
+			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
 			(
-				[
-					false.to_scalar(),
-					"abcd 1234".to_scalar(),
-					(-123).to_scalar(),
-					(89801234567890123 as usize).to_scalar(),
-					(5678901.2345).to_scalar(),
-				]
-				.to_value(),
+				Value::from(&[
+					Scalar::from(false),
+					Scalar::from("abcd 1234"),
+					Scalar::from(-123),
+					Scalar::from(89801234567890123 as usize),
+					Scalar::from(5678901.2345),
+				]),
 				"[false, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]",
 			),
 			(
-				(
-					["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()],
-					[false.to_scalar(), (-123).to_scalar(), (456.789).to_scalar()],
-				)
-					.to_value(),
+				Value::from((
+					&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
+					&[Scalar::from(false), Scalar::from(-123), Scalar::from(456.789)],
+				)),
 				"{\"key_a\": false, \"key_b\": -123, \"key_c\": 456.789}",
 			),
 		] {

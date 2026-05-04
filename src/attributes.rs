@@ -8,8 +8,8 @@ use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_ME
 
 // TODO: fix imports;
 #[allow(unused_imports)]
-pub use scalar::{Scalar, ToScalar};
-pub use value::{ToValue, Value};
+pub use scalar::Scalar;
+pub use value::Value;
 
 macro_rules! check_match {
 	($a:ident, $( $b:ident ),*) => {
@@ -394,11 +394,11 @@ mod map {
 	fn indexed_keys_order() {
 		let mut attr = Map::new();
 
-		attr.set("key_a", &Value::Scalar(Scalar::Int(123)));
-		attr.set("key_b", &Value::Scalar(Scalar::Int(456)));
-		attr.set("key_c", &Value::List([Scalar::Int(789), Scalar::String("abc".into())].as_slice()));
-		attr.set("key_b", &Value::Scalar(Scalar::String("overwrites should not change key order".into())));
-		attr.set("error", &Value::Scalar(Scalar::String("priority keys should go first".into())));
+		attr.set("key_a", &Value::from(123));
+		attr.set("key_b", &Value::from(456));
+		attr.set("key_c", &Value::from(&[Scalar::from(789), Scalar::from("abc")]));
+		attr.set("key_b", &Value::from("overwrites should not change key order"));
+		attr.set("error", &Value::from("priority keys should go first"));
 
 		dbg!(&attr);
 		assert_eq!(attr.len(), 4);
@@ -417,17 +417,17 @@ mod map {
 		assert_eq!(attr.len(), 0);
 		assert_eq!(attr.store_size(), 0);
 
-		attr.set("c", &Value::Scalar(Scalar::Int(-5678)));
-		attr.set("d", &Value::Scalar(Scalar::Float(9012.3456)));
-		attr.set("b", &Value::Scalar(Scalar::Int(1234)));
+		attr.set("c", &Value::from(-5678));
+		attr.set("d", &Value::from(9012.3456));
+		attr.set("b", &Value::from(1234));
 		assert_eq!(attr.len(), 3);
 		assert_eq!(attr.store_size(), 3);
 		assert_eq!(attr.to_string(), "c=-5678 d=9012.3456 b=1234");
 
 		// overwrite existing key
-		attr.set("d", &Value::Scalar(Scalar::Float(7890.1234)));
-		attr.set("error", &Value::Scalar(Scalar::String("first!".into())));
-		attr.set("e", &Value::List([Scalar::Size(7788), Scalar::Int(9900)].as_slice()));
+		attr.set("d", &Value::from(7890.1234));
+		attr.set("error", &Value::from("first!"));
+		attr.set("e", &Value::from(&[Scalar::from(7788 as usize), Scalar::from(9900)]));
 		attr.set("a", &Value::Scalar(Scalar::String("lalala".into())));
 		assert_eq!(attr.len(), 6);
 		assert_eq!(attr.store_size(), 7);
@@ -438,45 +438,39 @@ mod map {
 	fn key_overwrite() {
 		let mut attr = Map::new();
 
-		attr.set("a", &Value::List([Scalar::Int(1234), Scalar::Int(-5678)].as_slice()));
-		attr.set("b", &Value::Scalar(Scalar::String("lalala".into())));
-		attr.set("c", &Value::List([Scalar::Bool(true), Scalar::Bool(false), Scalar::Bool(true)].as_slice()));
-		attr.set("d", &Value::Scalar(Scalar::Bool(false)));
+		attr.set("a", &Value::from(&[Scalar::from(1234), Scalar::from(-5678)]));
+		attr.set("b", &Value::from("lalala"));
+		attr.set("c", &Value::from(&[Scalar::from(true), Scalar::from(false), Scalar::from(true)]));
+		attr.set("d", &Value::from(false));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=\"lalala\" c=[true, false, true] d=false");
 
 		// same size overwrite
-		attr.set("b", &Value::Scalar(Scalar::Float(123.456)));
+		attr.set("b", &Value::from(123.456));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=123.456 c=[true, false, true] d=false");
 
 		// overwrite with size increasee
-		attr.set("b", &Value::List([Scalar::Int(1), Scalar::Int(2), Scalar::Int(3), Scalar::Int(4)].as_slice()));
+		attr.set("b", &Value::from(&[Scalar::from(1), Scalar::from(2), Scalar::from(3), Scalar::from(4)]));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=[1, 2, 3, 4] c=[true, false, true] d=false");
 
 		// overwrite with size decrease
-		attr.set("c", &Value::Scalar(Scalar::String("lololo".into())));
+		attr.set("c", &Value::from("lololo"));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 8);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=[1, 2, 3, 4] c=\"lololo\" d=false");
 
 		// modify the first and last attribute sizes to check edge handling
-		attr.set("a", &Value::Scalar(Scalar::Int(1234)));
+		attr.set("a", &Value::from(1234));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
 		assert_eq!(attr.to_string(), "a=1234 b=[1, 2, 3, 4] c=\"lololo\" d=false");
 
-		attr.set(
-			"d",
-			&Value::Map(
-				[Scalar::String("sub_a".into()), Scalar::String("sub_b".into())].as_slice(),
-				[Scalar::Bool(true), Scalar::Bool(false)].as_slice(),
-			),
-		);
+		attr.set("d", &Value::from((&[Scalar::from("sub_a"), Scalar::from("sub_b")], &[Scalar::from(true), Scalar::from(false)])));
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);
 		assert_eq!(attr.to_string(), "a=1234 b=[1, 2, 3, 4] c=\"lololo\" d={\"sub_a\": true, \"sub_b\": false}");
@@ -485,31 +479,31 @@ mod map {
 	#[test]
 	#[should_panic]
 	fn insert_empty_key() {
-		Map::new().set("", &Value::Scalar(Scalar::String("oh no".into())));
+		Map::new().set("", &Value::from("oh no"));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_invalid_key() {
-		Map::new().set("no whitespace\tin\tkeys", &("please!".to_value()));
+		Map::new().set("no whitespace\tin\tkeys", &Value::from("please!"));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_restricted_key() {
-		Map::new().set("level", &(55555.to_value()));
+		Map::new().set("level", &Value::from(55555));
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_list() {
-		Map::new().set("a_key", &Value::List(&[]));
+		Map::new().set("a_key", &Value::from(&[]));
 	}
 
 	#[test]
 	#[should_panic]
 	fn invalid_empty_map() {
-		Map::new().set("wrong_map", &Value::Map(&[], &[]));
+		Map::new().set("wrong_map", &Value::from((&[], &[])));
 	}
 
 	#[test]
@@ -518,8 +512,8 @@ mod map {
 		Map::new().set(
 			"wrong_map",
 			&Value::Map(
-				["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()].as_slice(),
-				[123.to_scalar(), "oh no".to_scalar()].as_slice(),
+				[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")].as_slice(),
+				[Scalar::from(123), Scalar::from("oh no")].as_slice(),
 			),
 		);
 	}
@@ -528,11 +522,11 @@ mod map {
 	fn iterator() {
 		let mut attr = Map::new();
 
-		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", [456.to_scalar(), true.to_scalar()].to_value());
-		attr.insert("key_c", [789.to_scalar(), false.to_scalar()].to_value());
-		attr.insert("error", "an error".to_value());
-		attr.insert("key_d", ["new".to_scalar(), " key".to_scalar()].to_value());
+		attr.insert("key_a", Value::from(123));
+		attr.insert("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]));
+		attr.insert("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]));
+		attr.insert("error", Value::from("an error"));
+		attr.insert("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")]));
 
 		let mut got: Vec<(&str, Value)> = Vec::new();
 		for kvs in attr.iter() {
@@ -540,13 +534,13 @@ mod map {
 		}
 
 		assert_eq!(
-			got.as_array::<5>().expect("invalid number of keys"),
+			got.as_array::<5>().expect("invalid number of results"),
 			&[
-				("error", "an error".to_value()),
-				("key_a", 123.to_value()),
-				("key_b", [456.to_scalar(), true.to_scalar()].to_value()),
-				("key_c", [789.to_scalar(), false.to_scalar()].to_value()),
-				("key_d", ["new".to_scalar(), " key".to_scalar()].to_value()),
+				("error", Value::from("an error")),
+				("key_a", Value::from(123)),
+				("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)])),
+				("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)])),
+				("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")])),
 			]
 		);
 	}
@@ -555,11 +549,11 @@ mod map {
 	fn key_iterator() {
 		let mut attr = Map::new();
 
-		attr.insert("key_a", 123.to_value());
-		attr.insert("key_b", [456.to_scalar(), true.to_scalar()].to_value());
-		attr.insert("error", "first error".to_value());
-		attr.insert("key_c", [789.to_scalar(), false.to_scalar()].to_value());
-		attr.insert("key_d", (3.14159).to_value());
+		attr.insert("key_a", Value::from(123));
+		attr.insert("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]));
+		attr.insert("error", Value::from("first error"));
+		attr.insert("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]));
+		attr.insert("key_d", Value::from(3.14159));
 
 		let mut got_keys: Vec<&str> = Vec::new();
 		for key in attr.key_iter() {

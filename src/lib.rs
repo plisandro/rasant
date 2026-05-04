@@ -25,14 +25,14 @@
 //!
 //! ```rust
 //! use rasant;
-//! use rasant::ToValue;
+//! use rasant::Value;
 //!
 //! let mut log = rasant::Logger::new();
 //! log.add_sink(rasant::sink::stderr::default()).set_level(rasant::Level::Info);
 //!
 //! log.set("program_name", "test");
 //! log.info("hello world!");
-//! log.warn_with("here's some context", [("line", 7.to_value())]);
+//! log.warn_with("here's some context", [("line", Value::from(7))]);
 //! log.debug("and i'm ignored :(");
 //! ```
 //!
@@ -314,8 +314,8 @@ mod types;
 // Public exported symbols
 pub mod filter;
 pub mod sink;
-pub use attributes::scalar::{Scalar, ToScalar};
-pub use attributes::value::{ToValue, Value};
+pub use attributes::scalar::Scalar;
+pub use attributes::value::Value;
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
 pub use logger::Logger;

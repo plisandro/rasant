@@ -56,14 +56,14 @@ Loggers can be easily initialized using sink defaults, and accessed via methods.
 
 ```rust
 use rasant;
-use rasant::ToValue;
+use rasant::Value;
 
 let mut log = rasant::Logger::new();
 log.add_sink(rasant::sink::stderr::default()).set_level(rasant::Level::Info);
 
 log.set("program_name", "test");
 log.info("hello world!");
-log.warn_with("here's some context", [("line", 7.to_value())]);
+log.warn_with("here's some context", [("line", Value::from(7))]);
 log.debug("and i'm ignored :(");
 ```
 
@@ -88,7 +88,7 @@ r::debug!(log, "and i'm ignored :(");
 
 ### Attributes
 
-Rasant supports multiple attribute value type: single scalars, lists and maps.
+Rasant supports multiple attribute types: single scalars, lists and maps.
 
 ```rust
 use rasant as r;

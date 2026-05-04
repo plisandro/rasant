@@ -1,6 +1,6 @@
 use rasant as r;
 use rasant::sink;
-use rasant::{Level, ToScalar, ToValue};
+use rasant::{Level, Scalar, Value};
 
 #[test]
 fn methods() {
@@ -10,19 +10,19 @@ fn methods() {
 	});
 	let string_sink_output = string_sink.output();
 
-	let test_keys = ["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()];
-	let test_values = [123.to_scalar(), 456.to_scalar(), 789.to_scalar()];
+	let test_keys = [Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")];
+	let test_values = [Scalar::from(123), Scalar::from(456), Scalar::from(789)];
 
 	{
 		let mut log = rasant::Logger::new();
 		log.set_level(Level::Info).add_sink(string_sink);
-		log.info_with("single value", [("result", (1234 as u32).to_value())]);
-		log.info_with("list from array", [("result", test_values.to_value())]);
-		log.info_with("list from slice", [("result", test_values.as_slice().to_value())]);
-		log.info_with("map from arrays #1", [("map", [&test_keys, &test_values].to_value())]);
-		log.info_with("map from arrays #2", [("map", (&test_keys, &test_values).to_value())]);
-		log.info_with("map from slices #1", [("map", [test_keys.as_slice(), test_values.as_slice()].to_value())]);
-		log.info_with("map from slices #2", [("map", (test_keys.as_slice(), test_values.as_slice()).to_value())]);
+		log.info_with("single value", [("result", Value::from(1234 as u32))]);
+		log.info_with("list from array", [("result", Value::from(&test_values))]);
+		log.info_with("list from slice", [("result", Value::from(test_values.as_slice()))]);
+		log.info_with("map from arrays #1", [("map", Value::from([&test_keys, &test_values]))]);
+		log.info_with("map from arrays #2", [("map", Value::from((&test_keys, &test_values)))]);
+		log.info_with("map from slices #1", [("map", Value::from([test_keys.as_slice(), test_values.as_slice()]))]);
+		log.info_with("map from slices #2", [("map", Value::from((test_keys.as_slice(), test_values.as_slice())))]);
 	}
 
 	let got = string_sink_output.lock().unwrap().clone();

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
-use crate::attributes::{ToValue, Value};
+use crate::attributes::Value;
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
@@ -71,7 +71,7 @@ impl<'i> Logger {
 	/// given [`Level`] are ignored.
 	pub fn set_level(&mut self, level: Level) -> &mut Self {
 		if self.has_sinks() {
-			self.trace_with("log level updated", [("name", level.to_string().to_value()), ("old_level", self.level.to_string().to_value())]);
+			self.trace_with("log level updated", [("name", Value::from(&level)), ("old_level", Value::from(&self.level))]);
 		}
 		self.level = level;
 
@@ -117,7 +117,7 @@ impl<'i> Logger {
 		if self.has_sinks() {
 			self.trace_with(
 				if async_writes { "enabled async log updates" } else { "disabled async log updates" },
-				[("total_async_loggers", queue::refcount().to_value())],
+				[("total_async_loggers", Value::from(queue::refcount()))],
 			);
 		}
 
@@ -135,7 +135,7 @@ impl<'i> Logger {
 
 		self.trace_with(
 			"added new log sink",
-			[("name", name.to_value()), ("total", (self.sinks.len() as u64).to_value()), ("async", self.is_async().to_value())],
+			[("name", Value::from(name)), ("total", Value::from(self.sinks.len() as u64)), ("async", Value::from(self.is_async()))],
 		);
 
 		self
@@ -150,7 +150,7 @@ impl<'i> Logger {
 		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
 
 		if self.has_sinks() {
-			self.trace_with("added new log filter", [("name", name.to_value()), ("total", (self.filters.len() as u64).to_value())]);
+			self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
 		}
 
 		self
@@ -162,9 +162,12 @@ impl<'i> Logger {
 	/// to all log operations performed by the [`Logger`]. If the attribute already exists,
 	/// it is overwritten.
 	///
-	/// The provided value must implement [ToValue][`crate::ToValue`].
-	pub fn set<T: ToValue + 'i>(&mut self, key: &'i str, v: T) -> &mut Self {
-		self.attributes.insert(key, v.to_value());
+	/// The provided value must implement [`Into`] for [`Value`].
+	pub fn set<T: Into<Value<'i>>>(&mut self, key: &'i str, v: T) -> &mut Self
+	where
+		Value<'i>: From<T>,
+	{
+		self.attributes.insert(key, Value::from(v));
 		self
 	}
 
@@ -244,7 +247,7 @@ impl<'i> Logger {
 	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
 	pub fn trace_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		let id = self.id;
-		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, id.to_value())])
+		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, Value::from(id))])
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.
@@ -289,12 +292,12 @@ impl<'i> Logger {
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
 	pub fn error<T: Error>(&mut self, error: T, msg: &'i str) -> &mut Self {
-		self.log_with(Level::Error, msg, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
+		self.log_with(Level::Error, msg, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))])
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
 	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, error.to_string().to_value())])
+		self.log_with_two(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))])
 	}
 
 	/// Logs a [`Level::Fatal`] message, with no additional attributes.
@@ -426,16 +429,16 @@ mod basic {
 #[cfg(test)]
 mod attribute_handling {
 	use super::*;
-	use crate::attributes::ToScalar;
+	use crate::attributes::Scalar;
 
 	#[test]
 	fn set_casting() {
 		let mut log = Logger::new();
 		log.set("scalar", 12345);
 		log.set("value_scalar", "hello!");
-		log.set("casted_value_scalar", "hello!".to_value());
-		log.set("value_list", [(12345 as u32).to_scalar(), "hello!".to_scalar()]);
-		log.set("value_map", (["key_a".to_scalar(), "key_b".to_scalar()], [(12345 as u32).to_scalar(), "hello!".to_scalar()]));
+		log.set("casted_value_scalar", Value::from("hello!"));
+		log.set("value_list", &[Scalar::from(12345 as u32), Scalar::from("hello!")]);
+		log.set("value_map", (&[Scalar::from("key_a"), Scalar::from("key_b")], &[Scalar::from(12345 as u32), Scalar::from("hello!")]));
 	}
 }
 

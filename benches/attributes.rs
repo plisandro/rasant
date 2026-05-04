@@ -1,7 +1,7 @@
 use divan::{Bencher, counter};
 use rasant as r;
 use rasant::sink::black_hole;
-use rasant::{FormatterConfig, Logger, OutputFormat, TimeFormat, ToScalar, ToValue, Value};
+use rasant::{FormatterConfig, Logger, OutputFormat, Scalar, TimeFormat, Value};
 
 const COUNTS: &[usize] = &[0, 1, 5, 10, 25, 50, 100, 250];
 
@@ -31,10 +31,10 @@ fn build_attrs<'i>(total: usize) -> Vec<(String, Value<'i>)> {
 		res.push((
 			format!("key_{i}"),
 			match i % 4 {
-				0 => true.to_value(),
-				1 => "lalala".to_value(),
-				2 => 123.to_value(),
-				_ => (456.789 as f32).to_value(),
+				0 => Value::from(true),
+				1 => Value::from("lalala"),
+				2 => Value::from(123),
+				_ => Value::from(456.789),
 			},
 		));
 	}
@@ -85,12 +85,12 @@ fn key_overwrite<const N: usize>(bencher: Bencher) {
 				0 => log.set(key, 123456),
 				1 => log.set(key, short_string),
 				2 => log.set(key, long_string.clone()),
-				3 => log.set(key, [(123.456).to_scalar(), short_string.to_scalar(), long_string.to_scalar()]),
+				3 => log.set(key, &[Scalar::from(123.456), Scalar::from(short_string), Scalar::from(long_string.clone())]),
 				_ => log.set(
 					key,
 					(
-						["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()],
-						[(123.456).to_scalar(), short_string.to_scalar(), long_string.to_scalar()],
+						&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
+						&[Scalar::from(123.456), Scalar::from(short_string), Scalar::from(long_string.clone())],
 					),
 				),
 			};

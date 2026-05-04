@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Write;
 
-use crate::attributes::scalar::{Scalar, ToScalar};
+use crate::attributes::scalar::Scalar;
 
 /// Value definition for all log operations.
 /// These are associated with a single [`&str`] key in attribute maps for [Logger][`crate::Logger`]s.
@@ -47,11 +47,6 @@ impl<'i> fmt::Display for Value<'i> {
 
 // Trait for known types/structs which can be casted into a [`Value`].
 impl<'i> Value<'i> {
-	/// Creates a [`Value`] from a suitable type.
-	pub fn from<T: ToValue>(v: &'i T) -> Value<'i> {
-		v.to_value()
-	}
-
 	/// Serializes a [`Value`] into a pre-existing [`String`], whose contents are overwritten.
 	pub fn into_string(&self, out: &mut String) {
 		out.clear();
@@ -59,78 +54,37 @@ impl<'i> Value<'i> {
 	}
 }
 
-/* ----------------------- Casting helpers ----------------------- */
+/* ----------------------- Casting ----------------------- */
 
-/// Trait for known types/structs which can be casted into a [`Value`].
-pub trait ToValue {
-	/// Casts the type to a [`Value`].
-	fn to_value(&self) -> Value<'_>;
-}
-
-impl<'i> ToValue for Value<'i> {
-	fn to_value(&self) -> Value<'_> {
-		// TODO: fix me!
-		self.clone()
+// casters for Value::Scalar
+impl<'i, T: Into<Scalar>> From<T> for Value<'i> {
+	fn from(t: T) -> Self {
+		Self::Scalar(t.into())
 	}
 }
 
-impl<'i, T: ToScalar> ToValue for T {
-	fn to_value(&self) -> Value<'_> {
-		Value::Scalar(self.to_scalar())
+// casters for Value::List
+impl<'i> From<&'i [Scalar]> for Value<'i> {
+	fn from(s: &'i [Scalar]) -> Self {
+		Self::List(s)
 	}
 }
 
-// casters for List of Scalar's
-impl<'i> ToValue for &'i [Scalar] {
-	fn to_value(&self) -> Value<'_> {
-		Value::List(self)
+/*
+impl<'i, const N: usize> From<[Scalar; N]> for Value<'i> {
+	fn from(a: [Scalar; N]) -> Self {
+		Self::List(a.as_slice())
+	}
+}
+*/
+
+impl<'i, const N: usize> From<&'i [Scalar; N]> for Value<'i> {
+	fn from(l: &'i [Scalar; N]) -> Self {
+		Self::List(l.as_slice())
 	}
 }
 
-impl<'i, const N: usize> ToValue for [Scalar; N] {
-	fn to_value(&self) -> Value<'_> {
-		Value::List(self.as_slice())
-	}
-}
-
-// casters for Map of Scalar's.
-impl<'i> ToValue for (&'i [Scalar], &'i [Scalar]) {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self.0, self.1)
-	}
-}
-
-impl<'i, const N: usize> ToValue for ([Scalar; N], [Scalar; N]) {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self.0.as_slice(), self.1.as_slice())
-	}
-}
-
-impl<'i, const N: usize> ToValue for (&[Scalar; N], &[Scalar; N]) {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self.0.as_slice(), self.1.as_slice())
-	}
-}
-
-impl<'i> ToValue for [&'i [Scalar]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0], self[1])
-	}
-}
-
-impl<'i, const N: usize> ToValue for [[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0].as_slice(), self[1].as_slice())
-	}
-}
-
-impl<'i, const N: usize> ToValue for [&[Scalar; N]; 2] {
-	fn to_value(&self) -> Value<'_> {
-		Value::Map(self[0].as_slice(), self[1].as_slice())
-	}
-}
-
-/*/
+/*
 // casters for List of ToScalar's.
 impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
 	fn to_value(&self) -> Value<'_> {
@@ -138,6 +92,53 @@ impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
 	}
 }
 */
+
+// casters for Value::Map
+impl<'i> From<(&'i [Scalar], &'i [Scalar])> for Value<'i> {
+	fn from(m: (&'i [Scalar], &'i [Scalar])) -> Self {
+		Self::Map(m.0, m.1)
+	}
+}
+
+/*
+impl<'i, const N: usize> From<([Scalar; N], [Scalar; N])> for Value<'i> {
+	fn from(m: ([Scalar; N], [Scalar; N])) -> Self {
+		Self::Map(m.0.as_slice(), m.1.as_slice())
+	}
+}
+*/
+
+impl<'i, const N: usize> From<(&'i [Scalar; N], &'i [Scalar; N])> for Value<'i> {
+	fn from(m: (&'i [Scalar; N], &'i [Scalar; N])) -> Self {
+		Self::Map(m.0.as_slice(), m.1.as_slice())
+	}
+}
+
+impl<'i> From<[&'i [Scalar]; 2]> for Value<'i> {
+	fn from(m: [&'i [Scalar]; 2]) -> Self {
+		Self::Map(m[0], m[1])
+	}
+}
+
+/*
+impl<'i, const N: usize> From<[[Scalar; N]; 2]> for Value<'i> {
+	fn from(m: [[Scalar; N]; 2]) -> Self {
+		Self::Map(m[0].as_slice(), m[1].as_slice())
+	}
+}
+*/
+
+impl<'i, const N: usize> From<[&'i [Scalar; N]; 2]> for Value<'i> {
+	fn from(m: [&'i [Scalar; N]; 2]) -> Self {
+		Self::Map(m[0].as_slice(), m[1].as_slice())
+	}
+}
+
+impl<'i, const N: usize> From<&'i [&'i [Scalar; N]; 2]> for Value<'i> {
+	fn from(m: &'i [&'i [Scalar; N]; 2]) -> Self {
+		Self::Map(m[0].as_slice(), m[1].as_slice())
+	}
+}
 
 /* ----------------------- Tests ----------------------- */
 
@@ -150,64 +151,65 @@ mod tests {
 	use ntime::{Duration, Timestamp};
 
 	#[test]
-	fn to_value_scalar() {
+	fn from_value_scalar() {
 		let short_string = "lalala";
 		let long_string = "this is a rather long string, which may be complicated";
 
-		assert_eq!(true.to_value(), Value::Scalar(Scalar::Bool(true)));
-		assert_eq!(short_string.to_value(), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
-		assert_eq!(String::from(short_string).to_value(), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
-		assert_eq!(long_string.to_value(), Value::Scalar(Scalar::String(long_string.into())));
-		assert_eq!(String::from(long_string).to_value(), Value::Scalar(Scalar::String(long_string.into())));
-		assert_eq!((-12 as i8).to_value(), Value::Scalar(Scalar::Int(-12)));
-		assert_eq!((345 as i16).to_value(), Value::Scalar(Scalar::Int(345)));
-		assert_eq!((-678 as i32).to_value(), Value::Scalar(Scalar::Int(-678)));
-		assert_eq!((9012 as i64).to_value(), Value::Scalar(Scalar::Int(9012)));
-		assert_eq!((-3456 as i128).to_value(), Value::Scalar(Scalar::LongInt(-3456)));
-		assert_eq!((7890 as isize).to_value(), Value::Scalar(Scalar::Size(7890)));
-		assert_eq!((12 as u8).to_value(), Value::Scalar(Scalar::Uint(12)));
-		assert_eq!((345 as u16).to_value(), Value::Scalar(Scalar::Uint(345)));
-		assert_eq!((678 as u32).to_value(), Value::Scalar(Scalar::Uint(678)));
-		assert_eq!((9012 as u64).to_value(), Value::Scalar(Scalar::Uint(9012)));
-		assert_eq!((3456 as u128).to_value(), Value::Scalar(Scalar::LongUint(3456)));
-		assert_eq!((7890 as usize).to_value(), Value::Scalar(Scalar::Usize(7890)));
-		assert_eq!(
-			// yaay precision!
-			(-123.456 as f32).to_value(),
-			Value::Scalar(Scalar::Float(-123.45600128173828))
-		);
-		assert_eq!((789.012 as f64).to_value(), Value::Scalar(Scalar::Float(789.012)));
-		assert_eq!(Duration::from_millis(12345).to_value(), Value::Scalar(Scalar::Uint(12)));
-		assert_eq!((&Duration::from_millis(67890)).to_value(), Value::Scalar(Scalar::Uint(67)));
-		assert_eq!(Timestamp::from_millis(12345).to_value(), Value::Scalar(Scalar::Uint(12)));
-		assert_eq!((&Timestamp::from_millis(67890)).to_value(), Value::Scalar(Scalar::Uint(67)));
+		assert_eq!(Value::from(true), Value::Scalar(Scalar::Bool(true)));
+		assert_eq!(Value::from(short_string), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
+		assert_eq!(Value::from(String::from(short_string)), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
+		assert_eq!(Value::from(long_string), Value::Scalar(Scalar::String(long_string.into())));
+		assert_eq!(Value::from(String::from(long_string)), Value::Scalar(Scalar::String(long_string.into())));
+		assert_eq!(Value::from(-12 as i8), Value::Scalar(Scalar::Int(-12)));
+		assert_eq!(Value::from(345 as i16), Value::Scalar(Scalar::Int(345)));
+		assert_eq!(Value::from(-678 as i32), Value::Scalar(Scalar::Int(-678)));
+		assert_eq!(Value::from(9012 as i64), Value::Scalar(Scalar::Int(9012)));
+		assert_eq!(Value::from(-3456 as i128), Value::Scalar(Scalar::LongInt(-3456)));
+		assert_eq!(Value::from(7890 as isize), Value::Scalar(Scalar::Size(7890)));
+		assert_eq!(Value::from(12 as u8), Value::Scalar(Scalar::Uint(12)));
+		assert_eq!(Value::from(345 as u16), Value::Scalar(Scalar::Uint(345)));
+		assert_eq!(Value::from(678 as u32), Value::Scalar(Scalar::Uint(678)));
+		assert_eq!(Value::from(9012 as u64), Value::Scalar(Scalar::Uint(9012)));
+		assert_eq!(Value::from(3456 as u128), Value::Scalar(Scalar::LongUint(3456)));
+		assert_eq!(Value::from(7890 as usize), Value::Scalar(Scalar::Usize(7890)));
+		// yaay precision!
+		assert_eq!(Value::from(-123.456 as f32), Value::Scalar(Scalar::Float(-123.45600128173828)));
+		assert_eq!(Value::from(789.012 as f64), Value::Scalar(Scalar::Float(789.012)));
+		assert_eq!(Value::from(Duration::from_millis(12345)), Value::Scalar(Scalar::Uint(12)));
+		assert_eq!(Value::from(&Duration::from_millis(67890)), Value::Scalar(Scalar::Uint(67)));
+		assert_eq!(Value::from(Timestamp::from_millis(12345)), Value::Scalar(Scalar::Uint(12)));
+		assert_eq!(Value::from(&Timestamp::from_millis(67890)), Value::Scalar(Scalar::Uint(67)));
 	}
 
+	// TODO: clean me up
 	#[test]
-	fn to_value_set() {
+	fn from_value_set() {
 		let arr = [Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
 		let slice = &[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
-		assert_eq!(arr.to_value(), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
-		assert_eq!(slice.to_value(), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		//assert_eq!(Value::from(arr), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		assert_eq!(Value::from(&arr), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		assert_eq!(Value::from(slice), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
 	}
 
+	// TODO: clean me up
 	#[test]
-	fn to_value_map() {
+	fn from_value_map() {
 		let arrays = [
-			[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
-			[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)],
+			&[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
+			&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)],
 		];
 		let slices = &[&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)]];
 
 		assert_eq!(
-			arrays.to_value(),
+			//Value::from(arrays),
+			Value::from(&arrays),
 			Value::Map(
 				&[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
 				&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)]
 			)
 		);
 		assert_eq!(
-			slices.to_value(),
+			Value::from(slices),
 			Value::Map(&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)])
 		);
 	}

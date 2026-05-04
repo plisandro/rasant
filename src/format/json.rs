@@ -104,27 +104,27 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::attributes::{ToScalar, ToValue};
+	use crate::attributes::{Scalar, Value};
 	use crate::level::Level;
 	use ntime::Timestamp;
 
 	#[test]
 	fn serialize_scalar() {
 		for tc in [
-			(Scalar::Bool(true), "true"),
-			(Scalar::String("".into()), "\"\""),
-			(Scalar::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Scalar::String("quizás\n\"lala\"".into()), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
-			(Scalar::Int(-123), "-123"),
-			(Scalar::LongInt(-12345678901234567), "-12345678901234567"),
-			(Scalar::LongInt(89801234567890123), "89801234567890123"),
-			(Scalar::Size(-12345678901234567), "-12345678901234567"),
-			(Scalar::Size(89801234567890123), "89801234567890123"),
-			(Scalar::Uint(123456), "123456"),
-			(Scalar::LongUint(12345678901234567), "12345678901234567"),
-			(Scalar::Usize(89801234567890123), "89801234567890123"),
-			(Scalar::Float(-1234.56789012345), "-1.23456789012345e3"),
-			(Scalar::Float(5678901.2345), "5.6789012345e6"),
+			(Scalar::from(true), "true"),
+			(Scalar::from(""), "\"\""),
+			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
+			(Scalar::from("quizás\n\"lala\""), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
+			(Scalar::from(-123), "-123"),
+			(Scalar::from(-12345678901234567 as i128), "-12345678901234567"),
+			(Scalar::from(89801234567890123 as i128), "89801234567890123"),
+			(Scalar::from(-12345678901234567 as isize), "-12345678901234567"),
+			(Scalar::from(89801234567890123 as isize), "89801234567890123"),
+			(Scalar::from(123456), "123456"),
+			(Scalar::from(12345678901234567 as u128), "12345678901234567"),
+			(Scalar::from(89801234567890123 as usize), "89801234567890123"),
+			(Scalar::from(-1234.56789012345), "-1.23456789012345e3"),
+			(Scalar::from(5678901.2345), "5.6789012345e6"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
 
@@ -136,25 +136,23 @@ mod tests {
 	#[test]
 	fn serialize_value() {
 		for tc in [
-			(true.to_value(), "true"),
-			((89801234567890123 as usize).to_value(), "89801234567890123"),
+			(Value::from(true), "true"),
+			(Value::from(89801234567890123 as usize), "89801234567890123"),
 			(
-				[
-					false.to_scalar(),
-					"abcd 1234".to_scalar(),
-					(-123).to_scalar(),
-					(89801234567890123 as isize).to_scalar(),
-					(5678901.2345).to_scalar(),
-				]
-				.to_value(),
-				"[false,\"abcd 1234\",-123,89801234567890123,5.6789012345e6]",
+				Value::from(&[
+					Scalar::from(false),
+					Scalar::from("abcd 1234"),
+					Scalar::from(123),
+					Scalar::from(-89801234567890123 as isize),
+					Scalar::from(5678901.2345),
+				]),
+				"[false,\"abcd 1234\",123,-89801234567890123,5.6789012345e6]",
 			),
 			(
-				(
-					["key_a".to_scalar(), "key_b".to_scalar(), "key_c".to_scalar()],
-					[false.to_scalar(), (-123).to_scalar(), (456.789).to_scalar()],
-				)
-					.to_value(),
+				Value::from((
+					&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
+					&[Scalar::from(false), Scalar::from(-123), Scalar::from(456.789)],
+				)),
 				"{\"key_a\":false,\"key_b\":-123,\"key_c\":4.56789e2}",
 			),
 		] {
@@ -177,13 +175,13 @@ mod tests {
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		let mut attrs = Map::new();
-		attrs.insert("an_int", (123 as i32).to_value());
-		attrs.insert("a_float", (-456.789).to_value());
-		attrs.insert("some_string", "hi there!".to_value());
-		attrs.insert("a_set", [(349834934 as usize).to_scalar(), true.to_scalar()].to_value());
+		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("a_float", Value::from(-456.789));
+		attrs.insert("some_string", Value::from("hi there!"));
+		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let want =
-			"{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"a_set\":[349834934,true]}";
+		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, time_key, &update, &attrs).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

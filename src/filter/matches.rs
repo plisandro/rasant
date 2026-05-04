@@ -248,7 +248,7 @@ mod tests {
 	use super::*;
 	use ntime::Timestamp;
 
-	use crate::attributes::ToValue;
+	use crate::attributes::Value;
 	use crate::filter::Filter;
 	use crate::level::Level;
 
@@ -456,9 +456,9 @@ mod tests {
 	fn attribute_keys_single() {
 		fn run(mut filter: AttributeKey, want: bool) {
 			let mut args = attributes::Map::new();
-			args.insert("a_string", "hello there!".to_value());
-			args.insert("an_int", 12345.to_value());
-			args.insert("a_float", (6789.0123 as f32).to_value());
+			args.insert("a_string", Value::from("hello there!"));
+			args.insert("an_int", Value::from(12345));
+			args.insert("a_float", Value::from(6789.0123 as f32));
 
 			let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
 			assert_eq!(filter.pass(&update, &args), want);
@@ -569,9 +569,9 @@ mod tests {
 	fn attribute_values() {
 		fn run(mut filter: AttributeValue, want: bool) {
 			let mut args = attributes::Map::new();
-			args.insert("a_string", "hello there!".to_value());
-			args.insert("an_int", 12345.to_value());
-			args.insert("a_float", (6789.0123 as f32).to_value());
+			args.insert("a_string", Value::from("hello there!"));
+			args.insert("an_int", Value::from(12345));
+			args.insert("a_float", Value::from(6789.0123 as f32));
 
 			let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
 			assert_eq!(filter.pass(&update, &args), want);

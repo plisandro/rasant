@@ -19,7 +19,6 @@ use std::string;
 use std::sync::Arc;
 
 use crate::attributes;
-use crate::attributes::ToValue;
 use crate::constant::ATTRIBUTE_KEY_LOGGER_ID;
 use crate::format;
 use crate::sink;
@@ -124,7 +123,7 @@ impl sink::Sink for String {
 			}
 			if let Some(id) = self.frozen_logger_id {
 				if self.mock_attributes.has(ATTRIBUTE_KEY_LOGGER_ID) {
-					self.mock_attributes.insert(ATTRIBUTE_KEY_LOGGER_ID, id.to_value());
+					self.mock_attributes.insert(ATTRIBUTE_KEY_LOGGER_ID, attributes::Value::from(id));
 					self.frozen_logger_id = Some(id + 1);
 				};
 			}

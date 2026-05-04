@@ -1,6 +1,5 @@
-use rasant::Level;
-use rasant::ToValue;
 use rasant::sink;
+use rasant::{Level, Value};
 
 use std::io::{Error, ErrorKind};
 
@@ -17,7 +16,7 @@ fn async_output() {
 		log.set_level(Level::Info).add_sink(string_sink).set_async(true);
 		log.info("root test info")
 			.warn("root test warn")
-			.fatal_with("oh no something horrible happened", [("why", "fire!".to_value())]);
+			.fatal_with("oh no something horrible happened", [("why", Value::from("fire!"))]);
 
 		let mut nlog = log.clone();
 		nlog.set("number", 1);
