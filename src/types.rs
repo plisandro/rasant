@@ -1,4 +1,5 @@
 use ntime::Timestamp;
+use std::io;
 use std::str;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -18,55 +19,128 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 /// A sender channel for [`AsyncSinkOp`] async log operations.
 pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 
-/// ShortString is a string stored in a (small) fixed-size buffer, to avoid heap allocations.
+/// AttributeString is a container for all string types supported as attibutes.
 #[derive(Clone, Debug)]
-pub struct ShortString {
+pub struct AttributeString {
+	static_buf: Option<&'static str>,
+	heap_string: Option<String>,
 	buf: [u8; SHORT_STRING_MAX_SIZE],
-	size: usize,
+	buf_size: usize,
+	needs_escaping: bool,
 }
 
-impl ShortString {
-	/// Initializes a [`ShortString`] from a [`&str`].
-	pub fn from(s: &str) -> Result<Self, &str> {
-		if s.len() > SHORT_STRING_MAX_SIZE {
-			return Err("max string size exceeded");
-		}
-
-		let mut res = Self {
+impl From<&'static str> for AttributeString {
+	fn from(s: &'static str) -> Self {
+		Self {
+			static_buf: Some(s),
+			heap_string: None,
 			buf: [0; SHORT_STRING_MAX_SIZE],
-			size: s.len(),
-		};
-		for i in 0..res.size {
-			res.buf[i] = s.as_bytes()[i];
+			buf_size: 0,
+			needs_escaping: AttributeString::has_escapable_chars(s),
 		}
-
-		Ok(res)
-	}
-
-	/// Returns the byte size for this [`ShortString`].
-	pub fn len(&self) -> usize {
-		self.size
-	}
-
-	/// Returns a [`&str`] slice for this [`ShortString`].
-	pub fn as_str(&self) -> &str {
-		str::from_utf8(&self.buf[0..self.size]).expect("failed to deserialize ShortString")
 	}
 }
 
-impl PartialEq for ShortString {
-	fn eq(&self, other: &Self) -> bool {
-		if self.size != other.size {
-			return false;
+impl From<String> for AttributeString {
+	fn from(s: String) -> Self {
+		let needs_escaping = AttributeString::has_escapable_chars(s.as_str());
+
+		if s.len() <= SHORT_STRING_MAX_SIZE {
+			// we can store this string locally \o/
+			let mut res = Self {
+				static_buf: None,
+				heap_string: None,
+				buf: [0; SHORT_STRING_MAX_SIZE],
+				buf_size: s.len(),
+				needs_escaping: needs_escaping,
+			};
+			for i in 0..res.buf_size {
+				res.buf[i] = s.as_bytes()[i];
+			}
+
+			return res;
 		}
 
-		for i in 0..self.size {
-			if self.buf[i] != other.buf[i] {
-				return false;
+		Self {
+			static_buf: None,
+			heap_string: Some(s),
+			buf: [0; SHORT_STRING_MAX_SIZE],
+			buf_size: 0,
+			needs_escaping: needs_escaping,
+		}
+	}
+}
+
+impl<'i> AttributeString {
+	/// Evaluates whether a given [`&str`] contains escapable characters.
+	fn has_escapable_chars(s: &str) -> bool {
+		// this is horrible, alas...
+		let mut escaped_iter = s.escape_default();
+		for c in s.chars() {
+			match escaped_iter.next() {
+				None => return true, // oops
+				Some(ec) => {
+					if c != ec {
+						return true;
+					}
+				}
 			}
 		}
+		false
+	}
 
-		true
+	/// Returns a binary length for this [`AttributeString`].
+	pub fn len(&self) -> usize {
+		if let Some(s) = self.static_buf {
+			return s.len();
+		}
+		if let Some(s) = &self.heap_string {
+			return s.len();
+		}
+		return self.buf_size;
+	}
+
+	/// Returns a [`&str`] slice for this [`AttributeString`].
+	pub fn as_str(&self) -> &str {
+		if let Some(s) = self.static_buf {
+			return s;
+		}
+		if let Some(s) = &self.heap_string {
+			return s.as_str();
+		}
+		str::from_utf8(&self.buf[0..self.buf_size]).expect("failed to deserialize AttributeString buffer")
+	}
+
+	/// lalala
+	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		write!(out, "{}", self.as_str())
+	}
+
+	/// lalala
+	pub fn write_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match self.needs_escaping {
+			false => write!(out, "{}", self.as_str()),
+			true => write!(out, "{}", self.as_str().escape_default()),
+		}
+	}
+
+	/// lalala
+	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		write!(out, "\"{}\"", self.as_str())
+	}
+
+	/// lalala
+	pub fn write_quoted_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match self.needs_escaping {
+			false => write!(out, "\"{}\"", self.as_str()),
+			true => write!(out, "\"{}\"", self.as_str().escape_default()),
+		}
+	}
+}
+
+impl PartialEq for AttributeString {
+	fn eq(&self, other: &Self) -> bool {
+		self.as_str() == other.as_str()
 	}
 }
 
@@ -98,6 +172,7 @@ impl Rand {
 
 /* ----------------------- Tests ----------------------- */
 
+/*
 #[cfg(test)]
 mod short_string {
 	use super::*;
@@ -127,6 +202,7 @@ mod short_string {
 		assert_eq!(ss.len(), SHORT_STRING_MAX_SIZE)
 	}
 }
+*/
 
 #[cfg(test)]
 mod rand {

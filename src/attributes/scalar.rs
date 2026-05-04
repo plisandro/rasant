@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Write;
 use std::thread;
 
-use crate::types;
+use crate::types::AttributeString;
 
 /// [`Scalar`] definitions for all log operations.
 /// Scalars are the basic data units for Rasant, representing a single type.
@@ -11,10 +11,8 @@ use crate::types;
 pub enum Scalar {
 	/// A [`bool`]ean.
 	Bool(bool),
-	/// An owned short string, akin to [`&str`].
-	ShortString(types::ShortString),
-	/// An owned [`String`], using heap storage.
-	String(String),
+	/// An owned [`AttributeString`].
+	String(AttributeString),
 	/// An integer, internally stored as a [`i64`].
 	Int(i64),
 	/// A long integer, internally stored as a [`i128`].
@@ -37,8 +35,7 @@ impl fmt::Display for Scalar {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Bool(b) => write!(f, "{}", b),
-			Self::ShortString(ss) => write!(f, "\"{}\"", ss.as_str()),
-			Self::String(s) => write!(f, "\"{}\"", s),
+			Self::String(s) => write!(f, "\"{}\"", s.as_str()),
 			Self::Int(i) => write!(f, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
@@ -104,21 +101,16 @@ impl ToScalar for bool {
 	}
 }
 
+// TODO: optimize me
 impl ToScalar for String {
 	fn to_scalar(&self) -> Scalar {
-		match types::ShortString::from(self) {
-			Ok(ss) => Scalar::ShortString(ss),
-			Err(_) => Scalar::String(self.clone()),
-		}
+		Scalar::String(AttributeString::from(self.clone()))
 	}
 }
 
-impl ToScalar for &str {
+impl ToScalar for &'static str {
 	fn to_scalar(&self) -> Scalar {
-		match types::ShortString::from(*self) {
-			Ok(ss) => Scalar::ShortString(ss),
-			Err(_) => Scalar::String((*self).into()),
-		}
+		Scalar::String(AttributeString::from(*self))
 	}
 }
 
@@ -146,17 +138,15 @@ impl ToScalar for &Timestamp {
 	}
 }
 
-// TODO: Switch to ShortString
 impl ToScalar for thread::ThreadId {
 	fn to_scalar(&self) -> Scalar {
-		Scalar::String(format!("{:?}", *self))
+		Scalar::String(AttributeString::from(format!("{:?}", *self)))
 	}
 }
 
-// TODO: Switch to ShortString
 impl ToScalar for &thread::ThreadId {
 	fn to_scalar(&self) -> Scalar {
-		Scalar::String(format!("{:?}", *self))
+		Scalar::String(AttributeString::from(format!("{:?}", *self)))
 	}
 }
 
@@ -268,14 +258,8 @@ mod tests {
 		let long_string = "this is a rather long string, which may be complicated";
 
 		assert_eq!(true.to_scalar(), Scalar::Bool(true));
-		assert_eq!(
-			short_string.to_scalar(),
-			Scalar::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed"))
-		);
-		assert_eq!(
-			String::from(short_string).to_scalar(),
-			Scalar::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed"))
-		);
+		assert_eq!(short_string.to_scalar(), Scalar::String(AttributeString::from(short_string)));
+		assert_eq!(String::from(short_string).to_scalar(), Scalar::String(AttributeString::from(short_string)));
 		assert_eq!(long_string.to_scalar(), Scalar::String(long_string.into()));
 		assert_eq!(String::from(long_string).to_scalar(), Scalar::String(long_string.into()));
 		assert_eq!((-12 as i8).to_scalar(), Scalar::Int(-12));

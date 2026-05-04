@@ -146,7 +146,7 @@ impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
 mod tests {
 	use super::*;
 
-	use crate::types;
+	use crate::types::AttributeString;
 	use ntime::{Duration, Timestamp};
 
 	#[test]
@@ -155,14 +155,8 @@ mod tests {
 		let long_string = "this is a rather long string, which may be complicated";
 
 		assert_eq!(true.to_value(), Value::Scalar(Scalar::Bool(true)));
-		assert_eq!(
-			short_string.to_value(),
-			Value::Scalar(Scalar::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed")))
-		);
-		assert_eq!(
-			String::from(short_string).to_value(),
-			Value::Scalar(Scalar::ShortString(types::ShortString::from(short_string).expect("ShortString serialization failed")))
-		);
+		assert_eq!(short_string.to_value(), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
+		assert_eq!(String::from(short_string).to_value(), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
 		assert_eq!(long_string.to_value(), Value::Scalar(Scalar::String(long_string.into())));
 		assert_eq!(String::from(long_string).to_value(), Value::Scalar(Scalar::String(long_string.into())));
 		assert_eq!((-12 as i8).to_value(), Value::Scalar(Scalar::Int(-12)));
@@ -221,8 +215,7 @@ mod tests {
 	#[test]
 	fn dbg_format() {
 		assert_eq!(format!("{}", Value::Scalar(Scalar::Bool(true))), "true");
-		assert_eq!(format!("{}", Value::Scalar(Scalar::String("boo".into()))), "\"boo\"");
-		assert_eq!(format!("{}", Value::Scalar(Scalar::ShortString(types::ShortString::from("abcd 1234").unwrap()))), "\"abcd 1234\"");
+		assert_eq!(format!("{}", Value::Scalar(Scalar::String(AttributeString::from("boo")))), "\"boo\"");
 		assert_eq!(format!("{}", Value::Scalar(Scalar::Size(-12345678901234567))), "-0x2bdc545d6b4b87");
 		assert_eq!(format!("{}", Value::Scalar(Scalar::Uint(123456))), "123456");
 		assert_eq!(
@@ -231,7 +224,7 @@ mod tests {
 				Value::List(&[
 					Scalar::Bool(true),
 					Scalar::String("boo".into()),
-					Scalar::ShortString(types::ShortString::from("abcd 1234").unwrap()),
+					Scalar::String(AttributeString::from("abcd 1234")),
 					Scalar::Size(-12345678901234567),
 					Scalar::Uint(123456),
 				])
