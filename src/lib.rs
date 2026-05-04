@@ -9,7 +9,7 @@
 //!
 //!   - Minimal dependencies.
 //!   - *Blazing fast* performance, with zero allocations on most operations.
-//!   - [Leveled][`Level`], structured contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
+//!   - [Leveled][`Level`], [structured](#attributes) contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
 //!   - [Configurable log filters](#filtering).
 //!   - Thread safe.
@@ -19,7 +19,7 @@
 //!
 //! # Examples
 //!
-//! # Basic Logging
+//! ## Basic Logging
 //!
 //! [`Logger`]s can be easily initialized using sink defaults, and accessed via methods...
 //!
@@ -53,6 +53,31 @@
 //! ```text
 //! 2026-04-03 17:16:03.773 +0200 [INF] hello world! program_name="test"
 //! 2026-04-03 17:16:03.773 +0200 [WRN] here's some context program_name="test" line=7
+//! ```
+//!
+//! ## Attributes
+//!
+//! Rasant supports multiple attribute types (a.k.a [`Value`]s): single [`Scalar`] values,
+//! lists and maps.
+//!
+//! ```rust
+//! use rasant as r;
+//!
+//! let mut log = r::Logger::new();
+//! log.add_sink(r::sink::stderr::default()).set_level(r::Level::Info);
+//!
+//! r::info!(log, "a single", value = 123.456);
+//! let simple_list = [1, 2, 3, 4];
+//! r::info!(log, "lists can be simple", list = r::list!(simple_list));
+//! r::info!(log, "or have mixed types", list = r::list!("string!", 123.456, 789012 as usize));
+//! r::info!(log, "and so can maps!", map = r::map!("key #1" => 123, 456 => 789.012));
+//! ```
+//!
+//! ```text
+//! 2026-05-04 03:58:41.189 +0200 [INF] a single value=123.456
+//! 2026-05-04 03:58:41.189 +0200 [INF] lists can be simple list=[1, 2, 3, 4]
+//! 2026-05-04 03:58:41.189 +0200 [INF] or have mixed types list=["string!", 123.456, 0xc0a14]
+//! 2026-05-04 03:58:41.189 +0200 [INF] and so can maps! map={"key #1": 123, 456: 789.012}
 //! ```
 //!
 //! ## Stacking
@@ -189,9 +214,21 @@
 //!
 //! ## Attributes
 //!
+//! ### Types
+//!
 //! Attributes are the defining quality of a structured logging system, expressed
-//! as key-value pairs. Keys are [`&str`], whereas [`Value`]s are a set of
-//! fixed internal types, which can be easily instantiated from common Rust types and structs.
+//! as key-value pairs. In Rasant, keys are [`&str`], and [`Value`]s are a dedicated
+//! type, supporting different configuration of [`Scalar`]s.
+//!
+//!   - [`Scalar`]s are the base unit for attribute values, mapping to basic data types:
+//!     integers, floats and strings.
+//!   - [`Value`] is a structured collection of [`Scalar`]s.
+//!
+//!  Rasant supports three basic [`Value`] types:
+//!
+//!   - [`Value::Scalar`] is a single [`Scalar`], and the most commonly used type.
+//!   - [`Value::List`] is an ordered set of [`Scalar`]s.
+//!   - [`Value::Map`] is an ordered set of key-value [`Scalar`]s.
 //!
 //! ### Scope
 //!

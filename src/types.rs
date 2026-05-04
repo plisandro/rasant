@@ -111,12 +111,12 @@ impl<'i> AttributeString {
 		str::from_utf8(&self.buf[0..self.buf_size]).expect("failed to deserialize AttributeString buffer")
 	}
 
-	/// lalala
+	/// Writes an [`AttributeString`] into a [`io::Write`].
 	pub fn write<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		write!(out, "{}", self.as_str())
 	}
 
-	/// lalala
+	/// Writes an [`AttributeString`] into a [`io::Write`], escaping characters when needed.
 	pub fn write_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		match self.needs_escaping {
 			false => write!(out, "{}", self.as_str()),
@@ -124,12 +124,12 @@ impl<'i> AttributeString {
 		}
 	}
 
-	/// lalala
+	/// Writes an [`AttributeString`] into a [`io::Write`], between quotes.
 	pub fn write_quoted<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		write!(out, "\"{}\"", self.as_str())
 	}
 
-	/// lalala
+	/// Writes an [`AttributeString`] into a [`io::Write`], between quotes, and escaping characters when needed.
 	pub fn write_quoted_escaped<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
 		match self.needs_escaping {
 			false => write!(out, "\"{}\"", self.as_str()),

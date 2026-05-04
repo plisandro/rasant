@@ -28,7 +28,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
 
   - Minimal dependencies.
   - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
-  - Leveled, structured contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
+  - Leveled, [structured](#attributes) contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
   - [Configurable log filters](#filtering).
   - Thread safe.
@@ -84,6 +84,30 @@ r::debug!(log, "and i'm ignored :(");
 ```
 2026-04-03 17:16:03.773 +0200 [INF] hello world! program_name="test"
 2026-04-03 17:16:03.773 +0200 [WRN] here's some context program_name="test" line=7
+```
+
+### Attributes
+
+Rasant supports multiple attribute value type: single scalars, lists and maps.
+
+```rust
+use rasant as r;
+
+let mut log = r::Logger::new();
+log.add_sink(r::sink::stderr::default()).set_level(r::Level::Info);
+
+r::info!(log, "a single", value = 123.456);
+let simple_list = [1, 2, 3, 4];
+r::info!(log, "lists can be simple", list = r::list!(simple_list));
+r::info!(log, "or have mixed types", list = r::list!("string!", 123.456, 789012 as usize));
+r::info!(log, "and so can maps!", map = r::map!("key #1" => 123, 456 => 789.012));
+```
+
+```
+2026-05-04 03:58:41.189 +0200 [INF] a single value=123.456
+2026-05-04 03:58:41.189 +0200 [INF] lists can be simple list=[1, 2, 3, 4]
+2026-05-04 03:58:41.189 +0200 [INF] or have mixed types list=["string!", 123.456, 0xc0a14]
+2026-05-04 03:58:41.189 +0200 [INF] and so can maps! map={"key #1": 123, 456: 789.012}
 ```
 
 ### Stacking
@@ -202,7 +226,6 @@ r::warn!(log, "will");
 Rasant is under active development, with more features planned for future versions.
 
   - New output formants (hierarchical pretty print?)
-  - Support for structured values (sets, maps)
   - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
   - Support for third-party log sinks
   - Binary output formats, such as [CBOR](https://cbor.io/) and [protobuf](https://protobuf.dev/).
