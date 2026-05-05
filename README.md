@@ -78,7 +78,7 @@ use rasant as r;
 let mut log = r::Logger::new();
 log.add_sink(r::sink::stderr::default()).set_level(r::Level::Info);
 
-r::set!(log, program_name="test");
+r::set!(log, program_name = "test");
 r::info!(log, "hello world!");
 r::warn!(log, "here's some context", line = 7);
 r::debug!(log, "and i'm ignored :(");
