@@ -2,6 +2,12 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 0.7.0 (2026-05-05)
+
+New attribute engine, with zero-alloc handling of all attribute types - including long strings.
+Added support for list and maps as attribute values.
+Added support for configurable log filters.
+
 ## Version 0.6.0 (2026-04-16)
 
 Zero-alloc handling of all attribute types, with the exception of long `String`s. Switched

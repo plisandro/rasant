@@ -239,6 +239,20 @@
 //! Upon key collisions, attribute values for the log call take precedence and override
 //! [`Logger`] settings, but without modifying it.
 //!
+//! ## Memory Management
+//!
+//! Rasant keeps all items associated with a [`Logger`] (keys, attribute values, their
+//! [`Scalar`]s and all strings) in a group of owned vector arrays. No other heap
+//! allocation is ever performed.
+//!
+//! These vectors will grow in size when needed - but never resize down. In practice,
+//! this means that after just a few log calls vectors will grow to the size required
+//! for normal operation, at which point all Rasant operations become effectively
+//! zero-allocation.
+//!
+//! The vectored nature of [`Logger`] storage also makes cloning and dropping these
+//! extremely efficient.
+//!
 //! ## Cloning and Stacking
 //!
 //! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it

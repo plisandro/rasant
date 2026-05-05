@@ -8,9 +8,9 @@ This project compares the performance of multiple logging libraries for Rust, in
 [log](https://crates.io/crates/log), [slog](https://crates.io/crates/slog) and
 [tracing](https://crates.io/crates/tracing).
 
-Depending on the scenario, Rasant v0.6.0 performs in average 18% to 41% faster
+Depending on the scenario, Rasant v0.7.0 performs in average 9% to 55% faster
 than [slog](https://crates.io/crates/slog), second fastest in the benchmark,
-and 41% to 57% faster than [tracing](https://crates.io/crates/tracing).
+and 48% to 112% faster than [tracing](https://crates.io/crates/tracing).
 
 <img src="rust_logger_benchmark.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
 
@@ -23,6 +23,52 @@ intended to gauge performance progress across versions, wich can be run via
 `cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
+
+### Version 0.7.0 (2026-05-04)
+
+This version introduces a new attribute engine with zero-allocation strings and support for
+list and map values, with very little performance overhead compared to v0.6.0.
+
+```
+Timer precision: 20 ns
+log_write                 fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ nested                               │               │               │               │         │
+│  ├─ async_skip          37.15 µs      │ 78.29 µs      │ 66.85 µs      │ 65.9 µs       │ 100     │ 100
+│  │                      269.1 Mitem/s │ 127.7 Mitem/s │ 149.5 Mitem/s │ 151.7 Mitem/s │         │
+│  ├─ async_write         12.78 ms      │ 22.2 ms       │ 13.33 ms      │ 13.93 ms      │ 100     │ 100
+│  │                      782.2 Kitem/s │ 450.3 Kitem/s │ 749.7 Kitem/s │ 717.8 Kitem/s │         │
+│  ├─ skip                37.51 µs      │ 52.36 µs      │ 37.74 µs      │ 40.37 µs      │ 100     │ 100
+│  │                      266.5 Mitem/s │ 190.9 Mitem/s │ 264.9 Mitem/s │ 247.6 Mitem/s │         │
+│  ╰─ write               892.1 µs      │ 1.021 ms      │ 917.6 µs      │ 916.6 µs      │ 100     │ 100
+│                         11.2 Mitem/s  │ 9.792 Mitem/s │ 10.89 Mitem/s │ 10.9 Mitem/s  │         │
+├─ nested_with_arguments                │               │               │               │         │
+│  ├─ async_skip          77.41 µs      │ 149.9 µs      │ 133.1 µs      │ 131.5 µs      │ 100     │ 100
+│  │                      129.1 Mitem/s │ 66.66 Mitem/s │ 75.1 Mitem/s  │ 76.03 Mitem/s │         │
+│  ├─ async_write         15.96 ms      │ 20.27 ms      │ 16.53 ms      │ 16.68 ms      │ 100     │ 100
+│  │                      626.5 Kitem/s │ 493.2 Kitem/s │ 604.8 Kitem/s │ 599.3 Kitem/s │         │
+│  ├─ skip                66.13 µs      │ 109.9 µs      │ 77.46 µs      │ 77.46 µs      │ 100     │ 100
+│  │                      151.1 Mitem/s │ 90.93 Mitem/s │ 129 Mitem/s   │ 129 Mitem/s   │         │
+│  ╰─ write               4.452 ms      │ 4.582 ms      │ 4.503 ms      │ 4.506 ms      │ 100     │ 100
+│                         2.245 Mitem/s │ 2.182 Mitem/s │ 2.22 Mitem/s  │ 2.219 Mitem/s │         │
+├─ single                               │               │               │               │         │
+│  ├─ async_skip          28.38 µs      │ 34.41 µs      │ 28.45 µs      │ 28.73 µs      │ 100     │ 100
+│  │                      352.2 Mitem/s │ 290.5 Mitem/s │ 351.3 Mitem/s │ 348 Mitem/s   │         │
+│  ├─ async_write         11.13 ms      │ 15.35 ms      │ 11.5 ms       │ 11.54 ms      │ 100     │ 100
+│  │                      898.3 Kitem/s │ 651.1 Kitem/s │ 869.3 Kitem/s │ 865.8 Kitem/s │         │
+│  ├─ skip                30.01 µs      │ 43.59 µs      │ 32.56 µs      │ 33.75 µs      │ 100     │ 100
+│  │                      333.1 Mitem/s │ 229.3 Mitem/s │ 307 Mitem/s   │ 296.2 Mitem/s │         │
+│  ╰─ write               649.7 µs      │ 764.9 µs      │ 669.8 µs      │ 671 µs        │ 100     │ 100
+│                         15.39 Mitem/s │ 13.07 Mitem/s │ 14.92 Mitem/s │ 14.9 Mitem/s  │         │
+╰─ threaded                             │               │               │               │         │
+   ├─ async_skip          1.079 ms      │ 1.9 ms        │ 1.154 ms      │ 1.192 ms      │ 100     │ 100
+   │                      9.261 Mitem/s │ 5.262 Mitem/s │ 8.663 Mitem/s │ 8.382 Mitem/s │         │
+   ├─ async_write         2.495 ms      │ 3.881 ms      │ 3.064 ms      │ 3.076 ms      │ 100     │ 100
+   │                      4.006 Mitem/s │ 2.576 Mitem/s │ 3.263 Mitem/s │ 3.25 Mitem/s  │         │
+   ├─ skip                1.079 ms      │ 2.071 ms      │ 1.162 ms      │ 1.215 ms      │ 100     │ 100
+   │                      9.265 Mitem/s │ 4.827 Mitem/s │ 8.598 Mitem/s │ 8.226 Mitem/s │         │
+   ╰─ write               1.628 ms      │ 2.979 ms      │ 2.408 ms      │ 2.398 ms      │ 100     │ 100
+                          6.14 Mitem/s  │ 3.356 Mitem/s │ 4.151 Mitem/s │ 4.168 Mitem/s │         │
+```
 
 ### Version 0.6.0 (2026-04-16)
 

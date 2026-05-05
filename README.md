@@ -36,13 +36,16 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - Text and JSON log output.
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
+See also [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
+logging solutions for Rust.
+
 ## Usage 
 
-Latest stable release is **v0.6.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v0.7.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.6.0"
+rasant = "0.7.0"
 ```
 
 Rasant is under active development and on track for a v1.0.0 release. You may see small public
@@ -220,6 +223,15 @@ r::warn!(log, "will");
   * [API documentation][api-docs]
   * [CHANGELOG]
   * [Real-world benchmarks][benchmarks]
+
+## Support
+
+Comments, feedback and bug reports are always welcome!
+
+You can reach out through regular GitHub issues and bug reports, or via the
+[rasant gitter channel](https://app.gitter.im/#/room/#rasant:gitter.im).
+
+Contributions will be accepted under the [project's license](#licence).
 
 ## To-Do's
 
