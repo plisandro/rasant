@@ -524,19 +524,19 @@ mod formatting {
 			let got: String;
 
 			{
-				let string_sink = sink::string::String::new(sink::string::StringConfig {
+				let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 					mock_time: true,
 					formatter_cfg: format::FormatterConfig {
 						format: tc.out_format,
 						time_format: tc.time_format,
 						..FormatterConfig::default()
 					},
-					..sink::string::StringConfig::default()
+					..sink::bytes::BytesConfig::default()
 				});
-				let string_sink_output = string_sink.output();
+				let bytes_sink_output = bytes_sink.output();
 
 				let mut log = Logger::new();
-				log.add_sink(string_sink).set_level(Level::Info);
+				log.add_sink(bytes_sink).set_level(Level::Info);
 
 				log.info("root test info").warn("root test warn").debug("root test debug");
 
@@ -548,7 +548,7 @@ mod formatting {
 					.trace("trace log to be ignored")
 					.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
-				got = string_sink_output.lock().unwrap().clone();
+				got = bytes_sink_output.as_string();
 			}
 
 			assert_eq!(got, tc.want, "{}", tc.name);
@@ -562,9 +562,9 @@ mod formatting {
 		let string_sink_output: Arc<Mutex<String>>;
 
 		{
-			let string_sink = sink::string::String::new(sink::string::StringConfig {
+			let string_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 				mock_time: true,
-				..sink::string::StringConfig::default()
+				..sink::bytes::BytesConfig::default()
 			});
 			string_sink_output = string_sink.output();
 

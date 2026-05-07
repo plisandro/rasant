@@ -35,11 +35,11 @@ cleanly so log output is never garbled.
 A number of other structured log solutions tend to optimize duplicate attribute keys
 checks away, which can easily lead to invalid output in formats such as JSON.
 
-### No Intermediate Buffers
+### No Intermediate Data Structures
 
-No logging operation in Rasant involves buffers, string representations nor temporary
-data structures. All log requests translate directly into log sink writes, without
-processing overhead.
+Logging operation in Rasant involve no string operations nor temporary data
+structures, and use of buffers is avoided whenever possible. All log requests translate
+directly into log sink writes, without processing overhead.
 
 Log sinks themselves expose a single write endpoint, piping down to `io::Write`, which
 loggers get a direct line to. As a result, log operations turn into actual I/O

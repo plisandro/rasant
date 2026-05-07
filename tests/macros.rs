@@ -5,15 +5,15 @@ use rasant::sink;
 /// Test the behavior of logging macros with different message input types.
 #[test]
 fn macro_msg_input() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 		mock_time: true,
-		..sink::string::StringConfig::default()
+		..sink::bytes::BytesConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let bytes_sink_output = bytes_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		r::info!(log, "root test info");
 		r::warn!(log, format!("a {a} test warn from {b}", a = "root", b = "String").as_str());
 		r::fatal!(log, "oh no something horrible happened", why = "fire");
@@ -26,7 +26,7 @@ fn macro_msg_input() {
 	}
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = bytes_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] root test info
 2026-03-04 15:10:16.234 [WRN] a root test warn from String
 2026-03-04 15:10:17.468 [FAT] oh no something horrible happened why=\"fire\"

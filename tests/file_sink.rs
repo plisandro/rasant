@@ -29,13 +29,13 @@ fn append() {
 	{
 		// First pass, write to file + string
 		let mut log = r::Logger::new();
-		let string_sink = sink::string::String::new(sink::string::StringConfig {
+		let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 			formatter_cfg: FormatterConfig::default(),
-			..sink::string::StringConfig::default()
+			..sink::bytes::BytesConfig::default()
 		});
-		let string_out = string_sink.output();
+		let string_out = bytes_sink.output();
 
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig::default(),
@@ -49,7 +49,7 @@ fn append() {
 		r::warn!(log, "test warn");
 		r::fatal!(log, "oh no something horrible happened", what = "fire!");
 
-		want.push_str(&string_out.lock().unwrap());
+		want.push_str(&string_out.as_string());
 		// Account for file sinks adding a delimiter on append.
 		want.push_str("\n");
 	}
@@ -57,13 +57,13 @@ fn append() {
 	{
 		// Second pass, write to file + string
 		let mut log = r::Logger::new();
-		let string_sink = sink::string::String::new(sink::string::StringConfig {
+		let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 			formatter_cfg: FormatterConfig::default(),
-			..sink::string::StringConfig::default()
+			..sink::bytes::BytesConfig::default()
 		});
-		let string_out = string_sink.output();
+		let string_out = bytes_sink.output();
 
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig::default(),
@@ -77,7 +77,7 @@ fn append() {
 		r::warn!(log, "test warn");
 		r::fatal!(log, "oh no something horrible happened", what = "fire!");
 
-		want.push_str(&string_out.lock().unwrap());
+		want.push_str(&string_out.as_string());
 	}
 
 	let got = read_file(&log_file_path);
@@ -111,13 +111,13 @@ fn overwrite() {
 	{
 		// Second pass, write to file + string
 		let mut log = r::Logger::new();
-		let string_sink = sink::string::String::new(sink::string::StringConfig {
+		let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 			formatter_cfg: FormatterConfig::default(),
-			..sink::string::StringConfig::default()
+			..sink::bytes::BytesConfig::default()
 		});
-		let string_out = string_sink.output();
+		let string_out = bytes_sink.output();
 
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig::default(),
@@ -131,7 +131,7 @@ fn overwrite() {
 		r::warn!(log, "test warn");
 		r::fatal!(log, "oh no something horrible happened", what = "fire!");
 
-		want = string_out.lock().unwrap().clone();
+		want = string_out.as_string();
 	}
 
 	let got = read_file(&log_file_path);

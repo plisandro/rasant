@@ -1,4 +1,5 @@
 //! Formatting module for log writes, given ([`LogUpdate`] + attributes).
+mod cbor;
 mod color_compact;
 mod compact;
 mod json;
@@ -19,6 +20,8 @@ pub enum OutputFormat {
 	ColorCompact,
 	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
 	Json,
+	/// [CBOR](https://cbor.io/) (a.k.a RFC 8949) binary formatting.
+	Cbor,
 }
 
 /// Formatting errors.
@@ -34,6 +37,7 @@ impl OutputFormat {
 			Self::Compact => "compact",
 			Self::ColorCompact => "compact (w/console color)",
 			Self::Json => "JSON",
+			Self::Cbor => "CBOR",
 		}
 		.into()
 	}
@@ -70,6 +74,11 @@ impl FormatterConfig {
 	pub fn default_json() -> Self {
 		json::default_format_config()
 	}
+
+	/// Returns a default [`FormatterConfig`] for [`OutputFormat::Cbor`], with times as milliseconds since UNIX epoch.
+	pub fn default_cbor() -> Self {
+		cbor::default_format_config()
+	}
 }
 
 /// Serializes and writes log updates + attributes.
@@ -79,6 +88,9 @@ pub struct Formatter {
 	time_key: String,
 	time_format: TimeFormat,
 	delimiter: Vec<u8>,
+
+	// a reusable buffer for formatting operations requiring intermediate storage
+	work_buffer: Vec<u8>,
 }
 
 impl Formatter {
@@ -93,15 +105,17 @@ impl Formatter {
 			},
 			time_format: conf.time_format,
 			delimiter: conf.delimiter,
+			work_buffer: Vec::new(),
 		}
 	}
 
 	/// Writes a formatted [`LogUpdate`] + attributes ['Map`] into a [`io::Write`].
-	pub fn write<T: io::Write>(&self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
+	pub fn write<T: io::Write>(&mut self, out: &mut T, update: &LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
 		match self.format {
 			OutputFormat::Compact => compact::write(out, &self.time_format, update, attrs),
 			OutputFormat::ColorCompact => color_compact::write(out, &self.time_format, update, attrs),
 			OutputFormat::Json => json::write(out, &self.time_format, &self.time_key, &update, attrs),
+			OutputFormat::Cbor => cbor::write(out, &mut self.work_buffer, &self.time_format, &self.time_key, &update, attrs),
 		}
 	}
 
@@ -113,18 +127,29 @@ impl Formatter {
 		}
 	}
 
-	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
-	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
-		let mut out = Vec::new();
+	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`u8`] [`Vec`]
+	pub fn as_bytes(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> Vec<u8> {
+		let mut out: Vec<u8> = Vec::new();
 
 		match self.write(&mut out, update, attrs) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to convert log update {update:?} to string buffer: {e}"),
-		};
-		match String::from_utf8(out) {
+			Ok(_) => out,
+			Err(e) => panic!("failed to convert log update {update:?} to bytes buffer: {e}"),
+		}
+	}
+
+	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
+	pub fn as_string(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> String {
+		let bytes = self.as_bytes(update, attrs);
+
+		match String::from_utf8(bytes) {
 			Ok(s) => s,
 			Err(e) => panic!("failed to convert log update {update:?} to UTF8: {e}"),
 		}
+	}
+
+	/// Returns a formatted delimiter as a [`u8`] slice.
+	pub fn delimiter(&self) -> &[u8] {
+		self.delimiter.as_slice()
 	}
 
 	/// Serializes a formatted delimiter into a [`String`].
@@ -138,7 +163,7 @@ impl Formatter {
 
 /// Returns a formatted string for a [`LogUpdate`] + attributes ['Map`], suitable for use with ['panic!`].
 pub fn as_panic_string(update: &LogUpdate, attrs: &attributes::Map) -> String {
-	let formatter = Formatter::new(FormatterConfig {
+	let mut formatter = Formatter::new(FormatterConfig {
 		format: OutputFormat::Compact,
 		..FormatterConfig::default_compact()
 	});

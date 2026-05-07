@@ -1,34 +1,34 @@
-//! String logging [`sink`] module.
+//! Bytes buffer logging [`sink`] module.
 //!
-//! String sinks are useful mostly for testing and, as a result, their focus is not
-//! performance,  but usability.
+//! Buffer sinks are useful mostly for testing and, as a result, their focus is not
+//! performance, but usability.
 //!
-//! This sink writes all log updates into a [`std::sync::Mutex`]ed [`String`], which
-//! can be accessed via public methods, and supports mocking a number of attributes
-//! which can cause non-deterministic test results:
+//! This sink writes all log updates into an [`Vec<u8>`], and supports mocking a
+//! number of attributes which can cause non-deterministic test results:
 //!
 //!   - If `mock_time` is `true`, time is pinned to a fixed start value, and
 //!     increases monolithically with every log write.
 //!   - If `mock_logger_id` is `true`, the `logger_id` atttibute is pinned to a
 //!     fixed start value, and  increases monolithically with every log write.
 //!
+//! Output is encapsulated in [`BytesOutput`] instances, which supports casting
+//! to common types.
+//!
 //! Unless you're writing tests, you _really_ want to use another [`sink`] type :)
+
 use ntime;
 use std::io;
-use std::string;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::constant::ATTRIBUTE_KEY_LOGGER_ID;
 use crate::format;
 use crate::sink;
 
-use std::sync::Mutex;
-
-/// Configuration struct for an [`String`] [`sink`].
-pub struct StringConfig {
+/// Configuration struct for an [`Bytes`] [`sink`].
+pub struct BytesConfig {
 	/// A type string, used to define the sink's name.
-	pub type_str: string::String,
+	pub type_str: String,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
 	/// Whether to mock log update times.
@@ -37,7 +37,29 @@ pub struct StringConfig {
 	pub mock_logger_id: bool,
 }
 
-impl Default for StringConfig {
+/// Container for [`Bytes`] [`sink`] output.
+pub struct BytesOutput {
+	/// [`std::sync::Arc`]ed and [`std::sync::Mutex`]ed [`Vec<u8>`] output buffer.
+	out: Arc<Mutex<Vec<u8>>>,
+}
+
+impl BytesOutput {
+	fn new(out: &Arc<Mutex<Vec<u8>>>) -> Self {
+		Self { out: out.clone() }
+	}
+
+	/// Returns the buffer contents as a [`Vec<u8>`].
+	pub fn as_bytes(&self) -> Vec<u8> {
+		self.out.lock().unwrap().clone()
+	}
+
+	/// Returns the buffer contents as a [`String`].
+	pub fn as_string(&self) -> String {
+		String::from_utf8(self.out.lock().unwrap().clone()).expect("invalid UTF-8 contents for Bytes sink")
+	}
+}
+
+impl Default for BytesConfig {
 	fn default() -> Self {
 		Self {
 			type_str: "default".into(),
@@ -51,31 +73,26 @@ impl Default for StringConfig {
 	}
 }
 
-/// String logging [`sink`] definition.
-pub struct String {
-	name: string::String,
+/// Byte buffer logging [`sink`] definition.
+pub struct Bytes {
+	name: String,
 	formatter: format::Formatter,
-	out: Arc<Mutex<string::String>>,
+	out: Arc<Mutex<Vec<u8>>>,
 	frozen_logger_id: Option<u32>,
 	frozen_now: Option<ntime::Timestamp>,
 	frozen_now_tick: Option<ntime::Duration>,
-	delimiter: string::String,
 	mock_attributes: attributes::Map,
 }
 
-impl String {
-	/// Initializes a string [`sink`] from a [`StringConfig`].
-	pub fn new(conf: StringConfig) -> Self {
+impl Bytes {
+	/// Initializes a byte buffer [`sink`] from a [`BytesConfig`].
+	pub fn new(conf: BytesConfig) -> Self {
 		let formatter = format::Formatter::new(conf.formatter_cfg);
-		let delimiter = match formatter.delimiter_as_string() {
-			Ok(s) => s,
-			Err(e) => panic!("cannot format delimiter for String sink: {e:?}"),
-		};
 
 		Self {
 			name: format!("{} log string", conf.type_str),
 			formatter: formatter,
-			out: Arc::new(Mutex::new(string::String::new())),
+			out: Arc::new(Mutex::new(Vec::new())),
 			frozen_logger_id: if conf.mock_logger_id { Some(100 as u32) } else { None },
 			frozen_now: if conf.mock_time {
 				// 2026-03-04 15:10:15 GMT
@@ -84,36 +101,30 @@ impl String {
 				None
 			},
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
-			delimiter: delimiter,
 			mock_attributes: attributes::Map::new(),
 		}
 	}
 
-	/// Returns the underlying [`String`] buffer for this sink.
-	pub fn output(&self) -> Arc<Mutex<string::String>> {
-		self.out.clone()
+	/// Returns a [`BytesOutput`] with contents for the sink.
+	pub fn output(&self) -> BytesOutput {
+		BytesOutput::new(&self.out)
 	}
 
-	/// Clears the underlying [`String`] buffer for this sink.
-	pub fn clear(&self) {
+	/// Clears the underlying [`&[u8]`] buffer for this sink.
+	pub fn clear(&mut self) {
 		self.out.lock().unwrap().clear();
 	}
 }
 
-impl sink::Sink for String {
+impl sink::Sink for Bytes {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
 
 	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
-		let mut out = match self.out.lock() {
-			Ok(s) => s,
-			Err(e) => {
-				panic!("failed to acquire lock for log string: {e}");
-			}
-		};
+		let mut out = self.out.lock().unwrap();
 
-		let line = if self.frozen_now.is_some() || self.frozen_logger_id.is_some() {
+		let entry = if self.frozen_now.is_some() || self.frozen_logger_id.is_some() {
 			// apply mocks
 			let mut mock_update = update.clone();
 			self.mock_attributes.copy_from(attrs);
@@ -128,15 +139,15 @@ impl sink::Sink for String {
 				};
 			}
 
-			self.formatter.as_string(&mock_update, &self.mock_attributes)
+			self.formatter.as_bytes(&mock_update, &self.mock_attributes)
 		} else {
-			self.formatter.as_string(update, attrs)
+			self.formatter.as_bytes(update, attrs)
 		};
 
 		if !out.is_empty() {
-			*out += &self.delimiter;
+			out.extend_from_slice(self.formatter.delimiter());
 		}
-		out.push_str(&line);
+		out.extend(entry);
 
 		if let Some(now) = &mut (self.frozen_now) {
 			if let Some(tick) = self.frozen_now_tick {

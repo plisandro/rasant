@@ -33,7 +33,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - [Configurable log filters](#filtering).
   - Thread safe.
   - [Highly configurable log sinks](#configuring-sinks).
-  - Text and JSON log output.
+  - Text, JSON and [CBOR](https://cbor.io/) log output.
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
 See [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
@@ -240,7 +240,7 @@ Rasant is under active development, with more features planned for future versio
   - New output formants (hierarchical pretty print?)
   - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
   - Support for third-party log sinks
-  - Binary output formats, such as [CBOR](https://cbor.io/) and [protobuf](https://protobuf.dev/).
+  - [Protobuf](https://protobuf.dev/) binary format support?
 
 ## License
 

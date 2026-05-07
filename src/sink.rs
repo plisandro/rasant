@@ -3,12 +3,12 @@
 //! This module defines the [`Sink`] and [`LogUpdate`] traits for sinks, and
 //! exports all available sink types.
 pub mod black_hole;
+pub mod bytes;
 pub mod file;
 pub mod io;
 pub mod log_file;
 pub mod stderr;
 pub mod stdout;
-pub mod string;
 
 use ntime;
 use std::io as std_io;

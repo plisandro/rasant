@@ -5,16 +5,16 @@ use std::io::{Error, ErrorKind};
 
 #[test]
 fn macro_logging() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 		mock_time: true,
 		mock_logger_id: true,
-		..sink::string::StringConfig::default()
+		..sink::bytes::BytesConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let bytes_sink_output = bytes_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(rasant::Level::Trace).add_sink(string_sink);
+		log.set_level(rasant::Level::Trace).add_sink(bytes_sink);
 
 		r::info!(log, "root test, info without args");
 		r::info!(log, "root test, info with args", first = 1234, second = "lala");
@@ -30,7 +30,7 @@ fn macro_logging() {
 		r::error!(nlog, Error::new(ErrorKind::InvalidInput, "again!"), "another error", with = "attributes");
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = bytes_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100
 2026-03-04 15:10:16.234 [INF] root test, info without args
 2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"

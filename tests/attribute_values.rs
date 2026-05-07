@@ -4,18 +4,18 @@ use rasant::{Level, Scalar, Value};
 
 #[test]
 fn methods() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 		mock_time: true,
-		..sink::string::StringConfig::default()
+		..sink::bytes::BytesConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let bytes_sink_output = bytes_sink.output();
 
 	let test_keys = [Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")];
 	let test_values = [Scalar::from(123), Scalar::from(456), Scalar::from(789)];
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		log.info_with("single value", [("result", Value::from(1234 as u32))]);
 		log.info_with("list from array", [("result", Value::from(&test_values))]);
 		log.info_with("list from slice", [("result", Value::from(test_values.as_slice()))]);
@@ -25,7 +25,7 @@ fn methods() {
 		log.info_with("map from slices #2", [("map", Value::from((test_keys.as_slice(), test_values.as_slice())))]);
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = bytes_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234
 2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]
 2026-03-04 15:10:17.468 [INF] list from slice result=[123, 456, 789]
@@ -39,18 +39,18 @@ fn methods() {
 
 #[test]
 fn macros() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 		mock_time: true,
-		..sink::string::StringConfig::default()
+		..sink::bytes::BytesConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let bytes_sink_output = bytes_sink.output();
 
 	let test_keys = ["key_a", "key_b", "key_c"];
 	let test_values = [123, 456, 789];
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Info).add_sink(string_sink);
+		log.set_level(Level::Info).add_sink(bytes_sink);
 		r::info!(log, "single value", result = 1234);
 		r::info!(log, "list from array", result = r::list!(test_values));
 		// TODO: fix support for slices.
@@ -61,7 +61,7 @@ fn macros() {
 		r::info!(log, "map from map!()", result = r::map!("key_a" => 123, 456 => 789.012, "key_c" => "string!"));
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = bytes_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234
 2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]
 2026-03-04 15:10:17.468 [INF] list from scalars result=[123, 456.789, \"lalala\"]

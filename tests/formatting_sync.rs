@@ -58,20 +58,20 @@ fn sync_output() {
 	];
 
 	for tc in test_cases {
-		let string_sink = sink::string::String::new(sink::string::StringConfig {
+		let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 			mock_time: true,
 			formatter_cfg: FormatterConfig {
 				format: tc.out_format,
 				time_format: tc.time_format,
 				..FormatterConfig::default()
 			},
-			..sink::string::StringConfig::default()
+			..sink::bytes::BytesConfig::default()
 		});
-		let string_sink_output = string_sink.output();
+		let bytes_sink_output = bytes_sink.output();
 
 		{
 			let mut log = rasant::Logger::new();
-			log.add_sink(string_sink).set_level(Level::Info);
+			log.add_sink(bytes_sink).set_level(Level::Info);
 
 			log.info("root test info").warn("root test warn").debug("root test debug");
 
@@ -83,23 +83,23 @@ fn sync_output() {
 				.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 		}
 
-		let got = string_sink_output.lock().unwrap().clone();
+		let got = bytes_sink_output.as_string();
 		assert_eq!(got, tc.want, "{}", tc.name);
 	}
 }
 
 #[test]
 fn sync_trace() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let bytes_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 		mock_time: true,
 		mock_logger_id: true,
-		..sink::string::StringConfig::default()
+		..sink::bytes::BytesConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let bytes_sink_output = bytes_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Trace).add_sink(string_sink);
+		log.set_level(Level::Trace).add_sink(bytes_sink);
 
 		log.info("root test info").warn("root test warn").debug("root test debug");
 
@@ -111,7 +111,7 @@ fn sync_trace() {
 			.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = bytes_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100
 2026-03-04 15:10:16.234 [INF] root test info
 2026-03-04 15:10:17.468 [WRN] root test warn
