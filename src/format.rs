@@ -1,4 +1,5 @@
 //! Formatting module for log writes, given ([`LogUpdate`] + attributes).
+mod cbor;
 mod color_compact;
 mod compact;
 mod json;
@@ -19,6 +20,8 @@ pub enum OutputFormat {
 	ColorCompact,
 	/// A JSON-formatted string entry: `{"timestamp":123456,"level":"info","message":"some log message","key_1":"=value_1","key_2":"=value_2"}`
 	Json,
+	/// [CBOR](https://cbor.io/) (a.k.a RFC 8949) binary formatting.
+	Cbor,
 }
 
 /// Formatting errors.
@@ -34,6 +37,7 @@ impl OutputFormat {
 			Self::Compact => "compact",
 			Self::ColorCompact => "compact (w/console color)",
 			Self::Json => "JSON",
+			Self::Cbor => "CBOR",
 		}
 		.into()
 	}
@@ -70,6 +74,11 @@ impl FormatterConfig {
 	pub fn default_json() -> Self {
 		json::default_format_config()
 	}
+
+	/// Returns a default [`FormatterConfig`] for [`OutputFormat::Cbor`], with times as milliseconds since UNIX epoch.
+	pub fn default_cbor() -> Self {
+		json::default_format_config()
+	}
 }
 
 /// Serializes and writes log updates + attributes.
@@ -102,6 +111,7 @@ impl Formatter {
 			OutputFormat::Compact => compact::write(out, &self.time_format, update, attrs),
 			OutputFormat::ColorCompact => color_compact::write(out, &self.time_format, update, attrs),
 			OutputFormat::Json => json::write(out, &self.time_format, &self.time_key, &update, attrs),
+			OutputFormat::Cbor => cbor::write(out, &self.time_format, &self.time_key, &update, attrs),
 		}
 	}
 

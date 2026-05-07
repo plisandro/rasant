@@ -87,7 +87,7 @@ impl Map {
 		}
 	}
 
-	fn len(&self) -> usize {
+	pub fn len(&self) -> usize {
 		self.key_idxs.len()
 	}
 
