@@ -524,19 +524,19 @@ mod formatting {
 			let got: String;
 
 			{
-				let string_sink = sink::string::String::new(sink::string::StringConfig {
+				let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 					mock_time: true,
 					formatter_cfg: format::FormatterConfig {
 						format: tc.out_format,
 						time_format: tc.time_format,
 						..FormatterConfig::default()
 					},
-					..sink::string::StringConfig::default()
+					..sink::memory::MemoryConfig::default()
 				});
-				let string_sink_output = string_sink.output();
+				let mem_sink_output = mem_sink.output();
 
 				let mut log = Logger::new();
-				log.add_sink(string_sink).set_level(Level::Info);
+				log.add_sink(mem_sink).set_level(Level::Info);
 
 				log.info("root test info").warn("root test warn").debug("root test debug");
 
@@ -548,7 +548,7 @@ mod formatting {
 					.trace("trace log to be ignored")
 					.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
-				got = string_sink_output.lock().unwrap().clone();
+				got = mem_sink_output.as_string();
 			}
 
 			assert_eq!(got, tc.want, "{}", tc.name);
@@ -559,17 +559,17 @@ mod formatting {
 	/*
 	#[test]
 	fn async_formatted_output() {
-		let string_sink_output: Arc<Mutex<String>>;
+		let mem_sink_output: Arc<Mutex<String>>;
 
 		{
-			let string_sink = sink::string::String::new(sink::string::StringConfig {
+			let mem_sink = sink::bytes::Bytes::new(sink::bytes::BytesConfig {
 				mock_time: true,
-				..sink::string::StringConfig::default()
+				..sink::bytes::BytesConfig::default()
 			});
-			string_sink_output = string_sink.output();
+			mem_sink_output = mem_sink.output();
 
 			let mut log = Rasant::new();
-			log.add_sink(string_sink).set_level(Level::Trace).set_async(true);
+			log.add_sink(mem_sink).set_level(Level::Trace).set_async(true);
 
 			log.info("root test info").warn("root test warn").fatal_with("oh no something_horrible", [("why", "fire!".to_value())]);
 
@@ -580,7 +580,7 @@ mod formatting {
 		}
 
 		// collect result only after all loggers are dropped, as we'll race the output otherwise
-		let got = string_sink_output.lock().unwrap().clone();
+		let got = mem_sink_output.lock().unwrap().clone();
 		let want = "2026-03-04 15:10:15.000 [TRA] log level updated name=\"trace\" new_level=0 logger_id=0
 2026-03-04 15:10:16.234 [TRA] enabled async log updates total_async_loggers=2 logger_id=0
 2026-03-04 15:10:17.468 [INF] root test info

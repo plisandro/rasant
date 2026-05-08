@@ -9,15 +9,15 @@ use rasant::sink;
 fn sample_log() {
 	let mut log = rasant::Logger::new();
 
-	let sink_a = sink::string::String::new(sink::string::StringConfig {
+	let sink_a = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		formatter_cfg: FormatterConfig::default_color(),
-		..sink::string::StringConfig::default()
+		..sink::memory::MemoryConfig::default()
 	});
 	let sink_a_output = sink_a.output();
 
-	let sink_b = sink::string::String::new(sink::string::StringConfig {
+	let sink_b = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		formatter_cfg: FormatterConfig::default_json(),
-		..sink::string::StringConfig::default()
+		..sink::memory::MemoryConfig::default()
 	});
 	let sink_b_output = sink_b.output();
 
@@ -46,6 +46,6 @@ fn sample_log() {
 		sleep_millis(6);
 	}
 
-	println!("{}\n\n", sink_a_output.lock().unwrap());
-	println!("{}", sink_b_output.lock().unwrap());
+	println!("{}\n\n", sink_a_output.as_string());
+	println!("{}", sink_b_output.as_string());
 }

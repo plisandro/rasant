@@ -6,9 +6,9 @@ pub mod black_hole;
 pub mod file;
 pub mod io;
 pub mod log_file;
+pub mod memory;
 pub mod stderr;
 pub mod stdout;
-pub mod string;
 
 use ntime;
 use std::io as std_io;

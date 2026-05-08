@@ -6,18 +6,18 @@ use rasant::sink;
 
 #[test]
 fn step() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
 		mock_logger_id: true,
-		..sink::string::StringConfig::default()
+		..sink::memory::MemoryConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let mem_sink_output = mem_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
 		log.set_level(Level::Info)
 			.add_filter(filter::sample::Step::new(filter::sample::StepConfig { step: 7 }))
-			.add_sink(string_sink);
+			.add_sink(mem_sink);
 
 		for i in 0..40 {
 			r::info!(log, "test info", iteration = i + 1);
@@ -25,7 +25,7 @@ fn step() {
 		}
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = mem_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=7
 2026-03-04 15:10:16.234 [INF] test info iteration=14
 2026-03-04 15:10:17.468 [INF] test info iteration=21
@@ -37,12 +37,12 @@ fn step() {
 
 #[test]
 fn burst() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
 		mock_logger_id: true,
-		..sink::string::StringConfig::default()
+		..sink::memory::MemoryConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let mem_sink_output = mem_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
@@ -51,7 +51,7 @@ fn burst() {
 				period: ntime::Duration::from_millis(5),
 				max_updates: 2,
 			}))
-			.add_sink(string_sink);
+			.add_sink(mem_sink);
 
 		for i in 0..15 {
 			r::info!(log, "test info", iteration = i + 1);
@@ -60,7 +60,7 @@ fn burst() {
 		}
 	}
 
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = mem_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=1
 2026-03-04 15:10:16.234 [INF] test info iteration=2
 2026-03-04 15:10:17.468 [INF] test info iteration=6

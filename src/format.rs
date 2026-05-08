@@ -105,40 +105,51 @@ impl Formatter {
 		}
 	}
 
-	/// Write a formatted delimiter into a [`io::Write`].
-	pub fn write_delimiter<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		match out.write(self.delimiter.as_slice()) {
-			Ok(_) => Ok(()),
-			Err(e) => Err(e),
+	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`u8`] [`Vec`]
+	pub fn as_bytes(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> Vec<u8> {
+		let mut out: Vec<u8> = Vec::new();
+
+		match self.write(&mut out, update, attrs) {
+			Ok(_) => out,
+			Err(e) => panic!("failed to convert log update {update:?} to bytes buffer: {e}"),
 		}
 	}
 
 	/// Serializes a formatted [`LogUpdate`] + attributes ['Map`] into a [`String`].
-	pub fn as_string(&self, update: &LogUpdate, attrs: &attributes::Map) -> String {
-		let mut out = Vec::new();
+	pub fn as_string(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> String {
+		let bytes = self.as_bytes(update, attrs);
 
-		match self.write(&mut out, update, attrs) {
-			Ok(_) => (),
-			Err(e) => panic!("failed to convert log update {update:?} to string buffer: {e}"),
-		};
-		match String::from_utf8(out) {
+		match String::from_utf8(bytes) {
 			Ok(s) => s,
 			Err(e) => panic!("failed to convert log update {update:?} to UTF8: {e}"),
 		}
 	}
 
-	/// Serializes a formatted delimiter into a [`String`].
+	/// Returns the formatter's delimiter as a [`u8`] slice.
+	pub fn delimiter(&self) -> &[u8] {
+		self.delimiter.as_slice()
+	}
+
+	/// Serializes the formatter's delimiter into a [`String`].
 	pub fn delimiter_as_string(&self) -> Result<String, FormatterError> {
 		match String::from_utf8(self.delimiter.clone()) {
 			Ok(s) => Ok(s),
 			Err(_) => Err(FormatterError::DelimiterNotAString),
 		}
 	}
+
+	/// Write the formatter's delimiter into a [`io::Write`].
+	pub fn write_delimiter<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
+		match out.write(self.delimiter.as_slice()) {
+			Ok(_) => Ok(()),
+			Err(e) => Err(e),
+		}
+	}
 }
 
 /// Returns a formatted string for a [`LogUpdate`] + attributes ['Map`], suitable for use with ['panic!`].
 pub fn as_panic_string(update: &LogUpdate, attrs: &attributes::Map) -> String {
-	let formatter = Formatter::new(FormatterConfig {
+	let mut formatter = Formatter::new(FormatterConfig {
 		format: OutputFormat::Compact,
 		..FormatterConfig::default_compact()
 	});

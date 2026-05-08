@@ -5,15 +5,15 @@ use std::io::{Error, ErrorKind};
 
 #[test]
 fn async_output() {
-	let string_sink = sink::string::String::new(sink::string::StringConfig {
+	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
-		..sink::string::StringConfig::default()
+		..sink::memory::MemoryConfig::default()
 	});
-	let string_sink_output = string_sink.output();
+	let mem_sink_output = mem_sink.output();
 
 	{
 		let mut log = rasant::Logger::new();
-		log.set_level(Level::Info).add_sink(string_sink).set_async(true);
+		log.set_level(Level::Info).add_sink(mem_sink).set_async(true);
 		log.info("root test info")
 			.warn("root test warn")
 			.fatal_with("oh no something horrible happened", [("why", Value::from("fire!"))]);
@@ -24,7 +24,7 @@ fn async_output() {
 	}
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise
-	let got = string_sink_output.lock().unwrap().clone();
+	let got = mem_sink_output.as_string();
 	let want = "2026-03-04 15:10:15.000 [INF] root test info
 2026-03-04 15:10:16.234 [WRN] root test warn
 2026-03-04 15:10:17.468 [FAT] oh no something horrible happened why=\"fire!\"
