@@ -7,8 +7,6 @@ use std::slice;
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 use crate::types::AttributeStringSeek;
 
-// TODO: fix imports;
-#[allow(unused_imports)]
 pub use scalar::Scalar;
 pub use value::Value;
 
@@ -40,11 +38,9 @@ pub struct Map {
 	key_idxs: Vec<usize>,
 	/// A container for all Scalars used by Values in this store.
 	scalar_pool: Vec<Scalar>,
-	/// Indexes for 1st set of Scalar's associated with each key, as [start, end)
-	scalar_1_idxs: Vec<(usize, usize)>,
-	/// Indexes for optional 2st set of Scalar's associated with each key, as [start, end);
+	/// Indexes for 1st and 2nd set of Scalar's associated with each key, as [1_start, end), [2_start, 2_end)
 	/// (0.0) indicates no 2nd set present.
-	scalar_2_idxs: Vec<(usize, usize)>,
+	scalar_idxs: Vec<(usize, usize, usize, usize)>,
 }
 
 impl Map {
@@ -54,8 +50,7 @@ impl Map {
 			string_idxs: Vec::new(),
 			key_idxs: Vec::new(),
 			scalar_pool: Vec::new(),
-			scalar_1_idxs: Vec::new(),
-			scalar_2_idxs: Vec::new(),
+			scalar_idxs: Vec::new(),
 		}
 	}
 
@@ -64,8 +59,7 @@ impl Map {
 		self.string_idxs.clear();
 		self.key_idxs.clear();
 		self.scalar_pool.clear();
-		self.scalar_1_idxs.clear();
-		self.scalar_2_idxs.clear();
+		self.scalar_idxs.clear();
 	}
 
 	pub fn copy_from(&mut self, other: &Self) {
@@ -73,8 +67,7 @@ impl Map {
 		self.string_idxs.clear();
 		self.key_idxs.clear();
 		self.scalar_pool.clear();
-		self.scalar_1_idxs.clear();
-		self.scalar_2_idxs.clear();
+		self.scalar_idxs.clear();
 
 		if !other.is_empty() {
 			self.string_pool.push_str(&other.string_pool);
@@ -82,8 +75,7 @@ impl Map {
 			self.key_idxs.extend(&other.key_idxs);
 			// iterating over scalar_pool yields &Clone instead of Clone >:(
 			self.scalar_pool.extend_from_slice(&other.scalar_pool);
-			self.scalar_1_idxs.extend(&other.scalar_1_idxs);
-			self.scalar_2_idxs.extend(&other.scalar_2_idxs);
+			self.scalar_idxs.extend(&other.scalar_idxs);
 		}
 	}
 
@@ -135,25 +127,19 @@ impl Map {
 	}
 
 	fn value_by_idx(&self, idx: usize) -> Value<'_> {
-		match self.scalar_2_idxs[idx] {
-			(0, 0) => {
-				// a single Scalar or Set
-				let (start, end) = self.scalar_1_idxs[idx];
+		let (start_1, end_1, start_2, end_2) = self.scalar_idxs[idx];
 
-				if start == end - 1 {
-					// TODO: fix me
-					Value::Scalar(self.scalar_pool[start].clone())
-				} else {
-					Value::List(&self.scalar_pool[start..end])
-				}
-			}
-			(start_2, end_2) => {
-				// a Map
-				let (start_1, end_1) = self.scalar_1_idxs[idx];
-
-				Value::Map(&self.scalar_pool[start_1..end_1], &self.scalar_pool[start_2..end_2])
-			}
+		if start_2 != 0 || end_2 != 0 {
+			// a 2nd set of scalars means we have a Map
+			return Value::Map(&self.scalar_pool[start_1..end_1], &self.scalar_pool[start_2..end_2]);
 		}
+
+		if end_1 - start_1 == 1 {
+			// TODO: fix me
+			return Value::Scalar(self.scalar_pool[start_1].clone());
+		}
+
+		Value::List(&self.scalar_pool[start_1..end_1])
 	}
 
 	pub fn has(&self, key: &str) -> bool {
@@ -241,18 +227,16 @@ impl Map {
 		self.scalar_pool_delete_strings(start, end);
 		self.scalar_pool.drain(start..end);
 
-		self.scalar_1_idxs.iter_mut().for_each(|(pool_start, pool_end)| {
-			if *pool_start >= size && *pool_start > start {
-				*pool_start -= size;
-				*pool_end -= size;
+		self.scalar_idxs.iter_mut().for_each(|(pool_start_1, pool_end_1, pool_start_2, pool_end_2)| {
+			if *pool_start_1 >= size && *pool_start_1 > start {
+				*pool_start_1 -= size;
+				*pool_end_1 -= size;
 			}
-		});
-		self.scalar_2_idxs.iter_mut().for_each(|(pool_start, pool_end)| {
-			if *pool_start >= size && *pool_start > start {
-				*pool_start -= size;
-				*pool_end -= size;
+			if *pool_start_2 >= size && *pool_start_2 > start {
+				*pool_start_2 -= size;
+				*pool_end_2 -= size;
 			}
-		});
+		})
 	}
 
 	fn scalar_pool_overwrite(&mut self, start: usize, ss: &[Scalar]) {
@@ -266,70 +250,60 @@ impl Map {
 		}
 	}
 
-	// TODO: rewrite using scalar_pool_extend indeces
 	fn scalar_pool_add(&mut self, insert_first: bool, ss_1: &[Scalar], ss_2: &[Scalar]) {
-		let start_1 = self.scalar_pool.len();
+		let start_1 = self.scalar_pool_extend(ss_1);
 		let end_1 = start_1 + ss_1.len();
-		let (start_2, end_2) = match ss_2.is_empty() {
-			true => (0, 0),
-			false => (end_1, end_1 + ss_2.len()),
+
+		let (mut start_2, mut end_2) = (0 as usize, 0 as usize);
+		if !ss_2.is_empty() {
+			start_2 = self.scalar_pool_extend(ss_2);
+			end_2 = start_2 + ss_2.len();
 		};
 
-		self.scalar_pool_extend(ss_1);
-		self.scalar_pool_extend(ss_2);
-
 		match insert_first {
-			true => {
-				self.scalar_1_idxs.insert(0, (start_1, end_1));
-				self.scalar_2_idxs.insert(0, (start_2, end_2));
-			}
-			false => {
-				self.scalar_1_idxs.push((start_1, end_1));
-				self.scalar_2_idxs.push((start_2, end_2));
-			}
+			true => self.scalar_idxs.insert(0, (start_1, end_1, start_2, end_2)),
+			false => self.scalar_idxs.push((start_1, end_1, start_2, end_2)),
 		}
 	}
 
-	// TODO: this function is too verbose, rewrite.
-	// TODO: rewrite using scalar_pool_extend indeces
 	fn scalar_pool_replace(&mut self, idx: usize, ss_1: &[Scalar], ss_2: &[Scalar]) {
-		let (pre_start_1, pre_end_1) = self.scalar_1_idxs[idx];
-		let pre_size_1 = pre_end_1 - pre_start_1;
+		let (mut start_1, mut end_1, _, _) = self.scalar_idxs[idx];
+		let pre_size_1 = end_1 - start_1;
 
 		// delete slot for first slice
 		if ss_1.len() == pre_size_1 {
 			// yay, new scalars fit in the existing slot
-			self.scalar_pool_overwrite(pre_start_1, ss_1);
+			self.scalar_pool_overwrite(start_1, ss_1);
 		} else {
 			// we'll have to resize and extend :'(
-			self.scalar_pool_remove(pre_start_1, pre_end_1);
+			self.scalar_pool_remove(start_1, end_1);
 
-			let start_1 = self.scalar_pool.len();
-			let end_1 = start_1 + ss_1.len();
+			start_1 = self.scalar_pool_extend(ss_1);
+			end_1 = start_1 + ss_1.len();
 
-			self.scalar_pool_extend(ss_1);
-			self.scalar_1_idxs[idx] = (start_1, end_1);
+			self.scalar_idxs[idx].0 = start_1;
+			self.scalar_idxs[idx].1 = end_1;
 		}
 
 		// delete slot for second slice, if present
-		let (pre_start_2, pre_end_2) = self.scalar_2_idxs[idx];
-		let pre_size_2 = pre_end_2 - pre_start_2;
+		let (_, _, mut start_2, mut end_2) = self.scalar_idxs[idx];
+		let pre_size_2 = end_2 - start_2;
 
 		if ss_2.len() == pre_size_2 {
-			self.scalar_pool_overwrite(pre_start_2, ss_2);
+			self.scalar_pool_overwrite(start_2, ss_2);
 		} else {
-			// we'll have to resize and extend :'(
-			self.scalar_pool_remove(pre_start_2, pre_end_2);
+			self.scalar_pool_remove(start_2, end_2);
 
-			let (start_2, end_2) = if ss_2.is_empty() {
-				(0, 0)
+			if ss_2.is_empty() {
+				start_2 = 0;
+				end_2 = 0;
 			} else {
-				let s = self.scalar_pool.len();
-				(s, s + ss_2.len())
+				start_2 = self.scalar_pool_extend(ss_2);
+				end_2 = start_2 + ss_2.len();
 			};
 
-			self.scalar_pool_extend(ss_2);
-			self.scalar_2_idxs[idx] = (start_2, end_2);
+			self.scalar_idxs[idx].2 = start_2;
+			self.scalar_idxs[idx].3 = end_2;
 		}
 	}
 
@@ -340,6 +314,7 @@ impl Map {
 		}
 	}
 
+	// TODO: properly handle repeated Map keys.
 	fn set(&mut self, key: &str, val: &Value) {
 		if key.is_empty() {
 			panic!("empty log attribute key {{\"\" -> {val:?}}}");

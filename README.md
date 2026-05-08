@@ -36,7 +36,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - Text and JSON log output.
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
-See also [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
+See [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
 logging solutions for Rust.
 
 ## Usage 
