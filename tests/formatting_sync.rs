@@ -14,7 +14,7 @@ fn sync_output() {
 		want: &'t str,
 	}
 
-	let test_cases: [TestCase; _] = [
+	let test_cases = [
 		TestCase {
 			name: "default stdout",
 			out_format: OutputFormat::Compact,

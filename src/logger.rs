@@ -459,7 +459,7 @@ mod formatting {
 			want: &'t str,
 		}
 
-		let test_cases: [TestCase; _] = [
+		let test_cases = [
 			TestCase {
 				name: "default stdout",
 				out_format: format::OutputFormat::Compact,

@@ -669,7 +669,7 @@ mod map {
 		}
 
 		assert_eq!(
-			got.as_array::<5>().expect("invalid number of results"),
+			got,
 			&[
 				("error", Value::from("an error")),
 				("key_a", Value::from(123)),
@@ -695,6 +695,6 @@ mod map {
 			got_keys.push(key);
 		}
 
-		assert_eq!(got_keys.as_array::<5>().expect("invalid number of keys"), &["error", "key_a", "key_b", "key_c", "key_d"]);
+		assert_eq!(got_keys, &["error", "key_a", "key_b", "key_c", "key_d"]);
 	}
 }
