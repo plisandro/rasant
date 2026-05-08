@@ -35,11 +35,11 @@ cleanly so log output is never garbled.
 A number of other structured log solutions tend to optimize duplicate attribute keys
 checks away, which can easily lead to invalid output in formats such as JSON.
 
-### No Intermediate Buffers
+### No Intermediate Data Structures
 
-No logging operation in Rasant involves buffers, string representations nor temporary
-data structures. All log requests translate directly into log sink writes, without
-processing overhead.
+Logging operations in involve no strings nor temporary data structures, and use of
+buffers is avoided whenever possible. All log requests translate directly into log
+sink writes, without processing overhead.
 
 Log sinks themselves expose a single write endpoint, piping down to `io::Write`, which
 loggers get a direct line to. As a result, log operations turn into actual I/O
@@ -47,9 +47,9 @@ writes very efficiently.
 
 ### Self-Contained Logging Abstractions
 
-All logging abstractions in Rasant (loggers themselves, sinks, filters) are designed
-to be cheap, simple and self-contained. This makes loggers, and shared items such as
-sinks, very efficient to instantiate, clone and destroy.
+All logging abstractions (loggers themselves, sinks, filters) are designed to be
+cheap, simple and self-contained. This makes loggers, and shared items such as sinks,
+very efficient to instantiate, clone and destroy.
 
 There are no global root loggers, sinks or overall state in Rasant. The _only_ global
 abstraction is a single async queue handler, shared by all loggers in asynchronous

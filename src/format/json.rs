@@ -1,6 +1,8 @@
-/// Formatter for JSON output.
-///
-/// `{"timestamp":123456,"level":"info","message":"some log message","key_1":value_1,"key_2":[value_3, value_4]}`
+//! Formatter for JSON output.
+//!
+//! Outputs one map per log entry:
+//! `{"timestamp":123456,"level":"info","message":"some log message","key_1":value_1,"key_2":[value_3, value_4]}`
+
 use ntime::Format;
 use std::io;
 

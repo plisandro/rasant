@@ -1,6 +1,7 @@
-/// Formatter for compact text output.
-///
-/// `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`
+//! Formatter for compact text output.
+//!
+//! Outputs one line per log entry:
+//1 `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=[value_2, value_3]`
 use ntime::Format;
 use std::io;
 

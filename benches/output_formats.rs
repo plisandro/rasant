@@ -40,3 +40,8 @@ fn compact(bencher: Bencher) {
 fn json(bencher: Bencher) {
 	run(bencher, OutputFormat::Json);
 }
+
+#[divan::bench]
+fn cbor(bencher: Bencher) {
+	run(bencher, OutputFormat::Cbor);
+}
