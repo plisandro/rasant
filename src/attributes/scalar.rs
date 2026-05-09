@@ -143,7 +143,19 @@ impl<'i> Scalar {
 /* ----------------------- Casting ----------------------- */
 
 /// Evaluates whether a [`&str`] needs escaping when casted to text.
-fn str_needs_escapping(s: &str) -> bool {
+fn needs_escapping(s: &str) -> bool {
+	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
+	// unforutnately, the std lib has no way to evaluate escaping for individual chars without iterators :'(
+
+	s.chars().any(|c| match c {
+		'\t' => true,
+		'\r' => true,
+		'\n' => true,
+		'\'' => true,
+		'"' => true,
+		_ => !c.is_ascii(),
+	})
+	/*
 	let mut escaped_iter = s.escape_default();
 	for c in s.chars() {
 		match escaped_iter.next() {
@@ -157,6 +169,7 @@ fn str_needs_escapping(s: &str) -> bool {
 	}
 
 	false
+	*/
 }
 
 impl From<bool> for Scalar {
@@ -167,14 +180,14 @@ impl From<bool> for Scalar {
 
 impl From<String> for Scalar {
 	fn from(s: String) -> Self {
-		let needs_escaping = str_needs_escapping(s.as_str());
-		Self::String(s, needs_escaping)
+		let escaped = needs_escapping(s.as_str());
+		Self::String(s, escaped)
 	}
 }
 
 impl From<&'static str> for Scalar {
 	fn from(s: &'static str) -> Self {
-		Self::StringSlice(s, str_needs_escapping(s))
+		Self::StringSlice(s, needs_escapping(s))
 	}
 }
 
