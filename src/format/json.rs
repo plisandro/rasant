@@ -25,7 +25,18 @@ pub fn default_format_config() -> FormatterConfig {
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::Bool(b) => write!(out, "{}", b),
-		Scalar::String(s) => s.write_quoted_escaped(out, attrs),
+		Scalar::String(s, escape) => match *escape {
+			false => write!(out, "\"{}\"", s),
+			true => write!(out, "\"{}\"", s.as_str().escape_default()),
+		},
+		Scalar::StringSlice(s, escape) => match *escape {
+			false => write!(out, "\"{}\"", s),
+			true => write!(out, "\"{}\"", s.escape_default()),
+		},
+		Scalar::StringIndex(idx, escape) => match *escape {
+			false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
+			true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
+		},
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => write!(out, "{}", i),
 		Scalar::Size(s) => write!(out, "{}", s),

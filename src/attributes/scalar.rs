@@ -1,10 +1,10 @@
 use ntime::{Duration, Timestamp};
 use std::fmt;
+use std::string;
 use std::thread;
 
 use crate::attributes::Map;
 use crate::level::Level;
-use crate::types::AttributeString;
 
 /// [`Scalar`] definitions for all log operations.
 /// Scalars are the basic data units for Rasant, representing a single type.
@@ -12,8 +12,13 @@ use crate::types::AttributeString;
 pub enum Scalar {
 	/// A [`bool`]ean.
 	Bool(bool),
-	/// An owned [`AttributeString`].
-	String(AttributeString),
+	/// An owned [`String`], and whether it has characters which need escaping.
+	/// This type is used for ingestion only. Attribute maps will never yield it.
+	String(string::String, bool),
+	/// A static [`&`str`]ing, and whether it has characters which need escaping.
+	StringSlice(&'static str, bool),
+	/// An indexed string, stored in an attribute map, and whether it has characters which need escaping.
+	StringIndex(usize, bool),
 	/// An integer, internally stored as a [`i64`].
 	Int(i64),
 	/// A long integer, internally stored as a [`i128`].
@@ -32,12 +37,50 @@ pub enum Scalar {
 
 /* ----------------------- Implementation ----------------------- */
 
-impl<'i> Scalar {
-	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+impl fmt::Display for Scalar {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
+			Self::Bool(b) => write!(f, "{}", b),
+			Scalar::String(s, escape) => match *escape {
+				false => write!(f, "\"{}\"", s),
+				true => write!(f, "\"{}\"", s.as_str().escape_default()),
+			},
+			Scalar::StringSlice(s, escape) => match *escape {
+				false => write!(f, "\"{}\"", s),
+				true => write!(f, "\"{}\"", s.escape_default()),
+			},
+			Scalar::StringIndex(idx, escape) => write!(f, "<indexed str #{idx}, {}>", if *escape { "escaped" } else { "non-escaped" }),
+			Self::Int(i) => write!(f, "{}", i),
+			Self::LongInt(i) => {
+				if *i < 1 {
+					write!(f, "-0x{:x}", -i)
+				} else {
+					write!(f, "0x{:x}", i)
+				}
+			}
+			Self::Size(s) => {
+				if *s < 1 {
+					write!(f, "-0x{:x}", -s)
+				} else {
+					write!(f, "0x{:x}", s)
+				}
+			}
+			Self::Uint(i) => write!(f, "{}", i),
+			Self::LongUint(u) => write!(f, "0x{:x}", u),
+			Self::Usize(u) => write!(f, "0x{:x}", u),
+			Self::Float(fl) => write!(f, "{}", fl),
+		}
+	}
+}
+
+impl<'i> Scalar {
+	/// Writes a raw string representation of a [`Scalar`] into an [`fmt::Write`].
+	pub fn write_raw_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+		match self {
 			Self::Bool(b) => write!(out, "{}", b),
-			Self::String(s) => write!(out, "\"{}\"", s.as_str(attrs)),
+			Scalar::String(s, _) => write!(out, "{}", s),
+			Scalar::StringSlice(s, _) => write!(out, "{}", s),
+			Scalar::StringIndex(idx, _) => write!(out, "{}", attrs.str_by_idx(*idx)),
 			Self::Int(i) => write!(out, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
@@ -60,9 +103,23 @@ impl<'i> Scalar {
 		}
 	}
 
-	/// Creates an array of [`Scalar`]s from a suitable type.
-	pub fn to_array<const N: usize, T: ToScalarArray<'i, N>>(v: T) -> [Self; N] {
-		v.to_scalar_array()
+	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
+	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+		match self {
+			Scalar::String(s, escape) => match *escape {
+				false => write!(out, "\"{}\"", s),
+				true => write!(out, "\"{}\"", s.as_str().escape_default()),
+			},
+			Scalar::StringSlice(s, escape) => match *escape {
+				false => write!(out, "\"{}\"", s),
+				true => write!(out, "\"{}\"", s.escape_default()),
+			},
+			Scalar::StringIndex(idx, escape) => match *escape {
+				false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
+				true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
+			},
+			_ => self.write_raw_str(out, attrs),
+		}
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
@@ -70,9 +127,37 @@ impl<'i> Scalar {
 		out.clear();
 		self.write_str(out, attrs).expect("failed to serialize Scalar into_string()");
 	}
+
+	/// Serializes a raw [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
+	pub fn into_raw_string(&self, out: &mut String, attrs: &Map) {
+		out.clear();
+		self.write_raw_str(out, attrs).expect("failed to serialize Scalar into_raw_string()");
+	}
+
+	/// Creates an array of [`Scalar`]s from a suitable type.
+	pub fn to_array<const N: usize, T: ToScalarArray<'i, N>>(v: T) -> [Self; N] {
+		v.to_scalar_array()
+	}
 }
 
 /* ----------------------- Casting ----------------------- */
+
+/// Evaluates whether a [`&str`] needs escaping when casted to text.
+fn str_needs_escapping(s: &str) -> bool {
+	let mut escaped_iter = s.escape_default();
+	for c in s.chars() {
+		match escaped_iter.next() {
+			None => return true, // oops
+			Some(ec) => {
+				if c != ec {
+					return true;
+				}
+			}
+		}
+	}
+
+	false
+}
 
 impl From<bool> for Scalar {
 	fn from(b: bool) -> Self {
@@ -82,15 +167,24 @@ impl From<bool> for Scalar {
 
 impl From<String> for Scalar {
 	fn from(s: String) -> Self {
-		Self::String(AttributeString::from(s))
+		let needs_escaping = str_needs_escapping(s.as_str());
+		Self::String(s, needs_escaping)
 	}
 }
 
 impl From<&'static str> for Scalar {
 	fn from(s: &'static str) -> Self {
-		Self::String(AttributeString::from(s))
+		Self::StringSlice(s, str_needs_escapping(s))
 	}
 }
+
+/*
+impl From<usize> for Scalar {
+	fn from(idx: usize) -> Self {
+		Self::StringIndex(idx)
+	}
+}
+*/
 
 impl From<Duration> for Scalar {
 	fn from(d: Duration) -> Self {
@@ -118,25 +212,25 @@ impl From<&Timestamp> for Scalar {
 
 impl From<thread::ThreadId> for Scalar {
 	fn from(t: thread::ThreadId) -> Self {
-		Self::String(AttributeString::from(format!("{:?}", t)))
+		Scalar::from(format!("{:?}", t))
 	}
 }
 
 impl From<&thread::ThreadId> for Scalar {
 	fn from(t: &thread::ThreadId) -> Self {
-		Self::String(AttributeString::from(format!("{:?}", t)))
+		Scalar::from(format!("{:?}", t))
 	}
 }
 
 impl From<Level> for Scalar {
-	fn from(t: Level) -> Self {
-		Self::String(AttributeString::from(t.to_string()))
+	fn from(l: Level) -> Self {
+		Scalar::from(l.as_str())
 	}
 }
 
 impl From<&Level> for Scalar {
-	fn from(t: &Level) -> Self {
-		Self::String(AttributeString::from(t.to_string()))
+	fn from(l: &Level) -> Self {
+		Scalar::from(l.as_str())
 	}
 }
 
@@ -250,14 +344,11 @@ mod tests {
 
 	#[test]
 	fn from_scalar() {
-		let short_string = "lalala";
-		let long_string = "this is a rather long string, which may be complicated";
-
 		assert_eq!(Scalar::from(true), Scalar::Bool(true));
-		assert_eq!(Scalar::from(short_string), Scalar::String(AttributeString::from(short_string)));
-		assert_eq!(Scalar::from(String::from(short_string)), Scalar::String(AttributeString::from(String::from(short_string))));
-		assert_eq!(Scalar::from(long_string), Scalar::String(long_string.into()));
-		assert_eq!(Scalar::from(String::from(long_string)), Scalar::String(AttributeString::from(String::from(long_string))));
+		assert_eq!(Scalar::from("lalala"), Scalar::StringSlice("lalala", false));
+		assert_eq!(Scalar::from("declaró\nen\tcontra"), Scalar::StringSlice("declaró\nen\tcontra", true));
+		assert_eq!(Scalar::from(String::from("lalala")), Scalar::String(String::from("lalala"), false));
+		assert_eq!(Scalar::from(String::from("declaró\nen\tcontra")), Scalar::String(String::from("declaró\nen\tcontra"), true));
 		assert_eq!(Scalar::from(-12 as i8), Scalar::Int(-12));
 		assert_eq!(Scalar::from(345 as i16), Scalar::Int(345));
 		assert_eq!(Scalar::from(-678 as i32), Scalar::Int(-678));
@@ -280,13 +371,22 @@ mod tests {
 	}
 
 	#[test]
-	fn into_string() {
+	fn to_string() {
 		for tc in [
 			(Scalar::Bool(true), "true"),
 			(Scalar::Bool(false), "false"),
-			(Scalar::String("".into()), "\"\""),
-			(Scalar::String("abcd 1234".into()), "\"abcd 1234\""),
-			(Scalar::String(String::from("heap String").into()), "\"heap String\""),
+			(Scalar::String(String::from(""), false), "\"\""),
+			(Scalar::String(String::from("abcd 1234"), false), "\"abcd 1234\""),
+			(Scalar::String(String::from("abcd 1234"), true), "\"abcd 1234\""),
+			(Scalar::String(String::from("declaró\nen\tcontra"), false), "\"declaró\nen\tcontra\""),
+			(Scalar::String(String::from("declaró\nen\tcontra"), true), "\"declar\\u{f3}\\nen\\tcontra\""),
+			(Scalar::StringSlice("", false), "\"\""),
+			(Scalar::StringSlice("abcd 1234", false), "\"abcd 1234\""),
+			(Scalar::StringSlice("abcd 1234", true), "\"abcd 1234\""),
+			(Scalar::StringSlice("declaró\nen\tcontra", false), "\"declaró\nen\tcontra\""),
+			(Scalar::StringSlice("declaró\nen\tcontra", true), "\"declar\\u{f3}\\nen\\tcontra\""),
+			(Scalar::StringIndex(123, false), "<indexed str #123, non-escaped>"),
+			(Scalar::StringIndex(456, true), "<indexed str #456, escaped>"),
 			(Scalar::Int(-123), "-123"),
 			(Scalar::Int(456), "456"),
 			(Scalar::LongInt(-12345678901234567), "-0x2bdc545d6b4b87"),
@@ -301,11 +401,47 @@ mod tests {
 		] {
 			let (s, want): (Scalar, &str) = tc;
 
+			assert_eq!(s.to_string(), want);
+		}
+	}
+
+	#[test]
+	fn into_string() {
+		for tc in [
+			(Scalar::Bool(true), "true", "true"),
+			(Scalar::Bool(false), "false", "false"),
+			(Scalar::String(String::from(""), false), "\"\"", ""),
+			(Scalar::String(String::from("abcd 1234"), false), "\"abcd 1234\"", "abcd 1234"),
+			(Scalar::String(String::from("abcd 1234"), true), "\"abcd 1234\"", "abcd 1234"),
+			(Scalar::String(String::from("declaró\nen\tcontra"), false), "\"declaró\nen\tcontra\"", "declaró\nen\tcontra"),
+			(Scalar::String(String::from("declaró\nen\tcontra"), true), "\"declar\\u{f3}\\nen\\tcontra\"", "declaró\nen\tcontra"),
+			(Scalar::StringSlice("", false), "\"\"", ""),
+			(Scalar::StringSlice("abcd 1234", false), "\"abcd 1234\"", "abcd 1234"),
+			(Scalar::StringSlice("abcd 1234", true), "\"abcd 1234\"", "abcd 1234"),
+			(Scalar::StringSlice("declaró\nen\tcontra", false), "\"declaró\nen\tcontra\"", "declaró\nen\tcontra"),
+			(Scalar::StringSlice("declaró\nen\tcontra", true), "\"declar\\u{f3}\\nen\\tcontra\"", "declaró\nen\tcontra"),
+			(Scalar::Int(-123), "-123", "-123"),
+			(Scalar::Int(456), "456", "456"),
+			(Scalar::LongInt(-12345678901234567), "-0x2bdc545d6b4b87", "-0x2bdc545d6b4b87"),
+			(Scalar::LongInt(89801234567890123), "0x13f09bf3ecf84cb", "0x13f09bf3ecf84cb"),
+			(Scalar::Size(-12345678901234567), "-0x2bdc545d6b4b87", "-0x2bdc545d6b4b87"),
+			(Scalar::Size(89801234567890123), "0x13f09bf3ecf84cb", "0x13f09bf3ecf84cb"),
+			(Scalar::Uint(123456), "123456", "123456"),
+			(Scalar::LongUint(12345678901234567), "0x2bdc545d6b4b87", "0x2bdc545d6b4b87"),
+			(Scalar::Usize(89801234567890123), "0x13f09bf3ecf84cb", "0x13f09bf3ecf84cb"),
+			(Scalar::Float(-1.2345), "-1.2345", "-1.2345"),
+			(Scalar::Float(6.78901), "6.78901", "6.78901"),
+		] {
+			let (s, want, want_raw): (Scalar, &str, &str) = tc;
+
 			let mut out = String::from("lalalala!");
+			let mut out_raw = String::from("lalalala!");
 			let attrs = Map::new();
 
 			s.into_string(&mut out, &attrs);
+			s.into_raw_string(&mut out_raw, &attrs);
 			assert_eq!(out, want);
+			assert_eq!(out_raw, want_raw);
 		}
 	}
 }

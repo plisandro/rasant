@@ -168,7 +168,9 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::Bool(b) => write_bool(out, *b),
-		Scalar::String(s) => write_string(out, s.as_str(attrs)),
+		Scalar::String(s, _) => write_string(out, s.as_str()),
+		Scalar::StringSlice(s, _) => write_string(out, s),
+		Scalar::StringIndex(i, _) => write_string(out, attrs.str_by_idx(*i)),
 		Scalar::Int(i) => write_i64(out, *i),
 		Scalar::LongInt(i) => write_i128(out, *i),
 		Scalar::Size(s) => write_i128(out, *s as i128),

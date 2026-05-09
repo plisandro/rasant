@@ -17,6 +17,34 @@ pub enum Value<'e> {
 
 /* ----------------------- Value implementation ----------------------- */
 
+impl<'i> fmt::Display for Value<'i> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match &self {
+			Self::Scalar(s) => write!(f, "{}", s),
+			Self::List(ss) => {
+				write!(f, "[")?;
+				for i in 0..ss.len() {
+					if i != 0 {
+						write!(f, ", ")?;
+					}
+					write!(f, "{}", ss[i])?;
+				}
+				write!(f, "]")
+			}
+			Self::Map(keys, ss) => {
+				write!(f, "{{")?;
+				for i in 0..keys.len() {
+					if i != 0 {
+						write!(f, ", ")?;
+					}
+					write!(f, "{}: {}", keys[i], ss[i])?;
+				}
+				write!(f, "}}")
+			}
+		}
+	}
+}
+
 impl<'i> Value<'i> {
 	/// Writes a string representation of a [`Value`] into an [`fmt::Write`].
 	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
@@ -45,12 +73,6 @@ impl<'i> Value<'i> {
 				write!(out, "}}")
 			}
 		}
-	}
-
-	/// Serializes a [`Value`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_string(&self, out: &mut String, attrs: &Map) {
-		out.clear();
-		self.write_str(out, attrs).expect("failed to serialize Value into_string()");
 	}
 }
 
@@ -147,22 +169,18 @@ impl<'i, const N: usize> From<&'i [&'i [Scalar; N]; 2]> for Value<'i> {
 mod tests {
 	use super::*;
 
-	use crate::types::AttributeString;
 	use ntime::{Duration, Timestamp};
 
 	#[test]
 	fn from_value_scalar() {
-		let short_string = "lalala";
-		let long_string = "this is a rather long string, which may be complicated";
-
 		assert_eq!(Value::from(true), Value::Scalar(Scalar::Bool(true)));
-		assert_eq!(Value::from(short_string), Value::Scalar(Scalar::String(AttributeString::from(short_string))));
+		assert_eq!(Value::from("lalala"), Value::Scalar(Scalar::StringSlice("lalala", false)));
+		assert_eq!(Value::from("declaró\nen\tcontra"), Value::Scalar(Scalar::StringSlice("declaró\nen\tcontra", true)));
+		assert_eq!(Value::from(String::from("lalala")), Value::Scalar(Scalar::String(String::from("lalala"), false)));
 		assert_eq!(
-			Value::from(String::from(short_string)),
-			Value::Scalar(Scalar::String(AttributeString::from(String::from(short_string))))
+			Value::from(String::from("declaró\nen\tcontra")),
+			Value::Scalar(Scalar::String(String::from("declaró\nen\tcontra"), true))
 		);
-		assert_eq!(Value::from(long_string), Value::Scalar(Scalar::String(AttributeString::from(long_string))));
-		assert_eq!(Value::from(String::from(long_string)), Value::Scalar(Scalar::String(AttributeString::from(String::from(long_string)))));
 		assert_eq!(Value::from(-12 as i8), Value::Scalar(Scalar::Int(-12)));
 		assert_eq!(Value::from(345 as i16), Value::Scalar(Scalar::Int(345)));
 		assert_eq!(Value::from(-678 as i32), Value::Scalar(Scalar::Int(-678)));
@@ -187,69 +205,62 @@ mod tests {
 	// TODO: clean me up
 	#[test]
 	fn from_value_set() {
-		let arr = [Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
-		let slice = &[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)];
+		let arr = [Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
+		let slice = &[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
 		//assert_eq!(Value::from(arr), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
-		assert_eq!(Value::from(&arr), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
-		assert_eq!(Value::from(slice), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
+		assert_eq!(Value::from(&arr), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
+		assert_eq!(Value::from(slice), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
 	}
 
 	// TODO: clean me up
 	#[test]
 	fn from_value_map() {
 		let arrays = [
-			&[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
+			&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
 			&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)],
 		];
-		let slices = &[&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)]];
+		let slices = &[&[Scalar::from("key_c"), Scalar::from("key_d")], &[Scalar::Bool(true), Scalar::Int(456)]];
 
 		assert_eq!(
 			//Value::from(arrays),
 			Value::from(&arrays),
 			Value::Map(
-				&[Scalar::String("key_a".into()), Scalar::String("key_b".into()), Scalar::String("key_c".into())],
+				&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
 				&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)]
 			)
 		);
 		assert_eq!(
 			Value::from(slices),
-			Value::Map(&[Scalar::String("key_c".into()), Scalar::String("key_d".into())], &[Scalar::Bool(true), Scalar::Int(456)])
+			Value::Map(&[Scalar::from("key_c"), Scalar::from("key_d")], &[Scalar::Bool(true), Scalar::Int(456)])
 		);
 	}
 
 	#[test]
-	fn into_string() {
+	fn to_string() {
 		for tc in [
 			(Value::Scalar(Scalar::Bool(true)), "true"),
-			(Value::Scalar(Scalar::String("boo".into())), "\"boo\""),
-			(Value::Scalar(Scalar::String(AttributeString::from("abcd 1234"))), "\"abcd 1234\""),
+			(Value::Scalar(Scalar::from("boo")), "\"boo\""),
+			(Value::Scalar(Scalar::from(String::from("abcd 1234"))), "\"abcd 1234\""),
 			(Value::Scalar(Scalar::Size(-12345678901234567)), "-0x2bdc545d6b4b87"),
 			(Value::Scalar(Scalar::Uint(123456)), "123456"),
 			(
 				Value::List(&[
 					Scalar::Bool(true),
-					Scalar::String("boo".into()),
-					Scalar::String("abcd 1234".into()),
+					Scalar::from("boo"),
+					Scalar::from("abcd 1234"),
 					Scalar::Size(-12345678901234567),
 					Scalar::Uint(123456),
 				]),
 				"[true, \"boo\", \"abcd 1234\", -0x2bdc545d6b4b87, 123456]",
 			),
 			(
-				Value::Map(
-					&[Scalar::Int(123), Scalar::Int(456), Scalar::Int(-789)],
-					&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-111)],
-				),
+				Value::Map(&[Scalar::Int(123), Scalar::Int(456), Scalar::Int(-789)], &[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-111)]),
 				"{123: true, 456: \"boo\", -789: -0x6f}",
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
 
-			let mut out = String::from("lalalala!");
-			let attrs = Map::new();
-
-			v.into_string(&mut out, &attrs);
-			assert_eq!(out, want);
+			assert_eq!(v.to_string(), want);
 		}
 	}
 }

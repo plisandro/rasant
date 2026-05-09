@@ -217,7 +217,7 @@ impl filter::Filter for AttributeValue {
 			};
 
 			for s in ss {
-				s.into_string(&mut self.str_cache, attrs);
+				s.into_raw_string(&mut self.str_cache, attrs);
 				if !found_has && i < self.has.len() {
 					found_has = self.str_cache.contains(self.has[i].as_str())
 				}

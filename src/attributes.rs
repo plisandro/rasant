@@ -5,7 +5,6 @@ use std::fmt;
 use std::slice;
 
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
-use crate::types::AttributeStringSeek;
 
 pub use scalar::Scalar;
 pub use value::Value;
@@ -181,20 +180,19 @@ impl Map {
 				*idx -= 1;
 			}
 		});
-		self.scalar_pool.iter_mut().for_each(|v| {
-			if let Scalar::String(s) = v {
-				s.realign_by_deleted_idx(del_idx);
+		self.scalar_pool.iter_mut().for_each(|mut v| {
+			if let Scalar::StringIndex(idx, _) = &mut v {
+				if *idx != 0 && *idx >= del_idx {
+					*idx -= 1
+				}
 			}
 		});
 	}
 
 	fn scalar_convert_to_pooled(&mut self, sc: &Scalar) -> Scalar {
-		if let Scalar::String(s) = sc {
-			if let Some(hs) = s.as_heap_str() {
-				// convert heap-stored string into pooled
-				let idx = self.string_pool_add(hs);
-				return Scalar::String(s.to_indexed(idx));
-			}
+		if let Scalar::String(s, needs_escaping) = sc {
+			let idx = self.string_pool_add(s);
+			return Scalar::StringIndex(idx, *needs_escaping);
 		}
 
 		sc.clone()
@@ -202,10 +200,8 @@ impl Map {
 
 	fn scalar_pool_delete_strings(&mut self, start: usize, end: usize) {
 		for i in start..end {
-			if let Scalar::String(s) = &self.scalar_pool[i] {
-				if let Some(idx) = s.idx() {
-					self.string_pool_remove(idx);
-				}
+			if let Scalar::StringIndex(idx, _) = &self.scalar_pool[i] {
+				self.string_pool_remove(*idx);
 			}
 		}
 	}
@@ -369,13 +365,12 @@ impl Map {
 	pub fn insert(&mut self, key: &str, val: Value) {
 		self.set(key, &val);
 	}
-}
 
-impl AttributeStringSeek for Map {
-	fn str_seek<'f>(&'f self, idx: usize) -> &'f str {
+	pub fn str_by_idx<'f>(&'f self, idx: usize) -> &'f str {
 		if idx >= self.string_pool.len() {
 			panic!("invalid pooled string #{idx} for Map");
 		}
+
 		let (start, end) = self.string_idxs[idx];
 		&self.string_pool[start..end]
 	}
@@ -489,7 +484,7 @@ mod map {
 		attr.set("d", &Value::from(7890.1234));
 		attr.set("error", &Value::from("first!"));
 		attr.set("e", &Value::from(&[Scalar::from(7788 as usize), Scalar::from(9900)]));
-		attr.set("a", &Value::Scalar(Scalar::String("lalala".into())));
+		attr.set("a", &Value::Scalar(Scalar::from("lalala")));
 		assert_eq!(attr.len(), 6);
 		assert_eq!(attr.store_size(), 7);
 		assert_eq!(attr.to_string(), "error=\"first!\" c=-5678 d=7890.1234 b=1234 e=[0x1e6c, 9900] a=\"lalala\"");
@@ -590,7 +585,7 @@ mod map {
 		);
 		assert_eq!(
 			attr.to_string(),
-			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i'm static!\"} key_b={\"sub key 1\": \"lala\", \"sub key #2\": \"lelele\", \"and sub key 3\": \"lolololo\"} key_c=\"static_string\" key_d=\"heap string\""
+			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i\\'m static!\"} key_b={\"sub key 1\": \"lala\", \"sub key #2\": \"lelele\", \"and sub key 3\": \"lolololo\"} key_c=\"static_string\" key_d=\"heap string\""
 		);
 		assert_eq!(
 			attr.string_pool,
@@ -601,7 +596,7 @@ mod map {
 		attr.insert("key_b", Value::from(&[Scalar::from(String::from("new string")), Scalar::from(12345)]));
 		assert_eq!(
 			attr.to_string(),
-			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i'm static!\"} key_b=[\"new string\", 12345] key_c=\"static_string\" key_d=\"heap string\""
+			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i\\'m static!\"} key_b=[\"new string\", 12345] key_c=\"static_string\" key_d=\"heap string\""
 		);
 		assert_eq!(attr.string_pool, "key_akey_bkey_ckey_dheap stringnew sub key 1with sub key 2new string");
 

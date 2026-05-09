@@ -54,7 +54,7 @@ impl Level {
 	}
 
 	/// Returns a string name for the level.
-	pub fn as_str(&self) -> &str {
+	pub fn as_str(&self) -> &'static str {
 		match *self {
 			Self::Trace => "trace",
 			Self::Debug => "debug",
@@ -67,7 +67,7 @@ impl Level {
 	}
 
 	/// Returns a short, three-letter name for the level.
-	pub fn as_short_str(&self) -> &str {
+	pub fn as_short_str(&self) -> &'static str {
 		match *self {
 			Self::Trace => "TRA",
 			Self::Debug => "DBG",
