@@ -39,11 +39,20 @@ impl<'i> Default for LogFileConfig {
 
 /// Initializes a [`IO`] log file [sink][`crate::sink`] from a [`LogFileConfig`].
 pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
-	// TODO: resolve process name
-	let process_name = "process";
+	let current_exe = env::current_exe();
+	let process_name = match &current_exe {
+		Ok(ce) => match ce.file_name() {
+			Some(n) => match n.to_str() {
+				Some(s) => s,
+				None => "process_invalid_name",
+			},
+			_ => "process_no_name",
+		},
+		_ => "process",
+	};
+
 	let log_file_name = path::PathBuf::from(format!(
 		"{process_name}_{time}_{pid}.log",
-		process_name = process_name,
 		// TODO: change to local?
 		time = ntime::Timestamp::now().as_string(&ntime::Format::UtcFileName),
 		pid = process::id(),
