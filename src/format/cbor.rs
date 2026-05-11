@@ -142,7 +142,7 @@ fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
 
 // Serializes a timestamp into a CBOR stream; turns out there're dedicated types for second timestamps and RFC3339.
 fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, f: &Format) -> io::Result<()> {
-	if *f == Format::UtcRFC3339 || *f == Format::LocalRFC3339 {
+	if f.is_rfc_3339() {
 		// major type 6, tag 0 (date/time string)
 		_ = out.write(&[((6 << 5) + 0) as u8])?;
 		buf.clear();

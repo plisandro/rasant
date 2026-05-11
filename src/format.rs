@@ -98,10 +98,9 @@ impl Formatter {
 	pub fn new(conf: FormatterConfig) -> Self {
 		Self {
 			format: conf.format,
-			// TODO: replace by TimeFormat.is_numeric() once supported by ntime.
-			time_key: match &conf.time_format {
-				TimeFormat::TimestampSeconds | TimeFormat::TimestampMilliseconds | TimeFormat::TimestampNanoseconds => String::from(ATTRIBUTE_KEY_TIMESTAMP),
-				_ => String::from(ATTRIBUTE_KEY_TIME),
+			time_key: match &conf.time_format.is_integer() {
+				true => String::from(ATTRIBUTE_KEY_TIMESTAMP),
+				false => String::from(ATTRIBUTE_KEY_TIME),
 			},
 			time_format: conf.time_format,
 			delimiter: conf.delimiter,
