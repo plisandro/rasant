@@ -1,21 +1,31 @@
 /// String encoding and escaping logic.
 use std::io;
 
+use crate::constant::UTF8_BOM;
+
 // worst case scenario is '\x{NN}' for non-ASCII characters.
 const CHAR_ESCAPE_BUFFER_SIZE: usize = 6 * char::MAX_LEN_UTF8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mode {
+	// vanilla UTF-8 string
 	Utf8,
+	// UTF-8 with byte-order mark
+	Utf8Bom,
+	// UTF-8 string with upper-cased characters (when possible)
 	Utf8Uppercase,
+	// UTF-8 with escaped characters
 	Utf8Escaped,
-	Utf8Journald,
+	// UTF-8 with journald formatting for k/v data values
+	Utf8JournalDataValue,
+	// UTF-8 with journald formatting for RFC 5424 syslog PARAM-VALUEs.
+	Utf8Rfc5424ParamValue,
 }
 
 /// Evaluates whether a [`char`] needs string escaping.
 pub fn needs_escaping_char(c: char) -> bool {
 	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
-	// unforutnately, the std lib has no way to evaluate escaping for individual chars without iterators :'(
+	// unforutnately, the std lib offers no methods to evaluate escaping fon individual chars without iterators :'(
 	match c {
 		'\t' => true,
 		'\r' => true,
@@ -61,8 +71,15 @@ pub fn encode_char<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 
 			&buf[0..start]
 		}
-		// journald expects individual chars as UTF-8
-		Mode::Utf8Journald => c.encode_utf8(buf).as_bytes(),
+		Mode::Utf8Rfc5424ParamValue => match c {
+			// https://www.rfc-editor.org/rfc/rfc5424?utm_source=chatgpt.com#section-6.3.3
+			'"' => "\\\"".as_bytes(),
+			'\\' => "\\\\".as_bytes(),
+			']' => "\\]".as_bytes(),
+			_ => c.encode_utf8(buf).as_bytes(),
+		},
+		// all oother encodings impact string generation rather than char encoding
+		_ => c.encode_utf8(buf).as_bytes(),
 	}
 }
 
@@ -75,8 +92,13 @@ pub fn write_char<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result
 
 pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
 	match mode {
-		// see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
-		Mode::Utf8Journald => {
+		Mode::Utf8Bom => {
+			// UTF-8 encoded strings with a byte order mark
+			out.write(UTF8_BOM.as_slice())?;
+			write_str(out, s, &Mode::Utf8)?;
+		}
+		Mode::Utf8JournalDataValue => {
+			// see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
 			match s.chars().any(|c| c == '\n') {
 				false => {
 					// no newlines -> "={utf8}"
@@ -129,23 +151,34 @@ mod tests {
 			('A', Mode::Utf8, "A"),
 			('A', Mode::Utf8Uppercase, "A"),
 			('A', Mode::Utf8Escaped, "A"),
-			('A', Mode::Utf8Journald, "A"),
+			('A', Mode::Utf8JournalDataValue, "A"),
+			('A', Mode::Utf8Rfc5424ParamValue, "A"),
 			('z', Mode::Utf8, "z"),
 			('z', Mode::Utf8Uppercase, "Z"),
 			('z', Mode::Utf8Escaped, "z"),
-			('z', Mode::Utf8Journald, "z"),
+			('z', Mode::Utf8JournalDataValue, "z"),
+			('z', Mode::Utf8Rfc5424ParamValue, "z"),
 			('"', Mode::Utf8, "\""),
 			('"', Mode::Utf8Uppercase, "\""),
 			('"', Mode::Utf8Escaped, "\\\""),
-			('"', Mode::Utf8Journald, "\""),
+			('"', Mode::Utf8JournalDataValue, "\""),
+			('"', Mode::Utf8Rfc5424ParamValue, "\\\""),
 			('\t', Mode::Utf8, "\t"),
 			('\t', Mode::Utf8Uppercase, "\t"),
 			('\t', Mode::Utf8Escaped, "\\t"),
-			('\t', Mode::Utf8Journald, "\t"),
+			('\t', Mode::Utf8JournalDataValue, "\t"),
+			('\t', Mode::Utf8Rfc5424ParamValue, "\t"),
 			('❤', Mode::Utf8, "❤"),
 			('❤', Mode::Utf8Uppercase, "❤"),
 			('❤', Mode::Utf8Escaped, "\\u{2764}"),
-			('❤', Mode::Utf8Journald, "❤"),
+			('❤', Mode::Utf8JournalDataValue, "❤"),
+			('❤', Mode::Utf8Rfc5424ParamValue, "❤"),
+			('\"', Mode::Utf8, "\""),
+			('\"', Mode::Utf8Rfc5424ParamValue, "\\\""),
+			('\\', Mode::Utf8, "\\"),
+			('\\', Mode::Utf8Rfc5424ParamValue, "\\\\"),
+			(']', Mode::Utf8, "]"),
+			(']', Mode::Utf8Rfc5424ParamValue, "\\]"),
 		] {
 			let (c, mode, want): (char, Mode, &str) = tc;
 
@@ -162,12 +195,18 @@ mod tests {
 			("lalala ❤ 1234", Mode::Utf8, "lalala ❤ 1234".as_bytes()),
 			("lalala ❤ 1234", Mode::Utf8Uppercase, "LALALA ❤ 1234".as_bytes()),
 			("lalala ❤ 1234", Mode::Utf8Escaped, "lalala \\u{2764} 1234".as_bytes()),
-			("lalala ❤ 1234", Mode::Utf8Journald, "=lalala ❤ 1234".as_bytes()),
+			(
+				"lalala ❤ 1234",
+				Mode::Utf8Bom,
+				&[0xef, 0xbb, 0xbf, b'l', b'a', b'l', b'a', b'l', b'a', b' ', 0xe2, 0x9d, 0xa4, b' ', b'1', b'2', b'3', b'4'],
+			),
+			("lalala ❤ 1234", Mode::Utf8JournalDataValue, "=lalala ❤ 1234".as_bytes()),
 			(
 				"lalala\n1234",
-				Mode::Utf8Journald,
-				&[0x0a, 0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6c, 0x61, 0x6c, 0x61, 0x6c, 0x61, 0x0a, 0x31, 0x32, 0x33, 0x34],
+				Mode::Utf8JournalDataValue,
+				&[b'\n', 0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, b'l', b'a', b'l', b'a', b'l', b'a', b'\n', b'1', b'2', b'3', b'4'],
 			),
+			("lalala ❤ \\ \" [ ] 1234", Mode::Utf8Rfc5424ParamValue, "lalala ❤ \\\\ \\\" [ \\] 1234".as_bytes()),
 		] {
 			let (s, mode, want): (&str, Mode, &[u8]) = tc;
 

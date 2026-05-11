@@ -2,6 +2,7 @@ use divan::{Bencher, counter};
 use rasant as r;
 use rasant::sink;
 use rasant::sink::black_hole::{BlackHole, BlackHoleConfig};
+use rasant::sink::syslog::{Syslog, SyslogConfig, SyslogFormat};
 use rasant::{FormatterConfig, OutputFormat, TimeFormat};
 
 const BENCHMARK_LOG_ITEMS: usize = 10000;
@@ -83,6 +84,36 @@ fn io_cbor(bencher: Bencher) {
 #[divan::bench]
 fn journald(bencher: Bencher) {
 	let sink = sink::journald::black_hole();
+
+	run(bencher, sink);
+}
+
+#[divan::bench]
+fn syslog_3164(bencher: Bencher) {
+	let sink = Syslog::new(SyslogConfig {
+		format: SyslogFormat::RFC3164,
+		..SyslogConfig::default_black_hole()
+	});
+
+	run(bencher, sink);
+}
+
+#[divan::bench]
+fn syslog_5424(bencher: Bencher) {
+	let sink = Syslog::new(SyslogConfig {
+		format: SyslogFormat::RFC5424,
+		..SyslogConfig::default_black_hole()
+	});
+
+	run(bencher, sink);
+}
+
+#[divan::bench]
+fn syslog_5424_full(bencher: Bencher) {
+	let sink = Syslog::new(SyslogConfig {
+		format: SyslogFormat::RFC5424Full,
+		..SyslogConfig::default_black_hole()
+	});
 
 	run(bencher, sink);
 }

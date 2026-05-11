@@ -1,9 +1,32 @@
 use ntime::Duration;
+use std::env;
 use std::process;
 use std::sync::LazyLock;
 
 /// Process ID running this module.
 pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
+
+/// Name of the process running this module.
+pub static PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
+	let current_exe = env::current_exe();
+	match &current_exe {
+		Ok(ce) => match ce.file_name() {
+			Some(n) => match n.to_str() {
+				Some(s) => return String::from(s),
+				None => String::from("process_invalid_name"),
+			},
+			_ => String::from("process_no_name"),
+		},
+		_ => String::from("process"),
+	}
+});
+
+/// System hostname
+// TODO: fix me!
+pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| String::from("localhost"));
+
+/// UTF-8 byte-order-mark
+pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 
 /// Attribute key for error details.
 pub const ATTRIBUTE_KEY_ERROR: &str = "error";
@@ -39,3 +62,6 @@ pub const THREAD_FINALIZE_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
 pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default journald *NIX socket for writes
 pub const DEFUALT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";
+/// Default local *NIX syslog sockets.
+#[cfg(unix)]
+pub const DEFAULT_LOCAL_SYSLOG_SOCKETS: [&str; 3] = ["/dev/log", "/var/run/log", "/var/run/syslog"];

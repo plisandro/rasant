@@ -11,6 +11,7 @@ pub mod log_file;
 pub mod memory;
 pub mod stderr;
 pub mod stdout;
+pub mod syslog;
 
 use ntime;
 use std::io as std_io;

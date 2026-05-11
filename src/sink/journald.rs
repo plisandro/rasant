@@ -10,7 +10,7 @@
 //!     so they get converted into a repeated field of `{key: value}`.
 //!
 //! Log attributes can optionally also be serialized as text, alongside the journal
-//! meesage.
+//! meesage, via [MessageFormat::WithAttributes].
 //!
 //! Note that systemd journal entries don't normally display in `journalctl`
 //! output, unless explicitly set to JSON.
@@ -94,9 +94,9 @@ impl Journald {
 		let out = &mut self.output_buf;
 		match s {
 			Scalar::Bool(b) => write!(out, "={}", b),
-			Scalar::String(s, _) => encoding::write_str(out, s.as_str(), &encoding::Mode::Utf8Journald),
-			Scalar::StringSlice(s, _) => encoding::write_str(out, s, &encoding::Mode::Utf8Journald),
-			Scalar::StringIndex(idx, _) => encoding::write_str(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8Journald),
+			Scalar::String(s, _) => encoding::write_str(out, s.as_str(), &encoding::Mode::Utf8JournalDataValue),
+			Scalar::StringSlice(s, _) => encoding::write_str(out, s, &encoding::Mode::Utf8JournalDataValue),
+			Scalar::StringIndex(idx, _) => encoding::write_str(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8JournalDataValue),
 			Scalar::Int(i) => write!(out, "={}", i),
 			Scalar::LongInt(i) => write!(out, "={}", i),
 			Scalar::Size(s) => write!(out, "={}", s),
@@ -167,7 +167,7 @@ MESSAGE={msg}",
 		)?;
 		match self.message_format {
 			MessageFormat::Raw => _ = self.output_buf.write(&[b'\n'])?,
-			MessageFormat::WithAttributes => write!(&mut self.output_buf, "{}\n", attrs)?,
+			MessageFormat::WithAttributes => write!(&mut self.output_buf, " {}\n", attrs)?,
 		};
 		self.write_buf_attribute_fields(attrs)?;
 

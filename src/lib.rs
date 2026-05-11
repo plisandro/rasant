@@ -15,7 +15,8 @@
 //!   - [Log filters](#filtering) with sampling support.
 //!   - [Highly configurable log sinks](#configuring-sinks):
 //!     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
-//!     - journald for [systemd](https://systemd.io/).
+//!     - [systemd](https://systemd.io/)'s journald.
+//!     - syslog [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) (classic BSD) and [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) (2009) protocols.
 //!   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 //!
 //! # Examples

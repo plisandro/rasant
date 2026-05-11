@@ -34,7 +34,8 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - [Log filters](#filtering) with sampling support.
   - [Highly configurable log sinks](#configuring-sinks):
     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
-    - journald for [systemd](https://systemd.io/).
+    - [systemd](https://systemd.io/)'s journald.
+    - syslog [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164) (classic BSD) and [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424) (2009) protocols.
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
 See [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
@@ -239,7 +240,6 @@ Contributions will be accepted under the [project's license](#licence).
 Rasant is under active development, with more features planned for future versions.
 
   - New output formants (hierarchical pretty print?)
-  - New sink types (f.ex. [syslog](https://en.wikipedia.org/wiki/Syslog))
   - Support for third-party log sinks
   - [Protobuf](https://protobuf.dev/) binary format support?
 
