@@ -5,8 +5,8 @@
 use ntime;
 use std::env;
 use std::path;
-use std::process;
 
+use crate::constant::PROCESS_ID;
 use crate::format;
 use crate::sink::file;
 use crate::sink::io::IO;
@@ -41,21 +41,15 @@ impl<'i> Default for LogFileConfig {
 pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	let current_exe = env::current_exe();
 	let process_name = match &current_exe {
-		Ok(ce) => match ce.file_name() {
-			Some(n) => match n.to_str() {
-				Some(s) => s,
-				None => "process_invalid_name",
-			},
-			_ => "process_no_name",
-		},
-		_ => "process",
+		Ok(ce) => ce.file_name().and_then(|n| n.to_str()).unwrap_or("process_invalid_name"),
+		Err(_) => "process",
 	};
 
 	let log_file_name = path::PathBuf::from(format!(
 		"{process_name}_{time}_{pid}.log",
 		// TODO: change to local?
 		time = ntime::Timestamp::now().as_string(&ntime::Format::UtcFileName),
-		pid = process::id(),
+		pid = *PROCESS_ID,
 	));
 
 	let mut log_path = conf.log_directory;

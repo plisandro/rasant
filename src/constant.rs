@@ -1,4 +1,9 @@
 use ntime::Duration;
+use std::process;
+use std::sync::LazyLock;
+
+/// Process ID running this module.
+pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
 
 /// Attribute key for error details.
 pub const ATTRIBUTE_KEY_ERROR: &str = "error";
@@ -29,3 +34,8 @@ pub const DEFAULT_LOG_DELIMITER_STRING: &[u8] = "\r\n".as_bytes();
 pub const THREAD_FINALIZE_TIMEOUT: Duration = Duration::from_secs(5);
 /// How often to check on open threads for finalization.
 pub const THREAD_FINALIZE_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
+
+/// Timeout for network operations.
+pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
+/// Default journald *NIX socket for writes
+pub const DEFUALT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";

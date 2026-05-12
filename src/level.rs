@@ -78,6 +78,19 @@ impl Level {
 			Self::Panic => "PNC",
 		}
 	}
+
+	/// Returns a syslog severity for the level.
+	pub fn syslog_severity(&self) -> u16 {
+		match *self {
+			Self::Trace => 7,   // debug
+			Self::Debug => 7,   // debug
+			Self::Info => 6,    // informational
+			Self::Warning => 4, // warning
+			Self::Error => 3,   // error
+			Self::Fatal => 1,   // alert
+			Self::Panic => 0,   // emergency
+		}
+	}
 }
 
 impl ToString for Level {

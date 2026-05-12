@@ -17,6 +17,7 @@ pub enum Value<'e> {
 
 /* ----------------------- Value implementation ----------------------- */
 
+// TODO: fix escaping
 impl<'i> fmt::Display for Value<'i> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {

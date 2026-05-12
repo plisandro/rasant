@@ -27,13 +27,14 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
 ## Main Features
 
   - Minimal dependencies.
+  - Thread safe.
   - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
   - Leveled, [structured](#attributes) contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
-  - [Configurable log filters](#filtering).
-  - Thread safe.
-  - [Highly configurable log sinks](#configuring-sinks).
-  - Text, JSON and [CBOR](https://cbor.io/) log output.
+  - [Log filters](#filtering) with sampling support.
+  - [Highly configurable log sinks](#configuring-sinks):
+    - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
+    - journald for [systemd](https://systemd.io/).
   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 
 See [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other

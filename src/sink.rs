@@ -5,6 +5,8 @@
 pub mod black_hole;
 pub mod file;
 pub mod io;
+#[cfg(unix)]
+pub mod journald;
 pub mod log_file;
 pub mod memory;
 pub mod stderr;

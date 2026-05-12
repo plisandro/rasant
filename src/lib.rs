@@ -8,13 +8,14 @@
 //! # Main Features
 //!
 //!   - Minimal dependencies.
+//!   - Thread safe.
 //!   - *Blazing fast* performance, with zero allocations on most operations.
 //!   - [Leveled][`Level`], [structured](#attributes) contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
-//!   - [Configurable log filters](#filtering).
-//!   - Thread safe.
-//!   - [Highly configurable log sinks](#configuring-sinks).
-//!   - Text and JSON log output.
+//!   - [Log filters](#filtering) with sampling support.
+//!   - [Highly configurable log sinks](#configuring-sinks):
+//!     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
+//!     - journald for [systemd](https://systemd.io/).
 //!   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 //!
 //! # Examples
