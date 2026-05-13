@@ -315,7 +315,7 @@ impl Map {
 		if key.is_empty() {
 			panic!("empty log attribute key {{\"\" -> {val:?}}}");
 		}
-		if key.chars().any(|c| c.is_whitespace()) {
+		if key.chars().any(|c| c.is_whitespace() || !c.is_ascii()) {
 			panic!("invalid log attribute key {{\"{key}\" -> {val:?}}}");
 		}
 		if is_key_restricted(key) {
@@ -614,8 +614,20 @@ mod map {
 
 	#[test]
 	#[should_panic]
-	fn insert_invalid_key() {
+	fn insert_whitespaces_key() {
 		Map::new().set("no whitespace\tin\tkeys", &Value::from("please!"));
+	}
+
+	#[test]
+	#[should_panic]
+	fn insert_non_ascii() {
+		Map::new().set("como_estás", &Value::from(1234));
+	}
+
+	#[test]
+	#[should_panic]
+	fn insert_unicode_key() {
+		Map::new().set("oh❤pretty!", &Value::from(5678));
 	}
 
 	#[test]
