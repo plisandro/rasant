@@ -167,7 +167,7 @@ MESSAGE={msg}",
 		)?;
 		match self.message_format {
 			MessageFormat::Raw => _ = self.output_buf.write(&[b'\n'])?,
-			MessageFormat::WithAttributes => write!(&mut self.output_buf, " {}\n", attrs)?,
+			MessageFormat::WithAttributes => write!(&mut self.output_buf, "{}\n", attrs)?,
 		};
 		self.write_buf_attribute_fields(attrs)?;
 
