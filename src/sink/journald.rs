@@ -66,8 +66,8 @@ pub struct Journald {
 }
 
 impl Journald {
-	// Initializes a dummy sink.
-	fn black_hole(conf: JournaldConfig<'_>) -> Self {
+	/// Initializes a null [`Journald`] [`sink`]. Intended for testing.
+	pub fn black_hole(conf: JournaldConfig<'_>) -> Self {
 		Self {
 			name: String::from(conf.name),
 			message_format: conf.message_format,
@@ -107,7 +107,7 @@ impl Journald {
 		}
 	}
 
-	// serializes a key -> [`Value`] pair as text into the write buffer.
+	// serializes a [`Value`] as text into the write buffer.
 	fn write_buf_value(&mut self, attrs: &Map, key: &str, val: &Value) -> io::Result<()> {
 		match val {
 			Value::Scalar(s) => {
@@ -127,7 +127,6 @@ impl Journald {
 			Value::Map(mkeys, mvals) => {
 				for i in 0..mkeys.len() {
 					encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
-					// TODO: not relying on write! would be great here
 					write!(&mut self.output_buf, "={{{key}: {val}}}\n", key = &mkeys[i], val = &mvals[i])?;
 				}
 			}
@@ -160,16 +159,15 @@ impl sink::Sink for Journald {
 			"_PID={pid}
 _SOURCE_REALTIME_TIMESTAMP={timestamp}
 PRIORITY={level}
-MESSAGE={msg}{spacer}",
+MESSAGE={msg}",
 			pid = self.process_id,
 			timestamp = update.when.as_millis(),
 			msg = update.msg,
 			level = update.level.syslog_severity(),
-			spacer = if self.message_format != MessageFormat::Raw { " " } else { "\n" },
 		)?;
 		match self.message_format {
-			MessageFormat::Raw => (),
-			MessageFormat::WithAttributes => write!(&mut self.output_buf, "{}\n", attrs)?,
+			MessageFormat::Raw => _ = self.output_buf.write(&[b'\n'])?,
+			MessageFormat::WithAttributes => write!(&mut self.output_buf, " {}\n", attrs)?,
 		};
 		self.write_buf_attribute_fields(attrs)?;
 
@@ -186,9 +184,14 @@ MESSAGE={msg}{spacer}",
 	}
 }
 
-/// Returns an intitalized journald log [`sink`]  with defaults..
+/// Returns an intitalized journald log [`sink`]  with defaults.
 pub fn default() -> Journald {
 	Journald::new(JournaldConfig::default())
+}
+
+/// Returns an intitalized null-writing journald log [`sink`]  with defaults.
+pub fn black_hole() -> Journald {
+	Journald::black_hole(JournaldConfig::default())
 }
 
 /* ----------------------- Tests ----------------------- */

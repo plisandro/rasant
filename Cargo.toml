@@ -47,5 +47,5 @@ name = "log_write"
 harness = false
 
 [[bench]]
-name = "output_formats"
+name = "writes"
 harness = false
