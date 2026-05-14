@@ -16,6 +16,9 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 /// A sender channel for [`AsyncSinkOp`] async log operations.
 pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 
+/// A escape function converting [`chars`] into [`u8`]s.
+pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
+
 /// Rand is a 64-bit PRNG, implementing the Xorshift algorithm (https://en.wikipedia.org/wiki/Xorshift),
 /// with a period of 2^64−1.
 pub struct Rand {

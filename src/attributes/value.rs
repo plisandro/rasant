@@ -17,7 +17,6 @@ pub enum Value<'e> {
 
 /* ----------------------- Value implementation ----------------------- */
 
-// TODO: fix escaping
 impl<'i> fmt::Display for Value<'i> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
@@ -48,16 +47,16 @@ impl<'i> fmt::Display for Value<'i> {
 
 impl<'i> Value<'i> {
 	/// Writes a string representation of a [`Value`] into an [`fmt::Write`].
-	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match &self {
-			Self::Scalar(s) => s.write_str(out, attrs),
+			Self::Scalar(s) => s.write_fmt(out, attrs),
 			Self::List(ss) => {
 				write!(out, "[")?;
 				for i in 0..ss.len() {
 					if i != 0 {
 						write!(out, ", ")?;
 					}
-					ss[i].write_str(out, attrs)?;
+					ss[i].write_fmt(out, attrs)?;
 				}
 				write!(out, "]")
 			}
@@ -67,9 +66,9 @@ impl<'i> Value<'i> {
 					if i != 0 {
 						write!(out, ", ")?;
 					}
-					keys[i].write_str(out, attrs)?;
+					keys[i].write_fmt(out, attrs)?;
 					write!(out, ": ")?;
-					ss[i].write_str(out, attrs)?;
+					ss[i].write_fmt(out, attrs)?;
 				}
 				write!(out, "}}")
 			}

@@ -4,6 +4,7 @@ use std::string;
 use std::thread;
 
 use crate::attributes::Map;
+use crate::encoding;
 use crate::level::Level;
 
 /// [`Scalar`] definitions for all log operations.
@@ -75,7 +76,7 @@ impl fmt::Display for Scalar {
 
 impl<'i> Scalar {
 	/// Writes a raw string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_raw_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt_raw<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match self {
 			Self::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => write!(out, "{}", s),
@@ -104,7 +105,7 @@ impl<'i> Scalar {
 	}
 
 	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_str<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match self {
 			Scalar::String(s, escape) => match *escape {
 				false => write!(out, "\"{}\"", s),
@@ -118,20 +119,20 @@ impl<'i> Scalar {
 				false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
 				true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
 			},
-			_ => self.write_raw_str(out, attrs),
+			_ => self.write_fmt_raw(out, attrs),
 		}
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
 	pub fn into_string(&self, out: &mut String, attrs: &Map) {
 		out.clear();
-		self.write_str(out, attrs).expect("failed to serialize Scalar into_string()");
+		self.write_fmt(out, attrs).expect("failed to serialize Scalar into_string()");
 	}
 
 	/// Serializes a raw [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
 	pub fn into_raw_string(&self, out: &mut String, attrs: &Map) {
 		out.clear();
-		self.write_raw_str(out, attrs).expect("failed to serialize Scalar into_raw_string()");
+		self.write_fmt_raw(out, attrs).expect("failed to serialize Scalar into_raw_string()");
 	}
 
 	/// Creates an array of [`Scalar`]s from a suitable type.
@@ -142,36 +143,6 @@ impl<'i> Scalar {
 
 /* ----------------------- Casting ----------------------- */
 
-/// Evaluates whether a [`&str`] needs escaping when casted to text.
-fn needs_escapping(s: &str) -> bool {
-	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
-	// unforutnately, the std lib has no way to evaluate escaping for individual chars without iterators :'(
-
-	s.chars().any(|c| match c {
-		'\t' => true,
-		'\r' => true,
-		'\n' => true,
-		'\'' => true,
-		'"' => true,
-		_ => !c.is_ascii(),
-	})
-	/*
-	let mut escaped_iter = s.escape_default();
-	for c in s.chars() {
-		match escaped_iter.next() {
-			None => return true, // oops
-			Some(ec) => {
-				if c != ec {
-					return true;
-				}
-			}
-		}
-	}
-
-	false
-	*/
-}
-
 impl From<bool> for Scalar {
 	fn from(b: bool) -> Self {
 		Self::Bool(b)
@@ -180,14 +151,14 @@ impl From<bool> for Scalar {
 
 impl From<String> for Scalar {
 	fn from(s: String) -> Self {
-		let escaped = needs_escapping(s.as_str());
+		let escaped = encoding::needs_escaping_str(s.as_str());
 		Self::String(s, escaped)
 	}
 }
 
 impl From<&'static str> for Scalar {
 	fn from(s: &'static str) -> Self {
-		Self::StringSlice(s, needs_escapping(s))
+		Self::StringSlice(s, encoding::needs_escaping_str(s))
 	}
 }
 

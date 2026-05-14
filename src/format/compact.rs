@@ -7,6 +7,7 @@ use std::io;
 
 use crate::attributes::{Map, Scalar, Value};
 use crate::constant::DEFAULT_LOG_DELIMITER_STRING;
+use crate::encoding;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
 
@@ -23,18 +24,9 @@ pub fn default_format_config() -> FormatterConfig {
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::Bool(b) => write!(out, "{}", b),
-		Scalar::String(s, escape) => match *escape {
-			false => write!(out, "\"{}\"", s),
-			true => write!(out, "\"{}\"", s.as_str().escape_default()),
-		},
-		Scalar::StringSlice(s, escape) => match *escape {
-			false => write!(out, "\"{}\"", s),
-			true => write!(out, "\"{}\"", s.escape_default()),
-		},
-		Scalar::StringIndex(idx, escape) => match *escape {
-			false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
-			true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
-		},
+		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
+		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
+		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, attrs.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => {
 			if *i < 1 {

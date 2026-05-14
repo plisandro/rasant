@@ -319,6 +319,7 @@
 mod attributes;
 mod console;
 mod constant;
+mod encoding;
 mod format;
 mod level;
 mod logger;

@@ -433,7 +433,7 @@ impl fmt::Display for Map {
 		let mut first: bool = true;
 		for (key, val) in self.iter() {
 			write!(f, "{spacer}{key}=", spacer = if first { "" } else { " " })?;
-			val.write_str(f, self)?;
+			val.write_fmt(f, self)?;
 			first = false;
 		}
 

@@ -19,8 +19,9 @@ use std::io;
 use std::io::Write;
 use std::os::unix::net::UnixDatagram;
 
-use crate::attributes::{Map, Value};
+use crate::attributes::{Map, Scalar, Value};
 use crate::constant::{DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
+use crate::encoding;
 use crate::sink;
 
 /// Defines how journald messages are formatted.
@@ -88,35 +89,46 @@ impl Journald {
 		sink
 	}
 
-	fn write_buf_field_key(&mut self, s: &str) -> io::Result<()> {
-		let mut utf8_buf: [u8; 4] = [0; 4];
-
-		for c in s.chars().filter(|c| c.is_ascii()).map(|c| c.to_ascii_uppercase()) {
-			self.output_buf.extend_from_slice(c.encode_utf8(&mut utf8_buf).as_bytes());
+	// serializes a [`Scalar`] as text into the write buffer.
+	fn write_buf_scalar(&mut self, attrs: &Map, s: &Scalar) -> io::Result<()> {
+		let out = &mut self.output_buf;
+		match s {
+			Scalar::Bool(b) => write!(out, "={}", b),
+			Scalar::String(s, _) => encoding::write_str(out, s.as_str(), &encoding::Mode::Utf8Journald),
+			Scalar::StringSlice(s, _) => encoding::write_str(out, s, &encoding::Mode::Utf8Journald),
+			Scalar::StringIndex(idx, _) => encoding::write_str(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8Journald),
+			Scalar::Int(i) => write!(out, "={}", i),
+			Scalar::LongInt(i) => write!(out, "={}", i),
+			Scalar::Size(s) => write!(out, "={}", s),
+			Scalar::Uint(i) => write!(out, "={}", i),
+			Scalar::LongUint(u) => write!(out, "={}", u),
+			Scalar::Usize(u) => write!(out, "={}", u),
+			Scalar::Float(f) => write!(out, "={}", f),
 		}
-
-		Ok(())
 	}
 
 	// serializes a key -> [`Value`] pair as text into the write buffer.
-	fn write_buf_value(&mut self, _attrs: &Map, key: &str, val: &Value) -> io::Result<()> {
+	fn write_buf_value(&mut self, attrs: &Map, key: &str, val: &Value) -> io::Result<()> {
 		match val {
 			Value::Scalar(s) => {
-				self.write_buf_field_key(key)?;
-				write!(&mut self.output_buf, "={s}\n")?;
+				encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+				self.write_buf_scalar(attrs, s)?;
+				self.output_buf.write("\n".as_bytes())?;
 			}
 			// lists are represented as a repeated set of keys
 			Value::List(ss) => {
 				for s in *ss {
-					self.write_buf_field_key(key)?;
-					write!(&mut self.output_buf, "={s}\n")?;
+					encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+					self.write_buf_scalar(attrs, s)?;
+					self.output_buf.write("\n".as_bytes())?;
 				}
 			}
 			// maps are represented as a repeated set of keys with JSON content
 			Value::Map(mkeys, mvals) => {
 				for i in 0..mkeys.len() {
-					self.write_buf_field_key(key)?;
-					write!(&mut self.output_buf, "={{{mkey}: {mval}}}\n", mkey = &mkeys[i], mval = &mvals[i])?;
+					encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+					// TODO: not relying on write! would be great here
+					write!(&mut self.output_buf, "={{{key}: {val}}}\n", key = &mkeys[i], val = &mvals[i])?;
 				}
 			}
 		}
@@ -200,23 +212,23 @@ PRIORITY=4
 MESSAGE=test Syslog message update
 AN_INT=123
 A_FLOAT=-456.789
-SOME_STRING=\"hi there!\"
-A_LIST=0x14da0eb6
+SOME_STRING=hi there! ❤
+A_LIST=349834934
 A_LIST=true
 A_MAP={\"key #1\": false}
-A_MAP={\"key #2\": \"weee\"}
+A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 ";
 		let want_with_attrs = "_PID=12345
 _SOURCE_REALTIME_TIMESTAMP=1776016599123
 PRIORITY=4
-MESSAGE=test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there!\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}
+MESSAGE=test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there! \\u{2764}\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee \\u{1f494}\"}
 AN_INT=123
 A_FLOAT=-456.789
-SOME_STRING=\"hi there!\"
-A_LIST=0x14da0eb6
+SOME_STRING=hi there! ❤
+A_LIST=349834934
 A_LIST=true
 A_MAP={\"key #1\": false}
-A_MAP={\"key #2\": \"weee\"}
+A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 ";
 
 		for tc in [(MessageFormat::Raw, want_raw), (MessageFormat::WithAttributes, want_with_attrs)] {
@@ -231,9 +243,12 @@ A_MAP={\"key #2\": \"weee\"}
 			let mut attrs = Map::new();
 			attrs.insert("an_int", Value::from(123 as i32));
 			attrs.insert("a_float", Value::from(-456.789));
-			attrs.insert("some_string", Value::from("hi there!"));
+			attrs.insert("some_string", Value::from("hi there! ❤"));
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
-			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
+			attrs.insert(
+				"a_map",
+				Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee 💔")])),
+			);
 
 			let mut sink = Journald::black_hole(JournaldConfig {
 				message_format: message_format,
