@@ -18,12 +18,12 @@ pub enum Mode {
 	Utf8Escaped,
 	// UTF-8 with journald formatting for k/v data values
 	Utf8JournalDataValue,
-	// UTF-8 with journald formatting for RFC 5424 syslog PARAM-VALUEs.
+	// UTF-8 with RFC 5424 formatting for syslog PARAM-VALUEs.
 	Utf8Rfc5424ParamValue,
 }
 
 /// Evaluates whether a [`char`] needs string escaping.
-pub fn needs_escaping_char(c: char) -> bool {
+pub fn char_needs_escaping(c: char) -> bool {
 	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
 	// unforutnately, the std lib offers no methods to evaluate escaping fon individual chars without iterators :'(
 	match c {
@@ -37,8 +37,8 @@ pub fn needs_escaping_char(c: char) -> bool {
 }
 
 /// Evaluates whether a [`&str`] needs string escaping.
-pub fn needs_escaping_str(s: &str) -> bool {
-	s.chars().any(|c| needs_escaping_char(c))
+pub fn str_needs_escaping(s: &str) -> bool {
+	s.chars().any(|c| char_needs_escaping(c))
 	/*
 	let mut escaped_iter = s.escape_default();
 	for c in s.chars() {
@@ -56,7 +56,12 @@ pub fn needs_escaping_str(s: &str) -> bool {
 	*/
 }
 
-pub fn encode_char<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
+/// Evaluates whether a [`&str`] has line feeds (`\n`).
+pub fn str_has_lf(s: &str) -> bool {
+	s.chars().any(|c| c == '\n')
+}
+
+pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 	match mode {
 		Mode::Utf8 => c.encode_utf8(buf).as_bytes(),
 		Mode::Utf8Uppercase => c.to_ascii_uppercase().encode_utf8(buf).as_bytes(),
@@ -84,14 +89,14 @@ pub fn encode_char<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 	}
 }
 
-pub fn write_char<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result<()> {
+pub fn char_write<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result<()> {
 	let mut buf: [u8; _] = [0; CHAR_ESCAPE_BUFFER_SIZE];
 
-	out.write(encode_char(&mut buf, c, mode))?;
+	out.write(char_encode(&mut buf, c, mode))?;
 	Ok(())
 }
 
-pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
+pub fn str_write<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
 	match mode {
 		Mode::Utf8 => {
 			// `&str`s are UTF-8 encoded \o/
@@ -103,24 +108,15 @@ pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<
 			out.write(s.as_bytes())?;
 		}
 		Mode::Utf8JournalDataValue => {
-			// see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
-			match s.chars().any(|c| c == '\n') {
-				false => {
-					// no newlines -> "={utf8}"
-					out.write("=".as_bytes())?;
-					out.write(s.as_bytes())?;
-				}
-				true => {
-					// newlines -> "\n{string lenght as little-endian u64}{utf8}"
-					out.write("\n".as_bytes())?;
-					out.write((s.len() as u64).to_le_bytes().as_slice())?;
-					out.write(s.as_bytes())?;
-				}
-			}
+			// Journald values are RLE; see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
+			// "\n{string length as little-endian u64}{utf8}"
+			out.write("\n".as_bytes())?;
+			out.write((s.len() as u64).to_le_bytes().as_slice())?;
+			out.write(s.as_bytes())?;
 		}
 		_ => {
 			for c in s.chars() {
-				write_char(out, c, mode)?;
+				char_write(out, c, mode)?;
 			}
 		}
 	}
@@ -130,7 +126,7 @@ pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<
 
 pub fn write_quoted_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
 	out.write(&[b'"'])?;
-	write_str(out, s, mode)?;
+	str_write(out, s, mode)?;
 	out.write(&[b'"'])?;
 
 	Ok(())
@@ -144,10 +140,17 @@ mod tests {
 
 	#[test]
 	fn str_escaping() {
-		assert_eq!(needs_escaping_str(""), false);
-		assert_eq!(needs_escaping_str("abcd 1234"), false);
-		assert_eq!(needs_escaping_str("declaró\nen\tcontra"), true);
-		assert_eq!(needs_escaping_str("so pretty ❤"), true);
+		assert_eq!(str_needs_escaping(""), false);
+		assert_eq!(str_needs_escaping("abcd 1234"), false);
+		assert_eq!(str_needs_escaping("declaró\nen\tcontra"), true);
+		assert_eq!(str_needs_escaping("so pretty ❤"), true);
+	}
+
+	#[test]
+	fn str_newlines() {
+		assert_eq!(str_has_lf(""), false);
+		assert_eq!(str_has_lf("abcd 1234"), false);
+		assert_eq!(str_has_lf("abcd\n1234"), true);
 	}
 
 	#[test]
@@ -188,7 +191,7 @@ mod tests {
 			let (c, mode, want): (char, Mode, &str) = tc;
 
 			let mut buf: [u8; _] = [0; CHAR_ESCAPE_BUFFER_SIZE];
-			let got = encode_char(&mut buf, c, &mode);
+			let got = char_encode(&mut buf, c, &mode);
 
 			assert_eq!(got, want.as_bytes());
 		}
@@ -197,26 +200,17 @@ mod tests {
 	#[test]
 	fn string_encoding() {
 		for tc in [
-			("lalala ❤ 1234", Mode::Utf8, "lalala ❤ 1234".as_bytes()),
-			("lalala ❤ 1234", Mode::Utf8Uppercase, "LALALA ❤ 1234".as_bytes()),
-			("lalala ❤ 1234", Mode::Utf8Escaped, "lalala \\u{2764} 1234".as_bytes()),
-			(
-				"lalala ❤ 1234",
-				Mode::Utf8Bom,
-				&[0xef, 0xbb, 0xbf, b'l', b'a', b'l', b'a', b'l', b'a', b' ', 0xe2, 0x9d, 0xa4, b' ', b'1', b'2', b'3', b'4'],
-			),
-			("lalala ❤ 1234", Mode::Utf8JournalDataValue, "=lalala ❤ 1234".as_bytes()),
-			(
-				"lalala\n1234",
-				Mode::Utf8JournalDataValue,
-				&[b'\n', 0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, b'l', b'a', b'l', b'a', b'l', b'a', b'\n', b'1', b'2', b'3', b'4'],
-			),
-			("lalala ❤ \\ \" [ ] 1234", Mode::Utf8Rfc5424ParamValue, "lalala ❤ \\\\ \\\" [ \\] 1234".as_bytes()),
+			("lalala ❤ 1234", Mode::Utf8, b"lalala \xe2\x9d\xa4 1234".as_slice()),
+			("lalala ❤ 1234", Mode::Utf8Uppercase, b"LALALA \xe2\x9d\xa4 1234".as_slice()),
+			("lalala ❤ 1234", Mode::Utf8Escaped, b"lalala \\u{2764} 1234".as_slice()),
+			("lalala ❤ 1234", Mode::Utf8Bom, b"\xef\xbb\xbflalala \xe2\x9d\xa4 1234".as_slice()),
+			("lalala\n❤ 1234", Mode::Utf8JournalDataValue, b"\n\x0f\x00\x00\x00\x00\x00\x00\x00lalala\n\xe2\x9d\xa4 1234".as_slice()),
+			("lalala ❤ \\ \" [ ] 1234", Mode::Utf8Rfc5424ParamValue, b"lalala \xe2\x9d\xa4 \\\\ \\\" [ \\] 1234".as_slice()),
 		] {
 			let (s, mode, want): (&str, Mode, &[u8]) = tc;
 
 			let mut out: Vec<u8> = Vec::new();
-			assert!(write_str(&mut out, s, &mode).is_ok());
+			assert!(str_write(&mut out, s, &mode).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}

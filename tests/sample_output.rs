@@ -22,6 +22,7 @@ fn sample_log() {
 	let sink_b_output = sink_b.output();
 
 	log.set_level(Level::Debug).add_sink(sink_a).add_sink(sink_b);
+	log.add_sink(sink::journald::default());
 
 	{
 		r::info!(log, "MyTestServer initialized", git_version = "3b683a11", config = "/etc/testserver.cfg");

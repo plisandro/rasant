@@ -335,9 +335,9 @@ impl Syslog {
 		let out = &mut self.output_buf;
 		match s {
 			Scalar::Bool(b) => write!(out, "{}", b),
-			Scalar::String(s, _) => encoding::write_str(out, s.as_str(), &encoding::Mode::Utf8Rfc5424ParamValue),
-			Scalar::StringSlice(s, _) => encoding::write_str(out, s, &encoding::Mode::Utf8Rfc5424ParamValue),
-			Scalar::StringIndex(idx, _) => encoding::write_str(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8Rfc5424ParamValue),
+			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8Rfc5424ParamValue),
+			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8Rfc5424ParamValue),
+			Scalar::StringIndex(idx, _) => encoding::str_write(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8Rfc5424ParamValue),
 			Scalar::Int(i) => write!(out, "{}", i),
 			Scalar::LongInt(i) => write!(out, "{}", i),
 			Scalar::Size(s) => write!(out, "{}", s),
@@ -402,7 +402,7 @@ impl Syslog {
 		let mut i: usize = 0;
 		for (key, val) in attrs.iter() {
 			write!(&mut self.output_buf, "[rasant@{i} ")?;
-			encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8)?;
+			encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8)?;
 			self.output_buf.write("=".as_bytes())?;
 			self.write_buf_value_5424(attrs, &val)?;
 			self.output_buf.write("]".as_bytes())?;
@@ -445,7 +445,7 @@ impl sink::Sink for Syslog {
 				)?;
 				self.write_buf_attributes_5424(attrs)?;
 				self.output_buf.write(&[b' '])?;
-				encoding::write_str(&mut self.output_buf, update.msg.as_str(), &encoding::Mode::Utf8Bom)?;
+				encoding::str_write(&mut self.output_buf, update.msg.as_str(), &encoding::Mode::Utf8Bom)?;
 				if self.format == SyslogFormat::RFC5424Full {
 					self.write_buf_attributes_text(attrs)?;
 				}

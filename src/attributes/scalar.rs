@@ -151,14 +151,14 @@ impl From<bool> for Scalar {
 
 impl From<String> for Scalar {
 	fn from(s: String) -> Self {
-		let escaped = encoding::needs_escaping_str(s.as_str());
+		let escaped = encoding::str_needs_escaping(s.as_str());
 		Self::String(s, escaped)
 	}
 }
 
 impl From<&'static str> for Scalar {
 	fn from(s: &'static str) -> Self {
-		Self::StringSlice(s, encoding::needs_escaping_str(s))
+		Self::StringSlice(s, encoding::str_needs_escaping(s))
 	}
 }
 

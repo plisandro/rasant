@@ -94,9 +94,9 @@ impl Journald {
 		let out = &mut self.output_buf;
 		match s {
 			Scalar::Bool(b) => write!(out, "={}", b),
-			Scalar::String(s, _) => encoding::write_str(out, s.as_str(), &encoding::Mode::Utf8JournalDataValue),
-			Scalar::StringSlice(s, _) => encoding::write_str(out, s, &encoding::Mode::Utf8JournalDataValue),
-			Scalar::StringIndex(idx, _) => encoding::write_str(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8JournalDataValue),
+			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8JournalDataValue),
+			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8JournalDataValue),
+			Scalar::StringIndex(idx, _) => encoding::str_write(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8JournalDataValue),
 			Scalar::Int(i) => write!(out, "={}", i),
 			Scalar::LongInt(i) => write!(out, "={}", i),
 			Scalar::Size(s) => write!(out, "={}", s),
@@ -111,14 +111,14 @@ impl Journald {
 	fn write_buf_value(&mut self, attrs: &Map, key: &str, val: &Value) -> io::Result<()> {
 		match val {
 			Value::Scalar(s) => {
-				encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+				encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
 				self.write_buf_scalar(attrs, s)?;
 				self.output_buf.write("\n".as_bytes())?;
 			}
 			// lists are represented as a repeated set of keys
 			Value::List(ss) => {
 				for s in *ss {
-					encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+					encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
 					self.write_buf_scalar(attrs, s)?;
 					self.output_buf.write("\n".as_bytes())?;
 				}
@@ -126,7 +126,7 @@ impl Journald {
 			// maps are represented as a repeated set of keys with JSON content
 			Value::Map(mkeys, mvals) => {
 				for i in 0..mkeys.len() {
-					encoding::write_str(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
+					encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
 					write!(&mut self.output_buf, "={{{key}: {val}}}\n", key = &mkeys[i], val = &mvals[i])?;
 				}
 			}
@@ -159,16 +159,29 @@ impl sink::Sink for Journald {
 			"_PID={pid}
 _SOURCE_REALTIME_TIMESTAMP={timestamp}
 PRIORITY={level}
-MESSAGE={msg}",
+MESSAGE\n",
 			pid = self.process_id,
 			timestamp = update.when.as_millis(),
-			msg = update.msg,
 			level = update.level.syslog_severity(),
 		)?;
+
+		// MESSAGEs must be RLEncoded, per https://systemd.io/JOURNAL_NATIVE_PROTOCOL/, as
+		// we a) need to account for possible LFs in the message body, and b) don't know
+		// the size of the serialized arguments, if these are appended to the log message.
+		//
+		// the message byte count is then spliced on the right position to comply with the
+		// journald protocol.
+		//
+		let msg_start = self.output_buf.len();
+		self.output_buf.write(update.msg.as_bytes())?;
 		match self.message_format {
 			MessageFormat::Raw => _ = self.output_buf.write(&[b'\n'])?,
 			MessageFormat::WithAttributes => write!(&mut self.output_buf, " {}\n", attrs)?,
 		};
+		// the final LF doesn't count against the message size
+		let msg_len = self.output_buf.len() - msg_start - 1;
+		self.output_buf.splice(msg_start..msg_start, (msg_len as u64).to_le_bytes());
+
 		self.write_buf_attribute_fields(attrs)?;
 
 		match &self.datagram {
@@ -201,7 +214,6 @@ mod tests {
 	use super::*;
 
 	use ntime::Timestamp;
-	use std::str;
 
 	use crate::attributes::{Scalar, Value};
 	use crate::level::Level;
@@ -209,30 +221,30 @@ mod tests {
 
 	#[test]
 	fn output_format() {
-		let want_raw = "_PID=12345
+		let want_raw = b"_PID=12345
 _SOURCE_REALTIME_TIMESTAMP=1776016599123
 PRIORITY=4
-MESSAGE=test Syslog message update
+MESSAGE\n\x1a\0\0\0\0\0\0\0test Syslog message update
 AN_INT=123
 A_FLOAT=-456.789
-SOME_STRING=hi there! ❤
+SOME_STRING\n\x0d\0\0\0\0\0\0\0hi there! \xe2\x9d\xa4
+A_LIST=349834934
+A_LIST=true
+A_MAP={\"key #1\": false}\nA_MAP={\"key #2\": \"weee \\u{1f494}\"}
+"
+		.as_slice();
+		let want_with_attrs = b"_PID=12345
+_SOURCE_REALTIME_TIMESTAMP=1776016599123
+PRIORITY=4
+MESSAGE\n\xa5\0\0\0\0\0\0\0test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there! \\u{2764}\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee \\u{1f494}\"}
+AN_INT=123
+A_FLOAT=-456.789
+SOME_STRING\n\x0d\0\0\0\0\0\0\0hi there! \xe2\x9d\xa4
 A_LIST=349834934
 A_LIST=true
 A_MAP={\"key #1\": false}
 A_MAP={\"key #2\": \"weee \\u{1f494}\"}
-";
-		let want_with_attrs = "_PID=12345
-_SOURCE_REALTIME_TIMESTAMP=1776016599123
-PRIORITY=4
-MESSAGE=test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there! \\u{2764}\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee \\u{1f494}\"}
-AN_INT=123
-A_FLOAT=-456.789
-SOME_STRING=hi there! ❤
-A_LIST=349834934
-A_LIST=true
-A_MAP={\"key #1\": false}
-A_MAP={\"key #2\": \"weee \\u{1f494}\"}
-";
+".as_slice();
 
 		for tc in [(MessageFormat::Raw, want_raw), (MessageFormat::WithAttributes, want_with_attrs)] {
 			let (message_format, want) = tc;
@@ -261,7 +273,7 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 
 			assert!(sink.log(&update, &attrs).is_ok());
 
-			let got = str::from_utf8(&sink.output_buf).unwrap();
+			let got = &sink.output_buf;
 			assert_eq!(got, want);
 		}
 	}
