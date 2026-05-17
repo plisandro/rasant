@@ -243,6 +243,7 @@ Rasant is under active development, with more features planned for future versio
   - New output formants (hierarchical pretty print?)
   - Support for third-party log sinks
   - [Protobuf](https://protobuf.dev/) binary format support?
+  - Fix Windows support, currently blocked by [ntime](https://github.com/plisandro/ntime).
 
 ## License
 
