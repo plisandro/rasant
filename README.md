@@ -10,6 +10,7 @@
 </p>
 
 [![](https://img.shields.io/crates/v/rasant.svg)][crates-io]
+[![](https://github.com/plisandro/rasant/workflows/build/badge.svg)][build-status]
 [![](https://docs.rs/rasant/badge.svg)][api-docs]
 
 Rasant is a lightweight, high performance and flexible Rust library for structured logging,
@@ -250,6 +251,7 @@ Rasant is distrubuted under the [MIT license][mit].
 <img src="assets/Developed-By-a-Human-Not-By-AI-Badge-white.svg" title="Courtesy of https://notbyai.fyi/" height="80px"/>
 
 [api-docs]: https://docs.rs/rasant
+[build-status]: https://github.com/plisandro/rasant/actions?query=workflow%3Abuild+branch%3Amaster
 [crates-io]: https://crates.io/crates/rasant
 [CHANGELOG]: CHANGELOG.md
 [benchmarks]: assets/benchmarks.md
