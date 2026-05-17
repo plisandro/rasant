@@ -1,6 +1,6 @@
 //! Log file [sink][`crate::sink`] module.
 //!
-//! Log file sinks are very similar to regular [`mod@file`] sinks, but impose an
+//! Log file sinks are very similar to regular [crate::sink::file] sinks, but impose an
 //! opinionated file name format. Only logging directories are configurable.
 use ntime;
 use std::env;

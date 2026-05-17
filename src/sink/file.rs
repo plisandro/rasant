@@ -1,4 +1,4 @@
-//! Generic file logging log [sink][`crate::sink`] module.
+//! Generic file logging log [sink][crate::sink] module.
 //!
 //! Built around [`IO`], so it inherits pretty much all of
 //! its configuration options.

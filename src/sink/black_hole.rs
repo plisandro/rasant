@@ -1,4 +1,4 @@
-//! Null I/O log [`sink`] module, intended mostly for testing.
+//! Null I/O log [sink], intended mostly for testing.
 //!
 //! Black hole sinks are effectively no-op, but otherwise excercise every
 //! aspect of Rasant.

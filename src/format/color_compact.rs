@@ -1,4 +1,4 @@
-//! Formatter for colorized compact text output.
+//! [Format]ter for colorized compact text output.
 //!
 //! Outputs one line per log entry:
 //! `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=[value_2, value_3]`
@@ -29,7 +29,7 @@ pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::R
 	compact::write_value(out, attrs, val)
 }
 
-/// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
+/// Serializes a [`LogUpdate`], + attributes [Map] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate, attrs: &Map) -> io::Result<()> {
 	// update messages above debug are highlighted in white
 	let msg_color = if Level::Debug.includes(&update.level) { Color::Default } else { Color::BrightWhite };

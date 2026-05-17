@@ -1,7 +1,7 @@
-//! Log sinks for use with Rasant [`crate::Logger`] instances.
+//! Log sinks for use with Rasant [logger][crate::Logger] instances.
 //!
-//! This module defines the [`Sink`] and [`LogUpdate`] traits for sinks, and
-//! exports all available sink types.
+//! This module defines the [`Sink`] and [`LogUpdate`] traits for sinks,
+//! and exports all available sink types.
 pub mod black_hole;
 pub mod file;
 pub mod io;

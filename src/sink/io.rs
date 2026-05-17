@@ -1,4 +1,4 @@
-//! Generic I/O logging [`sink`] module.
+//! Generic I/O logging [sink] module.
 //!
 //! This sink can be used with any [`std::io::Write`] implementing [`Send`],
 //! and supports options such as configurable delimiters between log

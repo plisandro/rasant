@@ -1,4 +1,4 @@
-//! Memory buffer logging [`sink`] module.
+//! Memory buffer logging [sink] module.
 //!
 //! Buffer sinks are useful mostly for testing and, as a result, their focus is
 //! not performance, but usability.
@@ -14,7 +14,7 @@
 //! Output is encapsulated in [`MemoryOutput`] instances, which supports casting
 //! to common types such as [`String`].
 //!
-//! Unless you're writing tests, you _really_ want to use another [`sink`] type :)
+//! Unless you're writing tests, you _really_ want to use another [sink] type :)
 
 use ntime;
 use std::io;

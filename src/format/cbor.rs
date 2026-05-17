@@ -1,4 +1,4 @@
-//! Formatter for [CBOR](https://cbor.io/) (RFC 8949) binary output.
+//! [Format]ter for [CBOR](https://cbor.io/) (RFC 8949) binary output.
 //! See <https://cbor.io/> and <https://www.rfc-editor.org/rfc/rfc8949.html#jumptable> for details.
 //!
 //! Outputs one CBOR-formatted map per log entry.

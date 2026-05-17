@@ -4,18 +4,18 @@
 //! [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) sinks over multiple
 //! socket types:
 //!
-//!   - Unix datagram: [SyslogSocket::Local] and [SyslogSocket::LocalPath]. Only
+//!   - Unix datagram: [`SyslogSocket::Local`] and [`SyslogSocket::LocalPath`]. Only
 //!     available for *NIX builds.
 //!   - UDP, implementing [RFC 5426](https://datatracker.ietf.org/doc/html/rfc5426):
 //!     [`SyslogSocket::UDP`].
 //!   - TCP, implementing [RFC 6587](https://datatracker.ietf.org/doc/html/rfc6587)
-//!     and supporting two modes: framed ([SyslogSocket::TCP]) and "non-transparent
-//!     framing" ([SyslogSocket::TCPTransparent]). Framed TCP should be favored
+//!     and supporting two modes: framed ([`SyslogSocket::TCP`]) and "non-transparent
+//!     framing" ([`SyslogSocket::TCPTransparent`]). Framed TCP should be favored
 //!     whenever possible.
 //!
 //! Multiple syslog formats are supported:
 //!
-//!   - [SyslogFormat::RFC3164] implements the older, but widely supported,
+//!   - [`SyslogFormat::RFC3164`] implements the older, but widely supported,
 //!     [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) BSD standard,
 //!     pretty much guaranteed to work with all existing syslog server implementations.
 //!     It has a number of limitations though...
@@ -24,8 +24,8 @@
 //!       - Log timestamp precision is seconds.
 //!       - Can't properly handle newlines (ASCII LF) in log messages.
 //!
-//!     ...so [SyslogFormat::RFC5424] should be favored whenever possible.
-//!   - [SyslogFormat::RFC5424] implements the 2009
+//!     ...so [`SyslogFormat::RFC5424`] should be favored whenever possible.
+//!   - [`SyslogFormat::RFC5424`] implements the 2009
 //!     [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) standard, with
 //!     proper Unicode support, parameterized logging, and nanosecond precision. Most
 //!     modern syslog servers (f.ex. [syslog-ng](https://www.syslog-ng.com/products/open-source-log-management/))
@@ -34,13 +34,13 @@
 //!     Rasant log attributes are translated to syslog parameters with a
 //!     SD-ID `rasant@<attribute_index_number>`:
 //!
-//!       - [Scalar][`Value::Scalar]s are encoded as string values, regardless of type.
-//!       - [Lists][`Value::List]s have no native syslog representation, and encode as a single
+//!       - [`Scalar`][Value::Scalar]s are encoded as string values, regardless of type.
+//!       - [`List`][Value::List]s have no native syslog representation, and encode as a single
 //!         string: `["val_1", "val_2", ... ]`.
-//!       - [Map][`Value::Map]s have no native syslog representation, and encode as a single
+//!       - [`Map`][Value::Map]s have no native syslog representation, and encode as a single
 //!         string: `{"key_1": "val_1", "key_2": "val_2", ... }`.
-//!   - [SyslogFormat::RFC5424Full] is identical to [SyslogFormat::RFC5424], but log attributes are also
-//!     serialized as text and appended to the log message.
+//!   - [`SyslogFormat::RFC5424Full`] is identical to [`SyslogFormat::RFC5424`], but log
+//!     attributes are also serialized as text and appended to the log message.
 
 use ntime;
 use std::io;
@@ -116,7 +116,7 @@ impl<'i> Default for SyslogConfig<'i> {
 
 impl<'i> SyslogConfig<'i> {
 	#[cfg(unix)]
-	/// Returns an default [SyslogConfig] for local syslog servers over *NIX sockets.
+	/// Returns an default [`SyslogConfig`] for local syslog servers over *NIX sockets.
 	pub fn default_local() -> Self {
 		Self {
 			name: String::from("default local Syslog"),
@@ -127,7 +127,7 @@ impl<'i> SyslogConfig<'i> {
 		}
 	}
 
-	/// Returns a default [SyslogConfig] for syslog over UDP.
+	/// Returns a default [`SyslogConfig`] for syslog over UDP.
 	pub fn default_udp() -> Self {
 		Self {
 			name: String::from("default UDP Syslog"),
@@ -136,7 +136,7 @@ impl<'i> SyslogConfig<'i> {
 		}
 	}
 
-	/// Returns a default [SyslogConfig] for syslog over TCP.
+	/// Returns a default [`SyslogConfig`] for syslog over TCP.
 	/// Most syslog servers require RFC 6587 octet framing by default.
 	pub fn default_tcp() -> Self {
 		Self {
@@ -146,7 +146,7 @@ impl<'i> SyslogConfig<'i> {
 		}
 	}
 
-	/// Returns a default no-op [SyslogConfig].
+	/// Returns a default no-op [`SyslogConfig`].
 	pub fn default_black_hole() -> Self {
 		Self {
 			name: String::from("default TCP Syslog"),
@@ -199,7 +199,7 @@ impl io::Write for SyslogWriter {
 	}
 }
 
-/// A general [syslog](https://datatracker.ietf.org/doc/html/rfc5424) [`sink`].
+/// A general syslog log [`sink`].
 pub struct Syslog {
 	name: String,
 	hostname: String,
@@ -212,7 +212,7 @@ pub struct Syslog {
 }
 
 impl Syslog {
-	/// Initializes a new [Syslog] [sink], from a given [SyslogConfig].
+	/// Initializes a new [`Syslog`] log [`sink`], from a given [`SyslogConfig`].
 	pub fn new(conf: SyslogConfig<'_>) -> Self {
 		let hostname = HOSTNAME.clone();
 		let process_name = PROCESS_NAME.clone();
@@ -482,19 +482,19 @@ impl Drop for Syslog {
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [Syslog] log [sink], with defaults for local syslog servers.
+/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers.
 pub fn local() -> Syslog {
 	Syslog::new(SyslogConfig::default_local())
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [Syslog] log [sink], with defaults for local syslog servers over UDP.
+/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers over UDP.
 pub fn local_udp() -> Syslog {
 	Syslog::new(SyslogConfig::default_udp())
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [Syslog] log [sink], with defaults for local syslog servers over TCP.
+/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers over TCP.
 pub fn local_tcp() -> Syslog {
 	Syslog::new(SyslogConfig::default_tcp())
 }

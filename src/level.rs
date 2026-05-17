@@ -3,8 +3,9 @@ use crate::console::Color;
 
 /// Log level definition.
 ///
-/// [Logger][`crate::Logger`]s evaluates these in descending order, so f.ex. a log level of [`Level::Info`] includes
-/// [`Level::Warning`] and [`Level::Panic`], but not [`Level::Debug`].
+/// [Logger][`crate::Logger`]s evaluates these in descending order, so f.ex. a log level
+/// of [`Level::Info`] includes [`Level::Warning`] and [`Level::Panic`],
+/// but not [`Level::Debug`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Level {
 	/// Used for tracing code execution path. Rasant will log some operations at

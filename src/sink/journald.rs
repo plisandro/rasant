@@ -1,16 +1,16 @@
-//! [Journald](https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html) logging [`sink`] module.
+//! [Journald](https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html) logging [sink] module.
 //!
 //! Log updates are serialized to [journal entries](https://systemd.io/JOURNAL_NATIVE_PROTOCOL/),
 //! and sent to [systemd daemons](https://systemd.io/) via UNIX local sockets, with log attribute
 //! values converted to systemd journal structured fields:
 //!
-//!   - [Scalar][`Value::Scalar]s are converted directly to field values.
-//!   - [Lists][`Value::List]s are converted directly to repeated field values.
-//!   - [Map][`Value::Map]s have no native representation in journal entries,
+//!   - [Scalar][Value::Scalar]s are converted directly to field values.
+//!   - [Lists][Value::List]s are converted directly to repeated field values.
+//!   - [Map][Value::Map]s have no native representation in journal entries,
 //!     so they get converted into a repeated field of `{key: value}`.
 //!
 //! Log attributes can optionally also be serialized as text, alongside the journal
-//! meesage, via [MessageFormat::WithAttributes].
+//! meesage, via [`MessageFormat::WithAttributes`].
 //!
 //! Note that systemd journal entries don't normally display in `journalctl`
 //! output, unless explicitly set to JSON.

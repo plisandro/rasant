@@ -7,7 +7,7 @@ use crate::attributes::Map;
 use crate::encoding;
 use crate::level::Level;
 
-/// [`Scalar`] definitions for all log operations.
+/// [Scalar] definitions for all log operations.
 /// Scalars are the basic data units for Rasant, representing a single type.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {

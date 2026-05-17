@@ -3,8 +3,8 @@ use std::fmt;
 use crate::attributes::Map;
 use crate::attributes::scalar::Scalar;
 
-/// Value definition for all log operations.
-/// These are associated with a single [`&str`] key in attribute maps for [Logger][`crate::Logger`]s.
+/// [Value] definition for all log operations.
+/// These are associated with a single [`&str`] key in attribute maps for [logger][crate::Logger]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value<'e> {
 	/// A single [`Scalar`] value.

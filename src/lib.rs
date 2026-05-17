@@ -10,20 +10,21 @@
 //!   - Minimal dependencies.
 //!   - Thread safe.
 //!   - *Blazing fast* performance, with zero allocations on most operations.
-//!   - [Leveled][`Level`], [structured](#attributes) contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
+//!   - [Level]ed, [structured](#attributes) contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
 //!   - [Log filters](#filtering) with sampling support.
 //!   - [Highly configurable log sinks](#configuring-sinks):
 //!     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
 //!     - [systemd](https://systemd.io/)'s journald.
-//!     - syslog [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) (classic BSD) and [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) (2009) protocols.
+//!     - syslog [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) (classic BSD) and
+//!       [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) (2009) protocols.
 //!   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
 //!
 //! # Examples
 //!
 //! ## Basic Logging
 //!
-//! [`Logger`]s can be easily initialized using sink defaults, and accessed via methods...
+//! [Logger]s can be easily initialized using sink defaults, and accessed via methods...
 //!
 //! ```rust
 //! use rasant;
@@ -59,7 +60,7 @@
 //!
 //! ## Attributes
 //!
-//! Rasant supports multiple attribute types (a.k.a [`Value`]s): single [`Scalar`] values,
+//! Rasant supports multiple attribute types (a.k.a [Value]s): single [Scalar]s,
 //! lists and maps.
 //!
 //! ```rust
@@ -84,8 +85,8 @@
 //!
 //! ## Stacking
 //!
-//! All [`Logger`]s can be cheaply cloned, inheriting all settings from its
-//! parents - including [Level][`level::Level`]s, [`sink`]s, [`filter`]s
+//! All [Logger]s can be cheaply cloned, inheriting all settings from its
+//! parents - including [level](Level)s, [sink]s, [filter]s
 //! and fixed [attributes](#attributes), allowing for very flexible setups.
 //!
 //! For example, to have all errors (or higher) within a thread logged to
@@ -111,7 +112,7 @@
 //!
 //! ## Configuring Sinks
 //!
-//! [`sink`]s can be configured to tweak multiple parameters, including time and
+//! [Sink](sink)s can be configured to tweak multiple parameters, including time and
 //! overall output format.
 //!
 //! ```rust
@@ -138,7 +139,7 @@
 //!
 //! ## Asynchronous Logging
 //!
-//! [`Logger`]s can dynamically enable/disable async writes.
+//! [Logger]s can dynamically enable/disable async writes.
 //!
 //! When in async mode, log operations have a slightly longer (as details
 //! are copied into a queue) _but fixed_ lock time, making it ideal f.ex.
@@ -159,18 +160,18 @@
 //!
 //! ## Filtering
 //!
-//! [`Logger`]s can apply configurable runtime [`filter`]s on log operations.
+//! [Logger]s can apply configurable runtime [filter]s on log operations.
 //! Supported filters include:
 //!
-//!   - [Multiple log levels][`filter::level::In`].
-//!   - Log [message contents][`filter::matches::Message`].
-//!   - Log [attributes presence][`filter::matches::AttributeKey`].
-//!   - Log [attribute value contents][`filter::matches::AttributeValue`].
-//!   - Several [log output sampling][`filter::sample`] criteria.
+//!   - [Multiple log levels][filter::level::In].
+//!   - Log [message contents][filter::matches::Message].
+//!   - Log [attributes presence][filter::matches::AttributeKey].
+//!   - Log [attribute value contents][filter::matches::AttributeValue].
+//!   - Several [log output sampling][filter::sample] criteria.
 //!
-//! Note that [`filter`]s are evaluated at logging time, and will
-//! introduce (minimal) latency, regardless of [`Logger`]s having async mode
-//! enabled.
+//! Note that [filter]s are evaluated at logging time, and will
+//! introduce (minimal) latency, regardless of [logger](Logger)s having
+//! async mode enabled.
 //!
 //! ```rust
 //! use rasant as r;
@@ -201,26 +202,27 @@
 //!
 //! # Concepts
 //!
-//! Rasant is a structured logging library: it logs messages with a set of associated key-[`Value`]
-//! pairs, in formats (f.ex. [JSON][`OutputFormat::Json`]) which are intended to
-//! be easily machine-readable.
+//! Rasant is a structured logging library: it logs messages with a set of associated
+//! key-[value](Value)  pairs, in formats (f.ex. [JSON](OutputFormat::Json`)) which
+//! are intended to be easily machine-readable.
 //!
 //! ## Methodology
 //!
-//! Rasant is built around individual [`Logger`] logging instances and [`sink`]s, which are
-//! configurable destinations for log updates. When a log operation is performed, its level
-//! is compared to the one defined for the [`Logger`] and, if applicable, the log is written
-//! on all its [`sink`]s.
+//! Rasant is built around individual [logger](Logger)logging instances and [sink]s,
+//! which are configurable destinations for log updates. When a log operation is
+//! performed, its level is compared to the one defined for the [logger](Logger) and,
+//! if applicable, the log is written to all of its [sink]s.
 //!
-//! Once a [`sink`] is added to a [`Logger`], it cannot be removed nor modified.
+//! Once a [sink] is added to a [logger](Logger), it cannot be removed nor modified.
 //!
 //! ## Attributes
 //!
 //! ### Types
 //!
 //! Attributes are the defining quality of a structured logging system, expressed
-//! as key-value pairs. In Rasant, keys are [`&str`], and [`Value`]s are a dedicated
-//! type, supporting different configuration of [`Scalar`]s.
+//! as key-value pairs. In Rasant, keys are [`&str`], and [value](Value)s are a
+//! dedicated type, supporting different configuration of basic [scalar](Scalar)
+//! types.
 //!
 //!   - [`Scalar`]s are the base unit for attribute values, mapping to basic data types:
 //!     integers, floats and strings.
@@ -234,69 +236,70 @@
 //!
 //! ### Scope
 //!
-//! Attributes can be set for [`Logger`]s as a whole, affecting all log operations, or for
-//! individual log writes, which can optionally provide extra attributes with additional
-//! information.
+//! Attributes can be set for [logger](Logger)s as a whole, affecting all log operations,
+//! or for individual log writes, which can optionally provide extra attributes with
+//! additional information.
 //!
 //! Upon key collisions, attribute values for the log call take precedence and override
-//! [`Logger`] settings, but without modifying it.
+//! [logger](Logger) settings, but without modifying it.
 //!
 //! ## Memory Management
 //!
-//! Rasant keeps all items associated with a [`Logger`] (keys, attribute values, their
-//! [`Scalar`]s and all strings) in a group of owned vector arrays. No other heap
-//! allocation is ever performed.
+//! Rasant keeps all items associated with a [logger](Logger) (keys, attribute values,
+//! their [scalar](Scalar)s and all strings) in a group of owned vector arrays. No
+//! other heap allocation is ever performed.
 //!
 //! These vectors will grow in size when needed - but never resize down. In practice,
 //! this means that after just a few log calls vectors will grow to the size required
 //! for normal operation, at which point all Rasant operations become effectively
 //! zero-allocation.
 //!
-//! The vectored nature of [`Logger`] storage also makes cloning and dropping these
-//! extremely efficient.
+//! The vectored nature of [logger](Logger) storage also makes cloning and dropping
+//! these! extremely efficient.
 //!
 //! ## Cloning and Stacking
 //!
-//! [`Logger`]s can be cheaply cloned, extended and dropped. When a [`Logger`] is cloned, it
-//! inherits all settings from the original, including [level][`level::Level`]s, [`filter`]s,
-//! [`sink`]s (owned + inherited) and attributes.
+//! [Logger]s can be cheaply cloned, extended and dropped. When a [logger](Logger) is
+//! cloned, it inherits all settings from the original, including [level](Level)s,
+//! [filter]s, [sink]s (owned + inherited) and attributes.
 //!
-//! This allows for very flexible logging setups. New [`Logger`]s can just be extensions of
-//! an original with extra arguments, have newly defined sinks, log levels, filters and/or
-//! async modes - or all of the above.
+//! This allows for very flexible logging setups. New [logger](Logger)s can just be
+//! extensions of  an original with extra arguments, have newly defined sinks, log
+//! levels, filters and/or async modes - or all of the above.
 //!
-//! In general, programs using Rasant will instantiate a single root logger via [`Logger::new()`],
-//! and spawn nested clones as required.
+//! In general, programs using Rasant will instantiate a single root logger via
+//! [`Logger::new()`], and spawn nested clones as required.
 //!
 //! ## Asynchronous Operation
 //!
-//! By default, log operations lock until writes are propagated to all [`sink`]s associated
-//! with a given [`Logger`].
+//! By default, log operations lock until writes are propagated to all [sink]s
+//! associated! with a given [logger](Logger).
 //!
-//! To improve performance when slow and/or a high number of [`sink`]s is involved, Rasant
-//! supports dynamic asynchronous logging.
+//! To improve performance when slow and/or a high number of [sink]s is involved,
+//! Rasant supports dynamic asynchronous logging.
 //!
-//! Loggers can be switched to asynchronous mode via [`Logger::set_async`]. When enabled, log
-//! operations defer writes by pushing them into a processing queue, and return immediately.
+//! Loggers can be switched to asynchronous mode via [`Logger::set_async()`]. When
+//! enabled, log! operations defer writes by pushing them into a processing queue,
+//! and return immediately.
 //!
 //! Rasant will spawn a single thread to handle all asynchronous write operations, and
-//! close it automatically once no async [`Logger`]s are present, and all their deferred
-//! writes have been flushed.
+//! close it automatically once no async [logger](Logger)s are present, and all their
+//! deferred! writes have flushed.
 //!
 //! ## Log Filters
 //!
-//! [`Logger`]s supports optional, configurable [`filter`]s for log updates. These are evaluated,
-//! in order, on every log operation, blocking [`sink`] writes unless the configured criteria for all
-//! filters is met. Multiple filters can be stacked to combine their behavior.
+//! [Logger]s supports optional, configurable [filter]s for log updates. These are
+//! evaluated, in order, on every log operation, blocking [sink] writes unless the
+//! configured criteria for all filters is met. Multiple filters can be stacked to
+//! combine their behavior.
 //!
-//! [`filter`]s are evaluated after normal level checks, so their output is affected by each
-//! [`Logger`]s log level. When using level-based filters (f.ex. [Levels][`crate::filter::level::In`]),
-//! consider enabling [set_all_levels()][`crate::logger::Logger::set_all_levels`] to avoid
-//! unexpected interactions.
+//! [Filter][filter]s are evaluated after normal level checks, so their output is affected
+//! by each [logger](Logger)'s level. When using level-based filters (f.ex. [levels][crate::filter::level::In]),
+//! consider enabling [`Logger::set_all_levels()`] to avoid unexpected interactions.
 //!
-//! Note that [`filter`]s are evaluated at logging time, even for [`Logger`]s in
-//! asynchronous mode; as a result, every [`filter`] will introduce additional latency
-//! on **all** log operations for that [`Logger`].
+//! Note that [filter]s are evaluated at logging time, even for [logger](Logger)s in
+//! asynchronous mode; as a result, every [filter] will introduce additional latency
+//! on **all** log operations for that [logger](Logger).
 //!
 //! ## Error Handling
 //!
@@ -304,7 +307,7 @@
 //! will [panic][`std::panic!`] upon failures instead.
 //!
 //! Pretty much all errors related to logging are unrecoverable anyway - these will either
-//! happen at initialization time, or when trying to write to a [`sink`].
+//! happen at initialization time, or when trying to write to a [sink].
 //!
 //! # Repository
 //!

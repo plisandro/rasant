@@ -1,25 +1,25 @@
-//! Level [`filter`] module.
+//! Level [filter][Filter] module.
 //!
 //! Allows to filter log updates by level.
 //!
-//! Note that [logger][`crate::logger::Logger`]s will still apply level checks, so consider
-//! enabling [set_all_levels()][`crate::logger::Logger::set_all_levels`] when using filters
+//! Note that [logger][crate::logger::Logger]s will still apply level checks, so consider
+//! enabling [`Logger::set_all_levels()`][crate::logger::Logger::set_all_levels] when using filters
 //! in this module.
 
 use std::string;
 
 use crate::attributes;
-use crate::filter;
+use crate::filter::Filter;
 use crate::level::Level;
 use crate::sink;
 
-/// Configuration struct for a [`In`] level [`filter`].
+/// Configuration struct for a [`In`] level [`Filter`].
 pub struct InConfig<const N: usize> {
 	/// [`Level`]s to allow logging for.
 	pub levels: [Level; N],
 }
 
-/// A level [filter][`filter::Filter`] which selects log operations
+/// A level [`Filter`] which selects log operations
 /// if they match any of the provided [`Level`]s.
 pub struct In {
 	name: string::String,
@@ -27,7 +27,7 @@ pub struct In {
 }
 
 impl In {
-	/// Initializes a new [`In`] level [`filter`], from a given [`InConfig`].
+	/// Initializes a new [`In`] level [`Filter`], from a given [`InConfig`].
 	pub fn new<const N: usize>(conf: InConfig<N>) -> Self {
 		Self {
 			name: format!("level filter for {levels:?}", levels = conf.levels),
@@ -36,7 +36,7 @@ impl In {
 	}
 }
 
-impl filter::Filter for In {
+impl Filter for In {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}

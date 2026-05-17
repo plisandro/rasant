@@ -1,4 +1,4 @@
-//! Log update matchers [`filter`] module.
+//! Log update matchers [filter][Filter] module.
 //!
 //! Provides log update filters matching substrings in the message body,
 //! presence of attributes keys, and attribute value contents.
@@ -11,10 +11,10 @@ use std::cmp;
 use std::string;
 
 use crate::attributes;
-use crate::filter;
+use crate::filter::Filter;
 use crate::sink;
 
-/// Configuration struct for a log message [`filter`].
+/// Configuration struct for a log message [`Filter`].
 pub struct MessageConfig<'s, const A: usize, const B: usize> {
 	/// A list of substrings which must be present in the log message.
 	pub has: [&'s str; A],
@@ -24,7 +24,7 @@ pub struct MessageConfig<'s, const A: usize, const B: usize> {
 	pub match_all: bool,
 }
 
-/// A log message [filter][`filter::Filter`], which filters log updates based
+/// A log message [`Filter`], which filters log updates based
 /// on message contents.
 pub struct Message {
 	name: string::String,
@@ -34,7 +34,7 @@ pub struct Message {
 }
 
 impl Message {
-	/// Initializes a new message log [`filter`], from a given [`MessageConfig`].
+	/// Initializes a new [`Message`] log [`Filter`], from a given [`MessageConfig`].
 	pub fn new<const A: usize, const B: usize>(conf: MessageConfig<A, B>) -> Self {
 		Self {
 			name: format!(
@@ -50,7 +50,7 @@ impl Message {
 	}
 }
 
-impl filter::Filter for Message {
+impl Filter for Message {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -79,7 +79,7 @@ impl filter::Filter for Message {
 	}
 }
 
-/// Configuration struct for an attribute key [`filter`].
+/// Configuration struct for an attribute key [`Filter`].
 pub struct AttributeKeyConfig<'s, const A: usize, const B: usize> {
 	/// A list of attribute keys which must be present in the log update.
 	pub has: [&'s str; A],
@@ -89,7 +89,7 @@ pub struct AttributeKeyConfig<'s, const A: usize, const B: usize> {
 	pub match_all: bool,
 }
 
-/// An attribute key [filter][`filter::Filter`], which filters log updates based
+/// An attribute key [`Filter`], which filters log updates based
 /// on the presence of attribute key(s).
 pub struct AttributeKey {
 	name: string::String,
@@ -99,7 +99,7 @@ pub struct AttributeKey {
 }
 
 impl AttributeKey {
-	/// Initializes a new message log [`filter`], from a given [`AttributeKeyConfig`].
+	/// Initializes a new [`AttributeKey`] log [`Filter`], from a given [`AttributeKeyConfig`].
 	pub fn new<const A: usize, const B: usize>(conf: AttributeKeyConfig<A, B>) -> Self {
 		Self {
 			name: format!(
@@ -115,7 +115,7 @@ impl AttributeKey {
 	}
 }
 
-impl filter::Filter for AttributeKey {
+impl Filter for AttributeKey {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -147,7 +147,7 @@ impl filter::Filter for AttributeKey {
 	}
 }
 
-/// Configuration struct for an attribute value [`filter`].
+/// Configuration struct for an attribute value [`Filter`].
 pub struct AttributeValueConfig<'s, const A: usize, const B: usize> {
 	/// Attribute key to match on (if present).
 	pub key: &'s str,
@@ -159,7 +159,7 @@ pub struct AttributeValueConfig<'s, const A: usize, const B: usize> {
 	pub match_all: bool,
 }
 
-/// An attribute value [filter][`filter::Filter`], which filters log updates based
+/// An attribute value [`Filter`], which filters log updates based
 /// on the presence of an attribute, and its value contents.
 pub struct AttributeValue {
 	name: string::String,
@@ -171,7 +171,7 @@ pub struct AttributeValue {
 }
 
 impl AttributeValue {
-	/// Initializes a new message log [`filter`], from a given [`AttributeValueConfig`].
+	/// Initializes a new [`AttributeValue`] log [`Filter`], from a given [`AttributeValueConfig`].
 	pub fn new<const A: usize, const B: usize>(conf: AttributeValueConfig<A, B>) -> Self {
 		Self {
 			name: format!(
@@ -190,7 +190,7 @@ impl AttributeValue {
 	}
 }
 
-impl filter::Filter for AttributeValue {
+impl Filter for AttributeValue {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}

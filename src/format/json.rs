@@ -1,4 +1,4 @@
-//! Formatter for JSON output.
+//! [Format]ter for JSON output.
 //!
 //! Outputs one map per log entry:
 //! `{"timestamp":123456,"level":"info","message":"some log message","key_1":value_1,"key_2":[value_3, value_4]}`
@@ -70,7 +70,7 @@ pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::R
 	}
 }
 
-/// Serializes a [`LogUpdate`], + [attributes][`Map`] as [`OutputFormat::Json`] into a [`io::Write`].
+/// Serializes a [`LogUpdate`], + attributes [`Map`] as [`OutputFormat::Json`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate, attrs: &Map) -> io::Result<()> {
 	// build output header
 	match time_format.as_integer(&update.when) {

@@ -1,4 +1,4 @@
-//! Formatting module for log writes, given ([`LogUpdate`] + attributes).
+//! Formatting module for I/O log sinks.
 mod cbor;
 mod color_compact;
 mod compact;
@@ -11,7 +11,7 @@ use crate::attributes;
 use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 use crate::sink::LogUpdate;
 
-/// Supported log output format for all sinks.
+/// Supported log output format for all [`sink`][crate::sink]s.
 #[derive(Clone, Debug)]
 pub enum OutputFormat {
 	/// A compact string: `2026-01-02 15:16:17.890 [INF] some log message key_1=value_1 key2=value_2`

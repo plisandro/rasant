@@ -1,4 +1,4 @@
-//! Sampling [`filter`] module.
+//! Sampling [filter][Filter] module.
 //!
 //! Sampling filters a subset of all log updates, regardless of content,
 //! and are intended for monitoring and/or statistical analysis.
@@ -9,17 +9,17 @@ use std::string;
 use std::u64;
 
 use crate::attributes;
-use crate::filter;
+use crate::filter::Filter;
 use crate::sink;
 use crate::types::Rand;
 
-/// Configuration struct for a [`Random`]s sampling [filter][`filter::Filter`].
+/// Configuration struct for a [`Random`]s sampling [`Filter`].
 pub struct RandomConfig {
 	/// Probability of log updates being selected, between `0.0` and `1.0`.
 	pub probability: f32,
 }
 
-/// A random sampling [filter][`filter::Filter`], selecting log operations by probability.
+/// A random sampling [`Filter`], selecting log operations by probability.
 pub struct Random {
 	name: string::String,
 	rand: Rand,
@@ -27,7 +27,7 @@ pub struct Random {
 }
 
 impl Random {
-	/// Initializes a new [`Random`] sampling log [filter][`filter::Filter`], from a given [`RandomConfig`].
+	/// Initializes a new [`Random`] sampling log [`Filter`], from a given [`RandomConfig`].
 	pub fn new(conf: RandomConfig) -> Self {
 		let threshold: u64;
 		if conf.probability <= 0_f32 {
@@ -45,7 +45,7 @@ impl Random {
 		}
 	}
 
-	/// A [`Random`] sampling [filter][`filter::Filter`] with a fixed random seed, used only for testing.
+	/// A [`Random`] sampling [`Filter`] with a fixed random seed, used only for testing.
 	fn with_seed(conf: RandomConfig, seed: u64) -> Self {
 		let mut f = Self::new(conf);
 		f.rand = Rand::with_seed(seed);
@@ -54,7 +54,7 @@ impl Random {
 	}
 }
 
-impl filter::Filter for Random {
+impl Filter for Random {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -64,13 +64,13 @@ impl filter::Filter for Random {
 	}
 }
 
-/// Configuration struct for a [`Step`]s sampling [filter][`filter::Filter`].
+/// Configuration struct for a [`Step`]s sampling [`Filter`].
 pub struct StepConfig {
 	/// Interval between log updates.
 	pub step: u64,
 }
 
-/// A basic step sampling [filter][`filter::Filter`], selecting only every N-th log operation.
+/// A basic step sampling [`Filter`], selecting only every N-th log operation.
 pub struct Step {
 	name: string::String,
 	step: u64,
@@ -78,7 +78,7 @@ pub struct Step {
 }
 
 impl Step {
-	/// Initializes a new [`Step`] sampling log [filter][`filter::Filter`], from a given [`StepConfig`].
+	/// Initializes a new [`Step`] sampling log [`Filter`], from a given [`StepConfig`].
 	pub fn new(conf: StepConfig) -> Self {
 		Self {
 			name: format!("step={step} sample filter", step = conf.step),
@@ -88,7 +88,7 @@ impl Step {
 	}
 }
 
-impl filter::Filter for Step {
+impl Filter for Step {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -108,13 +108,13 @@ impl filter::Filter for Step {
 	}
 }
 
-/// Configuration struct for a [`RandomStep`] sampling [filter][`filter::Filter`].
+/// Configuration struct for a [`RandomStep`] sampling [`Filter`].
 pub struct RandomStepConfig {
 	/// Interval size from which one log update gets randomly selected.
 	pub step: u64,
 }
 
-/// A random sampling [filter][`filter::Filter`], selecting one out of every N log events, at random.
+/// A random sampling [`Filter`], selecting one out of every N log events, at random.
 pub struct RandomStep {
 	name: string::String,
 	step: u64,
@@ -124,7 +124,7 @@ pub struct RandomStep {
 }
 
 impl RandomStep {
-	/// Initializes a new [`RandomStep`] sampling log [filter][`filter::Filter`], from a given [`RandomStepConfig`].
+	/// Initializes a new [`RandomStep`] sampling log [`Filter`], from a given [`RandomStepConfig`].
 	pub fn new(conf: RandomStepConfig) -> Self {
 		Self {
 			name: format!("step={step} sample filter", step = conf.step),
@@ -135,7 +135,7 @@ impl RandomStep {
 		}
 	}
 
-	/// A [`RandomStep`] sampling [filter][`filter::Filter`] with a fixed random seed, used only for testing.
+	/// A [`RandomStep`] sampling [`Filter`] with a fixed random seed, used only for testing.
 	fn with_seed(conf: RandomStepConfig, seed: u64) -> Self {
 		let mut f = Self::new(conf);
 		f.rand = Rand::with_seed(seed);
@@ -144,7 +144,7 @@ impl RandomStep {
 	}
 }
 
-impl filter::Filter for RandomStep {
+impl Filter for RandomStep {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -166,7 +166,7 @@ impl filter::Filter for RandomStep {
 	}
 }
 
-/// Configuration struct for a [`Burst`] sampling [filter][`filter::Filter`].
+/// Configuration struct for a [`Burst`] sampling [`Filter`].
 pub struct BurstConfig {
 	/// Burst period.
 	pub period: ntime::Duration,
@@ -174,8 +174,7 @@ pub struct BurstConfig {
 	pub max_updates: u64,
 }
 
-/// A burst sampling [filter][`filter::Filter`], selecting a given maximum
-/// of log updates over a given time period.
+/// A burst sampling [`Filter`], selecting a given maximum of log updates over a given time period.
 pub struct Burst {
 	name: string::String,
 	period: Duration,
@@ -185,7 +184,7 @@ pub struct Burst {
 }
 
 impl Burst {
-	/// Initializes a new [`Burst`] sampling log [`filter`], from a given [`BurstConfig`].
+	/// Initializes a new [`Burst`] sampling log [`Filter`], from a given [`BurstConfig`].
 	pub fn new(conf: BurstConfig) -> Self {
 		Self {
 			name: format!("burst sample filter (max {max} per {period:?})", max = conf.max_updates, period = conf.period),
@@ -197,7 +196,7 @@ impl Burst {
 	}
 }
 
-impl filter::Filter for Burst {
+impl Filter for Burst {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
