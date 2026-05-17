@@ -128,17 +128,11 @@ impl Map {
 	fn value_by_idx(&self, idx: usize) -> Value<'_> {
 		let (start_1, end_1, start_2, end_2) = self.scalar_idxs[idx];
 
-		if start_2 != 0 || end_2 != 0 {
+		match start_2 != 0 || end_2 != 0 {
 			// a 2nd set of scalars means we have a Map
-			return Value::Map(&self.scalar_pool[start_1..end_1], &self.scalar_pool[start_2..end_2]);
+			true => Value::from((&self.scalar_pool[start_1..end_1], &self.scalar_pool[start_2..end_2])),
+			false => Value::from(&self.scalar_pool[start_1..end_1]),
 		}
-
-		if end_1 - start_1 == 1 {
-			// TODO: fix me
-			return Value::Scalar(self.scalar_pool[start_1].clone());
-		}
-
-		Value::List(&self.scalar_pool[start_1..end_1])
 	}
 
 	pub fn has(&self, key: &str) -> bool {

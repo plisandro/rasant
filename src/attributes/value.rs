@@ -87,8 +87,11 @@ impl<'i, T: Into<Scalar>> From<T> for Value<'i> {
 
 // casters for Value::List
 impl<'i> From<&'i [Scalar]> for Value<'i> {
-	fn from(s: &'i [Scalar]) -> Self {
-		Self::List(s)
+	fn from(ss: &'i [Scalar]) -> Self {
+		match ss.len() {
+			1 => Self::Scalar(ss[0].clone()),
+			_ => Self::List(ss),
+		}
 	}
 }
 

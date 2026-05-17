@@ -17,6 +17,8 @@ pub struct LogFileConfig {
 	pub log_directory: path::PathBuf,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
+	/// Whether to use local or UTC timestamp on log file names.
+	pub local_timestamp: bool,
 	/// String delimiter, inserted between log writes.
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
@@ -30,6 +32,7 @@ impl<'i> Default for LogFileConfig {
 		Self {
 			log_directory: env::temp_dir(),
 			formatter_cfg: format::FormatterConfig::default(),
+			local_timestamp: false,
 			buffered: true,
 			flush_on_write: false,
 			append: true,
@@ -46,9 +49,8 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	};
 
 	let log_file_name = path::PathBuf::from(format!(
-		"{process_name}_{time}_{pid}.log",
-		// TODO: change to local?
-		time = ntime::Timestamp::now().as_string(&ntime::Format::UtcFileName),
+		"{process_name}_{timestamp}_{pid}.log",
+		timestamp = ntime::Timestamp::now().as_string(if conf.local_timestamp { &ntime::Format::LocalFileName } else { &ntime::Format::UtcFileName }),
 		pid = *PROCESS_ID,
 	));
 

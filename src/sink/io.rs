@@ -8,6 +8,7 @@ use std::io;
 use crate::attributes;
 use crate::format;
 use crate::sink;
+use crate::sink::Sink;
 
 /// Configuration struct for an [`IO`] [`sink`].
 pub struct IOConfig<T: io::Write + Send> {
@@ -94,8 +95,7 @@ impl<'i> sink::Sink for IO<'i> {
 
 impl Drop for IO<'_> {
 	fn drop(&mut self) {
-		// TODO: call self.flush() instead.
-		if let Err(e) = self.out.flush() {
+		if let Err(e) = self.flush() {
 			panic!("failed to flush sink {name} on drop(): {e}", name = self.name);
 		}
 	}
