@@ -73,11 +73,12 @@ pub fn encode_char<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 		}
 		Mode::Utf8Rfc5424ParamValue => match c {
 			// https://www.rfc-editor.org/rfc/rfc5424?utm_source=chatgpt.com#section-6.3.3
-			'"' => "\\\"".as_bytes(),
-			'\\' => "\\\\".as_bytes(),
-			']' => "\\]".as_bytes(),
-			_ => c.encode_utf8(buf).as_bytes(),
-		},
+			'"' => "\\\"",
+			'\\' => "\\\\",
+			']' => "\\]",
+			_ => c.encode_utf8(buf),
+		}
+		.as_bytes(),
 		// all oother encodings impact string generation rather than char encoding
 		_ => c.encode_utf8(buf).as_bytes(),
 	}
@@ -92,10 +93,14 @@ pub fn write_char<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result
 
 pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
 	match mode {
+		Mode::Utf8 => {
+			// `&str`s are UTF-8 encoded \o/
+			out.write(s.as_bytes())?;
+		}
 		Mode::Utf8Bom => {
 			// UTF-8 encoded strings with a byte order mark
 			out.write(UTF8_BOM.as_slice())?;
-			write_str(out, s, &Mode::Utf8)?;
+			out.write(s.as_bytes())?;
 		}
 		Mode::Utf8JournalDataValue => {
 			// see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
@@ -103,13 +108,13 @@ pub fn write_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<
 				false => {
 					// no newlines -> "={utf8}"
 					out.write("=".as_bytes())?;
-					write_str(out, s, &Mode::Utf8)?;
+					out.write(s.as_bytes())?;
 				}
 				true => {
 					// newlines -> "\n{string lenght as little-endian u64}{utf8}"
 					out.write("\n".as_bytes())?;
 					out.write((s.len() as u64).to_le_bytes().as_slice())?;
-					write_str(out, s, &Mode::Utf8)?;
+					out.write(s.as_bytes())?;
 				}
 			}
 		}
