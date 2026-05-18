@@ -105,7 +105,7 @@ support in the form of feature crates.
 
 `slog` shares a number of design ideas with Rasant (zero allocation, async support,
 lazy evaluation) and it's in general _very_ fast. It's however, slower than Rasant
-because of (concious) design decisions, such as support for external features and
+because of (conscious) design decisions, such as support for external features and
 a single root logger piping all operations.
 
 `slog` also defers most processing until the time log entries are actually written,

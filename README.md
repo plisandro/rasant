@@ -37,7 +37,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
     - [systemd](https://systemd.io/)'s journald.
     - syslog [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164) (classic BSD) and [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424) (2009) protocols.
-  - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
+  - [Dynamic async logging](#asynchronous-logging) with constant lock time.
 
 See [Why Rasant?](assets/why_rasant.md) for more background, and comparsions with other
 logging solutions for Rust.

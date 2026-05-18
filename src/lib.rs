@@ -18,7 +18,7 @@
 //!     - [systemd](https://systemd.io/)'s journald.
 //!     - syslog [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) (classic BSD) and
 //!       [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) (2009) protocols.
-//!   - Support for [dynamic async logging](#asynchronous-logging) with constant lock time.
+//!   - [Dynamic async logging](#asynchronous-logging) with constant lock time.
 //!
 //! # Examples
 //!
@@ -255,7 +255,7 @@
 //! zero-allocation.
 //!
 //! The vectored nature of [logger](Logger) storage also makes cloning and dropping
-//! these! extremely efficient.
+//! these extremely efficient.
 //!
 //! ## Cloning and Stacking
 //!
@@ -273,18 +273,18 @@
 //! ## Asynchronous Operation
 //!
 //! By default, log operations lock until writes are propagated to all [sink]s
-//! associated! with a given [logger](Logger).
+//! associated with a given [logger](Logger).
 //!
 //! To improve performance when slow and/or a high number of [sink]s is involved,
 //! Rasant supports dynamic asynchronous logging.
 //!
 //! Loggers can be switched to asynchronous mode via [`Logger::set_async()`]. When
-//! enabled, log! operations defer writes by pushing them into a processing queue,
+//! enabled, log operations defer writes by pushing them into a processing queue,
 //! and return immediately.
 //!
 //! Rasant will spawn a single thread to handle all asynchronous write operations, and
 //! close it automatically once no async [logger](Logger)s are present, and all their
-//! deferred! writes have flushed.
+//! deferred writes have flushed.
 //!
 //! ## Log Filters
 //!

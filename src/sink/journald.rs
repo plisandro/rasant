@@ -5,7 +5,7 @@
 //! values converted to systemd journal structured fields:
 //!
 //!   - [Scalar][Value::Scalar]s are converted directly to field values.
-//!   - [Lists][Value::List]s are converted directly to repeated field values.
+//!   - [List][Value::List]s are converted directly to repeated field values.
 //!   - [Map][Value::Map]s have no native representation in journal entries,
 //!     so they get converted into a repeated field of `{key: value}`.
 //!
