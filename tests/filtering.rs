@@ -48,7 +48,7 @@ fn burst() {
 		let mut log = rasant::Logger::new();
 		log.set_level(Level::Info)
 			.add_filter(filter::sample::Burst::new(filter::sample::BurstConfig {
-				period: ntime::Duration::from_millis(5),
+				period: ntime::Duration::from_millis(50),
 				max_updates: 2,
 			}))
 			.add_sink(mem_sink);
@@ -56,7 +56,7 @@ fn burst() {
 		for i in 0..15 {
 			r::info!(log, "test info", iteration = i + 1);
 			r::debug!(log, "i'm ignored :(");
-			ntime::sleep_millis(1);
+			ntime::sleep_millis(10);
 		}
 	}
 

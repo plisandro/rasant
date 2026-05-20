@@ -42,16 +42,17 @@
 //!   - [`SyslogFormat::RFC5424Full`] is identical to [`SyslogFormat::RFC5424`], but log
 //!     attributes are also serialized as text and appended to the log message.
 
+use crate::attributes::{Map, Scalar, Value};
+#[cfg(unix)]
+use crate::constant::DEFAULT_LOCAL_SYSLOG_SOCKETS;
+use crate::constant::{HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
+use crate::{encoding, sink};
 use ntime;
 use std::io;
 use std::io::{BufWriter, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream, UdpSocket};
 #[cfg(unix)]
 use std::os::unix::net::UnixDatagram;
-
-use crate::attributes::{Map, Scalar, Value};
-use crate::constant::{DEFAULT_LOCAL_SYSLOG_SOCKETS, HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
-use crate::{encoding, sink};
 
 /// Supported syslog formats.
 #[derive(Debug, PartialEq)]
@@ -218,11 +219,11 @@ impl Syslog {
 		let process_name = PROCESS_NAME.clone();
 		let process_id = *PROCESS_ID;
 		let facility_mask = (conf.facility as u16) << 3;
-		let mut errs = String::new();
 
 		match conf.server {
 			#[cfg(unix)]
 			SyslogSocket::Local => {
+				let mut errs = String::new();
 				let dg = UnixDatagram::unbound().expect("failed to initialize Unix datagram socket for syslog");
 				for path in DEFAULT_LOCAL_SYSLOG_SOCKETS {
 					match dg.connect(path) {

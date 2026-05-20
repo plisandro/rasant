@@ -65,6 +65,7 @@ impl Default for MemoryConfig {
 			type_str: "default".into(),
 			formatter_cfg: format::FormatterConfig {
 				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
 				..format::FormatterConfig::default()
 			},
 			mock_time: false,
@@ -161,4 +162,9 @@ impl sink::Sink for Memory {
 	fn flush(&mut self) -> io::Result<()> {
 		Ok(())
 	}
+}
+
+/// Returns an initialized memory buffer [sink][`crate::sink`], with default values.
+pub fn default() -> Memory {
+	Memory::new(MemoryConfig::default())
 }

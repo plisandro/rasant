@@ -314,7 +314,7 @@ mod burst {
 		let args = attributes::Map::new();
 		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
 		let mut filter = Burst::new(BurstConfig {
-			period: Duration::from_millis(5),
+			period: Duration::from_millis(50),
 			max_updates: 3,
 		});
 
@@ -323,7 +323,7 @@ mod burst {
 			if filter.pass(&update, &args) {
 				got.push(i + 1);
 			}
-			ntime::sleep_millis(1);
+			ntime::sleep_millis(10);
 		}
 
 		let want: Vec<usize> = [1, 2, 3, 6, 7, 8, 11, 12, 13].to_vec();

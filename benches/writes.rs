@@ -1,6 +1,5 @@
 use divan::{Bencher, counter};
 use rasant as r;
-use rasant::sink;
 use rasant::sink::black_hole::{BlackHole, BlackHoleConfig};
 use rasant::sink::syslog::{Syslog, SyslogConfig, SyslogFormat};
 use rasant::{FormatterConfig, OutputFormat, TimeFormat};
@@ -81,9 +80,12 @@ fn io_cbor(bencher: Bencher) {
 	run(bencher, sink);
 }
 
+#[cfg(unix)]
 #[divan::bench]
 fn journald(bencher: Bencher) {
-	let sink = sink::journald::black_hole();
+	use rasant::sink::journald;
+
+	let sink = journald::black_hole();
 
 	run(bencher, sink);
 }

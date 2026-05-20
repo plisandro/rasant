@@ -29,16 +29,17 @@ fn append() {
 	{
 		// First pass, write to file + string
 		let mut log = r::Logger::new();
-		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
-			formatter_cfg: FormatterConfig::default(),
-			..sink::memory::MemoryConfig::default()
-		});
+		let mem_sink = sink::memory::default();
 		let string_out = mem_sink.output();
 
 		log.set_level(Level::Info).add_sink(mem_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
-			formatter_cfg: FormatterConfig::default(),
+			formatter_cfg: FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..FormatterConfig::default()
+			},
 			append: true,
 			..sink::file::FileConfig::default()
 		}));
@@ -57,16 +58,17 @@ fn append() {
 	{
 		// Second pass, write to file + string
 		let mut log = r::Logger::new();
-		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
-			formatter_cfg: FormatterConfig::default(),
-			..sink::memory::MemoryConfig::default()
-		});
+		let mem_sink = sink::memory::default();
 		let string_out = mem_sink.output();
 
 		log.set_level(Level::Info).add_sink(mem_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
-			formatter_cfg: FormatterConfig::default(),
+			formatter_cfg: FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..FormatterConfig::default()
+			},
 			append: true,
 			..sink::file::FileConfig::default()
 		}));
@@ -96,7 +98,11 @@ fn overwrite() {
 		let mut log = r::Logger::new();
 		log.set_level(Level::Info).add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
-			formatter_cfg: FormatterConfig::default(),
+			formatter_cfg: FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..FormatterConfig::default()
+			},
 			append: false,
 			..sink::file::FileConfig::default()
 		}));
@@ -111,16 +117,17 @@ fn overwrite() {
 	{
 		// Second pass, write to file + string
 		let mut log = r::Logger::new();
-		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
-			formatter_cfg: FormatterConfig::default(),
-			..sink::memory::MemoryConfig::default()
-		});
+		let mem_sink = sink::memory::default();
 		let string_out = mem_sink.output();
 
 		log.set_level(Level::Info).add_sink(mem_sink);
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
-			formatter_cfg: FormatterConfig::default(),
+			formatter_cfg: FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..FormatterConfig::default()
+			},
 			append: false,
 			..sink::file::FileConfig::default()
 		}));
