@@ -406,8 +406,7 @@ impl<'i> MapIter<'i> {
 }
 
 impl<'i> Iterator for MapIter<'i> {
-	// {key: value}
-	// TODO: return value reference?
+	// {key: Value}
 	type Item = (&'i str, Value<'i>);
 
 	fn next(&mut self) -> Option<Self::Item> {

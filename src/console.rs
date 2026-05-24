@@ -1,6 +1,9 @@
 use std::env;
 use std::io;
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::constant::ENV_VAR_COLORTERM;
 
 pub enum Color {
 	Default,
@@ -22,10 +25,28 @@ pub enum Color {
 	BrightWhite,
 }
 
-static COLORTERM_OK: LazyLock<bool> = LazyLock::new(|| env::var("COLORTERM").is_ok());
+static COLORTERM_OK: LazyLock<bool> = LazyLock::new(|| env::var(ENV_VAR_COLORTERM).is_ok());
+// COLORTERM_OVERRIDE and COLORTERM_OVERRIDE_VALUE allow forcing COLORTERM status, while introducing as little overhead as possible.
+static COLORTERM_OVERRIDE: AtomicBool = AtomicBool::new(false);
+static COLORTERM_OVERRIDE_VALUE: AtomicBool = AtomicBool::new(false);
+
+// forces a return value for colorterm status
+pub fn colorterm_force(b: bool) {
+	COLORTERM_OVERRIDE_VALUE.store(b, Ordering::Relaxed);
+	COLORTERM_OVERRIDE.store(true, Ordering::Relaxed);
+}
+
+// resets forced colorterm status.
+pub fn colorterm_unforce() {
+	COLORTERM_OVERRIDE.store(false, Ordering::Relaxed);
+}
 
 impl Color {
 	fn supported(&self) -> bool {
+		if COLORTERM_OVERRIDE.load(Ordering::Relaxed) {
+			return COLORTERM_OVERRIDE_VALUE.load(Ordering::Relaxed);
+		}
+
 		*COLORTERM_OK
 	}
 

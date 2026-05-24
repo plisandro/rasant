@@ -3,6 +3,9 @@ use std::env;
 use std::process;
 use std::sync::LazyLock;
 
+/// Ennvironment variable to detect the presence of ANSI color-capable terminals.
+pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
+
 /// Process ID running this module.
 pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
 
