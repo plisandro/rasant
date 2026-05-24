@@ -167,7 +167,6 @@ impl<'i, const N: usize> From<&'i [&'i [Scalar; N]; 2]> for Value<'i> {
 
 /* ----------------------- Tests ----------------------- */
 
-// TODO: add tests for Map
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -205,17 +204,14 @@ mod tests {
 		assert_eq!(Value::from(&Timestamp::from_millis(67890)), Value::Scalar(Scalar::Uint(67)));
 	}
 
-	// TODO: clean me up
 	#[test]
 	fn from_value_set() {
 		let arr = [Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
 		let slice = &[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
-		//assert_eq!(Value::from(arr), Value::List(&[Scalar::Bool(true), Scalar::String("boo".into()), Scalar::Size(-12345678901234567)]));
 		assert_eq!(Value::from(&arr), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
 		assert_eq!(Value::from(slice), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
 	}
 
-	// TODO: clean me up
 	#[test]
 	fn from_value_map() {
 		let arrays = [
@@ -225,7 +221,6 @@ mod tests {
 		let slices = &[&[Scalar::from("key_c"), Scalar::from("key_d")], &[Scalar::Bool(true), Scalar::Int(456)]];
 
 		assert_eq!(
-			//Value::from(arrays),
 			Value::from(&arrays),
 			Value::Map(
 				&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],

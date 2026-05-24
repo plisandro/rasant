@@ -26,13 +26,13 @@ fn methods() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234
-2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]
-2026-03-04 15:10:17.468 [INF] list from slice result=[123, 456, 789]
-2026-03-04 15:10:18.702 [INF] map from arrays #1 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}
-2026-03-04 15:10:19.936 [INF] map from arrays #2 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}
-2026-03-04 15:10:21.170 [INF] map from slices #1 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}
-2026-03-04 15:10:22.404 [INF] map from slices #2 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}";
+	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234\n\
+	            2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]\n\
+				2026-03-04 15:10:17.468 [INF] list from slice result=[123, 456, 789]\n\
+				2026-03-04 15:10:18.702 [INF] map from arrays #1 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}\n\
+				2026-03-04 15:10:19.936 [INF] map from arrays #2 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}\n\
+				2026-03-04 15:10:21.170 [INF] map from slices #1 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}\n\
+				2026-03-04 15:10:22.404 [INF] map from slices #2 map={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}";
 
 	assert_eq!(got, want);
 }
@@ -62,11 +62,11 @@ fn macros() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234
-2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]
-2026-03-04 15:10:17.468 [INF] list from scalars result=[123, 456.789, \"lalala\"]
-2026-03-04 15:10:18.702 [INF] map from arrays result={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}
-2026-03-04 15:10:19.936 [INF] map from map!() result={\"key_a\": 123, 456: 789.012, \"key_c\": \"string!\"}";
+	let want = "2026-03-04 15:10:15.000 [INF] single value result=1234\n\
+	            2026-03-04 15:10:16.234 [INF] list from array result=[123, 456, 789]\n\
+				2026-03-04 15:10:17.468 [INF] list from scalars result=[123, 456.789, \"lalala\"]\n\
+				2026-03-04 15:10:18.702 [INF] map from arrays result={\"key_a\": 123, \"key_b\": 456, \"key_c\": 789}\n\
+				2026-03-04 15:10:19.936 [INF] map from map!() result={\"key_a\": 123, 456: 789.012, \"key_c\": \"string!\"}";
 
 	assert_eq!(got, want);
 }

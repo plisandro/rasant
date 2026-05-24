@@ -31,16 +31,16 @@ fn macro_logging() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100
-2026-03-04 15:10:16.234 [INF] root test, info without args
-2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"
-2026-03-04 15:10:18.702 [WRN] root test, warn
-2026-03-04 15:10:19.936 [DBG] root test, debug a_float=3.1415926
-2026-03-04 15:10:21.170 [INF] first test info number=1
-2026-03-04 15:10:22.404 [WRN] first test warn number=1 warning=\"fire!\"
-2026-03-04 15:10:23.638 [DBG] first test debug number=1
-2026-03-04 15:10:24.872 [ERR] something failed error=\"oh no\" number=1
-2026-03-04 15:10:26.106 [ERR] another error error=\"again!\" number=1 with=\"attributes\"";
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100\n\
+	            2026-03-04 15:10:16.234 [INF] root test, info without args\n\
+				2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"\n\
+				2026-03-04 15:10:18.702 [WRN] root test, warn\n\
+				2026-03-04 15:10:19.936 [DBG] root test, debug a_float=3.1415926\n\
+				2026-03-04 15:10:21.170 [INF] first test info number=1\n\
+				2026-03-04 15:10:22.404 [WRN] first test warn number=1 warning=\"fire!\"\n\
+				2026-03-04 15:10:23.638 [DBG] first test debug number=1\n\
+				2026-03-04 15:10:24.872 [ERR] something failed error=\"oh no\" number=1\n\
+				2026-03-04 15:10:26.106 [ERR] another error error=\"again!\" number=1 with=\"attributes\"";
 
 	assert_eq!(got, want);
 }

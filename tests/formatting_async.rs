@@ -25,12 +25,12 @@ fn async_output() {
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [INF] root test info
-2026-03-04 15:10:16.234 [WRN] root test warn
-2026-03-04 15:10:17.468 [FAT] oh no something horrible happened why=\"fire!\"
-2026-03-04 15:10:18.702 [INF] first test info number=1
-2026-03-04 15:10:19.936 [WRN] first test warn number=1
-2026-03-04 15:10:21.170 [ERR] something failed error=\"oh no\" number=1";
+	let want = "2026-03-04 15:10:15.000 [INF] root test info\n\
+	            2026-03-04 15:10:16.234 [WRN] root test warn\n\
+				2026-03-04 15:10:17.468 [FAT] oh no something horrible happened why=\"fire!\"\n\
+				2026-03-04 15:10:18.702 [INF] first test info number=1\n\
+				2026-03-04 15:10:19.936 [WRN] first test warn number=1\n\
+				2026-03-04 15:10:21.170 [ERR] something failed error=\"oh no\" number=1";
 
 	assert_eq!(got, want);
 }

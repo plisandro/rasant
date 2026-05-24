@@ -26,11 +26,11 @@ fn step() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=7
-2026-03-04 15:10:16.234 [INF] test info iteration=14
-2026-03-04 15:10:17.468 [INF] test info iteration=21
-2026-03-04 15:10:18.702 [INF] test info iteration=28
-2026-03-04 15:10:19.936 [INF] test info iteration=35";
+	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=7\n\
+	            2026-03-04 15:10:16.234 [INF] test info iteration=14\n\
+				2026-03-04 15:10:17.468 [INF] test info iteration=21\n\
+				2026-03-04 15:10:18.702 [INF] test info iteration=28\n\
+				2026-03-04 15:10:19.936 [INF] test info iteration=35";
 
 	assert_eq!(got, want);
 }
@@ -61,12 +61,12 @@ fn burst() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=1
-2026-03-04 15:10:16.234 [INF] test info iteration=2
-2026-03-04 15:10:17.468 [INF] test info iteration=6
-2026-03-04 15:10:18.702 [INF] test info iteration=7
-2026-03-04 15:10:19.936 [INF] test info iteration=11
-2026-03-04 15:10:21.170 [INF] test info iteration=12";
+	let want = "2026-03-04 15:10:15.000 [INF] test info iteration=1\n\
+	            2026-03-04 15:10:16.234 [INF] test info iteration=2\n\
+				2026-03-04 15:10:17.468 [INF] test info iteration=6\n\
+				2026-03-04 15:10:18.702 [INF] test info iteration=7\n\
+				2026-03-04 15:10:19.936 [INF] test info iteration=11\n\
+				2026-03-04 15:10:21.170 [INF] test info iteration=12";
 
 	assert_eq!(got, want);
 }
