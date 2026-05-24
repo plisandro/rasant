@@ -143,6 +143,16 @@ impl Journald {
 
 		Ok(())
 	}
+
+	// Serializes all attributes as plaintext into the write buffer.
+	fn write_buf_attributes_text(&mut self, attrs: &Map) -> io::Result<()> {
+		// TODO: handle escaping?
+		for (key, val) in attrs.iter() {
+			write!(&mut self.output_buf, " {key}={val}")?;
+		}
+
+		Ok(())
+	}
 }
 
 impl sink::Sink for Journald {
@@ -174,12 +184,13 @@ MESSAGE\n",
 		//
 		let msg_start = self.output_buf.len();
 		self.output_buf.write(update.msg.as_bytes())?;
-		match self.message_format {
-			MessageFormat::Raw => _ = self.output_buf.write(&[b'\n'])?,
-			MessageFormat::WithAttributes => write!(&mut self.output_buf, " {}\n", attrs)?,
-		};
+		if self.message_format == MessageFormat::WithAttributes {
+			self.write_buf_attributes_text(attrs)?;
+		}
+
 		// the final LF doesn't count against the message size
-		let msg_len = self.output_buf.len() - msg_start - 1;
+		let msg_len = self.output_buf.len() - msg_start;
+		self.output_buf.write(&[b'\n'])?;
 		self.output_buf.splice(msg_start..msg_start, (msg_len as u64).to_le_bytes());
 
 		self.write_buf_attribute_fields(attrs)?;
