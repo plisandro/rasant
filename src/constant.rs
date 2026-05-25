@@ -3,6 +3,8 @@ use std::env;
 use std::process;
 use std::sync::LazyLock;
 
+use crate::c_bindings;
+
 /// Ennvironment variable to detect the presence of ANSI color-capable terminals.
 pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
 
@@ -25,8 +27,11 @@ pub static PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
 });
 
 /// System hostname
-// TODO: fix me!
-pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| String::from("localhost"));
+// TODO: Replace with std::net::hostname(), once no longer experimental.
+pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get_hostname() {
+	Some(s) => s,
+	None => String::from("localhost"),
+});
 
 /// UTF-8 byte-order-mark
 pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];

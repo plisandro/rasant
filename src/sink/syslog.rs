@@ -554,6 +554,7 @@ mod tests {
 			});
 			sink.process_name = "test_process".into();
 			sink.process_id = 1234;
+			sink.hostname = "localhost".into();
 			assert!(sink.log(&update, &attrs).is_ok());
 
 			let got = str::from_utf8(&sink.output_buf).unwrap();
