@@ -35,6 +35,8 @@ pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get
 
 /// UTF-8 byte-order-mark
 pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
+/// Maximum size of a UTF-8 encoded char, in bytes.
+pub const UTF_8_CHAR_MAX_SIZE: usize = 4;
 
 /// Attribute key for error details.
 pub const ATTRIBUTE_KEY_ERROR: &str = "error";

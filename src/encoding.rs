@@ -1,10 +1,10 @@
 /// String encoding and escaping logic.
 use std::io;
 
-use crate::constant::UTF8_BOM;
+use crate::constant::{UTF_8_CHAR_MAX_SIZE, UTF8_BOM};
 
 // worst case scenario is '\x{NN}' for non-ASCII characters.
-const CHAR_ESCAPE_BUFFER_SIZE: usize = 6 * char::MAX_LEN_UTF8;
+const CHAR_ESCAPE_BUFFER_SIZE: usize = 6 * UTF_8_CHAR_MAX_SIZE;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mode {
@@ -90,7 +90,7 @@ pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 }
 
 pub fn char_write<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result<()> {
-	let mut buf: [u8; _] = [0; CHAR_ESCAPE_BUFFER_SIZE];
+	let mut buf: [u8; CHAR_ESCAPE_BUFFER_SIZE] = [0; CHAR_ESCAPE_BUFFER_SIZE];
 
 	out.write(char_encode(&mut buf, c, mode))?;
 	Ok(())
@@ -190,7 +190,7 @@ mod tests {
 		] {
 			let (c, mode, want): (char, Mode, &str) = tc;
 
-			let mut buf: [u8; _] = [0; CHAR_ESCAPE_BUFFER_SIZE];
+			let mut buf: [u8; CHAR_ESCAPE_BUFFER_SIZE] = [0; CHAR_ESCAPE_BUFFER_SIZE];
 			let got = char_encode(&mut buf, c, &mode);
 
 			assert_eq!(got, want.as_bytes());
