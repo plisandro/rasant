@@ -18,6 +18,7 @@ static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 /// Base logger structure for Rasant.
 pub struct Logger {
 	id: u32,
+	enabled: bool,
 	depth: sink::LogDepth,
 	level: Level,
 	async_sink_sender: Option<AsyncSinkSender>,
@@ -42,6 +43,7 @@ impl<'i> Logger {
 	pub fn new() -> Self {
 		Self {
 			id: Self::next_uuid(),
+			enabled: true,
 			depth: 0,
 			level: Level::Warning,
 			async_sink_sender: None,
@@ -51,6 +53,22 @@ impl<'i> Logger {
 			common_update: LogUpdate::blank(),
 			common_attributes: attributes::Map::new(),
 		}
+	}
+
+	/// Returns whether this [`Logger`] is enabled or not. Disabled loggers will not write to
+	/// any [`sink`], regardless of [`Level`].
+	pub fn is_enabled(&self) -> bool {
+		self.enabled
+	}
+
+	/// Enables this [`Logger`].
+	pub fn enable(&mut self) {
+		self.enabled = true;
+	}
+
+	/// Disables this [`Logger`].
+	pub fn disable(&mut self) {
+		self.enabled = false;
 	}
 
 	/// Returns `true` if this is a root [`Logger`] instance - i.e. it has no parents.
@@ -172,6 +190,9 @@ impl<'i> Logger {
 	}
 
 	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &'i str, attrs_1: [(&'i str, Value); X], attrs_2: [(&'i str, Value); Y]) -> &mut Self {
+		if !self.enabled {
+			return self;
+		}
 		if !self.has_sinks() {
 			panic!("tried to log without sinks configured for logger {id}", id = self.id);
 		}
@@ -353,6 +374,7 @@ impl Clone for Logger {
 
 		let mut clone = Self {
 			id: Self::next_uuid(),
+			enabled: self.enabled,
 			depth: self.depth + 1,
 			level: self.level,
 			// async state is modified via set_async()
@@ -423,6 +445,54 @@ mod basic {
 		for _ in 0..MAX_LOGGER_DEPTH + 1 {
 			log = log.clone();
 		}
+	}
+}
+
+#[cfg(test)]
+mod log_disabling {
+	use super::*;
+
+	#[test]
+	fn basic() {
+		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
+			mock_time: true,
+			formatter_cfg: format::FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..format::FormatterConfig::default()
+			},
+			..sink::memory::MemoryConfig::default()
+		});
+		let mem_sink_output = mem_sink.output();
+
+		let mut log = Logger::new();
+		log.add_sink(mem_sink).set_level(Level::Info);
+
+		let got: String;
+		{
+			log.disable();
+			assert!(!log.is_enabled());
+			log.info("these should not");
+			log.warn("log anything");
+			log.enable();
+			assert!(log.is_enabled());
+			log.info("but these");
+			log.warn("should");
+
+			got = mem_sink_output.as_string();
+		}
+
+		let want = "2026-03-04 15:10:15.000 [INF] but these\n\
+		            2026-03-04 15:10:16.234 [WRN] should";
+		assert_eq!(got, want);
+	}
+
+	#[test]
+	fn disabled_without_sink() {
+		let mut log = Logger::new();
+		log.disable();
+
+		log.info("disabled loggers without sinks should not panic");
 	}
 }
 
