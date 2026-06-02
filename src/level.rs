@@ -16,14 +16,16 @@ pub enum Level {
 	/// Normal operation updates.
 	Info = 2,
 	/// Unusual events that might require attention, but do not otherwise impact normal operation.
-	Warning = 4,
+	Warning = 3,
 	/// Error updates.
-	Error = 3,
+	Error = 4,
 	/// Appplication-wide errors from which recovery is impoosible.
 	Fatal = 5,
 	/// Similar to [`Level::Fatal`], but the application panics right after logging the update.
 	Panic = 6,
 }
+
+const ALL_LEVELS: [Level; 7] = [Level::Trace, Level::Debug, Level::Info, Level::Warning, Level::Error, Level::Fatal, Level::Panic];
 
 impl Level {
 	/// Returns a numeric value for the log level.
@@ -97,5 +99,64 @@ impl Level {
 impl ToString for Level {
 	fn to_string(&self) -> String {
 		self.as_str().into()
+	}
+}
+
+impl TryFrom<&str> for Level {
+	type Error = &'static str;
+
+	fn try_from(name: &str) -> Result<Self, <Level as TryFrom<&str>>::Error> {
+		for l in ALL_LEVELS {
+			if name.eq_ignore_ascii_case(l.as_str()) {
+				return Ok(l);
+			}
+		}
+
+		Err("invalid Level name")
+	}
+}
+
+impl TryFrom<u8> for Level {
+	type Error = &'static str;
+
+	fn try_from(value: u8) -> Result<Self, <Level as TryFrom<u8>>::Error> {
+		for l in ALL_LEVELS {
+			if value == l.value() {
+				return Ok(l);
+			}
+		}
+
+		Err("invalid Level value")
+	}
+}
+
+/* ----------------------- Tests ----------------------- */
+
+#[cfg(test)]
+mod from {
+	use super::*;
+
+	#[test]
+	fn name() {
+		assert_eq!(Level::try_from(""), Err("invalid Level name"));
+		assert_eq!(Level::try_from("boo"), Err("invalid Level name"));
+		assert_eq!(Level::try_from("iNfO"), Ok(Level::Info));
+		assert_eq!(Level::try_from("warNINg"), Ok(Level::Warning));
+		assert_eq!(Level::try_from("pnc"), Err("invalid Level name"));
+		assert_eq!(Level::try_from("panic"), Ok(Level::Panic));
+		assert_eq!(Level::try_from("tRa"), Err("invalid Level name"));
+		assert_eq!(Level::try_from("TRACE"), Ok(Level::Trace));
+	}
+
+	#[test]
+	fn value() {
+		assert_eq!(Level::try_from(0), Ok(Level::Trace));
+		assert_eq!(Level::try_from(1), Ok(Level::Debug));
+		assert_eq!(Level::try_from(2), Ok(Level::Info));
+		assert_eq!(Level::try_from(3), Ok(Level::Warning));
+		assert_eq!(Level::try_from(4), Ok(Level::Error));
+		assert_eq!(Level::try_from(5), Ok(Level::Fatal));
+		assert_eq!(Level::try_from(6), Ok(Level::Panic));
+		assert_eq!(Level::try_from(7), Err("invalid Level value"));
 	}
 }
