@@ -304,7 +304,6 @@ impl Map {
 		}
 	}
 
-	// TODO: properly handle repeated Map keys.
 	fn set(&mut self, key: &str, val: &Value) {
 		if key.is_empty() {
 			panic!("empty log attribute key {{\"\" -> {val:?}}}");
@@ -321,8 +320,19 @@ impl Map {
 			Value::List(ss) => (*ss, &[]),
 			Value::Map(keys, vals) => {
 				if keys.len() != vals.len() {
-					panic!("Map scalars mismatch for attribute key {{\"{key}\" -> {val:?}}}");
+					panic!("Map scalars mismatch for attribute key {{{key} -> {val:?}}}");
 				}
+				// TODO: handling duplicate keys without a panic would be nice...
+				for i in 0..keys.len() {
+					let key_i = &keys[i];
+					for j in i + 1..keys.len() {
+						let key_j = &keys[j];
+						if key_i == key_j {
+							panic!("Duplicate key for Map {{{key_i} -> {val_i}}} vs {{{key_j} -> {val_j}}}", val_i = &vals[i], val_j = &vals[j]);
+						}
+					}
+				}
+
 				(*keys, *vals)
 			}
 		};
@@ -650,6 +660,18 @@ mod map {
 			&Value::Map(
 				[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")].as_slice(),
 				[Scalar::from(123), Scalar::from("oh no")].as_slice(),
+			),
+		);
+	}
+
+	#[test]
+	#[should_panic]
+	fn insert_duplicate_key_map() {
+		Map::new().set(
+			"wrong_map",
+			&Value::Map(
+				[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_a")].as_slice(),
+				[Scalar::from(123), Scalar::from(456.789), Scalar::from("oh no")].as_slice(),
 			),
 		);
 	}
