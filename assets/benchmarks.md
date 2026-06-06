@@ -12,9 +12,13 @@ Depending on the scenario, Rasant v0.7.0 performs in average 9% to 55% faster
 than [slog](https://crates.io/crates/slog), second fastest in the benchmark,
 and 48% to 112% faster than [tracing](https://crates.io/crates/tracing).
 
-<img src="rust_logger_benchmark.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
+<p>
+    <img src="rust_logger_benchmark.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
+</p>
 
-<img src="rust_logger_benchmark_-_log_size.svg" title="https://github.com/jackson211/rust_logger_benchmark" height="960px"/>
+<p>
+    <img src="rust_logger_benchmark_-_log_size.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
+</p>
 
 ## Internal
 
