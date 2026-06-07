@@ -6,10 +6,76 @@ for very fast events, and fueled by a bit of frustration with existing loggers f
 From the beggining, the library's goal write _correct_ log information _as fast as possible_,
 with all other considerations being secondary to performance. It's still feature packed and
 highly configurable, but if a new feature means sacrificing too many cycles writing log
-entries to sinks, it's just not implemented.
+entries to sinks, it's not implemented.
 
 As a result, Rasant can routinely dispatch log entries to multiple sinks in tens of
 nanoseconds, and it's normally bottlenecked by I/O operations.
+
+## Architecture
+
+Rasant is built around self-contained, independent abstractions which can be cross-referenced,
+allowing very flexible setups while minimizing resource usage:
+
+  * **Loggers** handle the processing and parsing of log requests, including
+    arguments. These can be cheaply instantiated by either a `new()` constructor or
+    by cloning (a.k.a _stacking_), and are also very cheap to drop.
+  * **Sinks** materialize processed log requests in outputs, and can be shared across
+    loggers via stacking.
+  * **Filters** process log requests, and determine whether they should be written
+    into sinks or not, by different criteria. These also can be stacked across loggers.
+
+<p>
+    <img src="block_diagram_-_basic.svg" title="Basic block diagram" width="640px"/>
+</p>
+
+There is no global state in Rasant. Loggers, sinks, and filters can be independently
+instantiated, and destroyed, at any time.
+
+### Stacking
+
+Any logger, at any time, can be very efficiently cloned. This operation copies all settings from
+the parent (level, fixed attributes, sink references, filter references et al) into a new
+logger instance.
+
+This new logger will behave exactly as its parent, but it's otherwise _completely independent_
+from it. Subsequent changes made on a cloned logger will not affect its parent, and viceversa.
+
+<p>
+    <img src="block_diagram_-_stacking.svg" title="Stacking example block diagram" width="640px"/>
+</p>
+
+What this capability unlocks is very efficient, and poweful, **stacking** of logger instances.
+There's no need to rely on a global state to handle logging within functions, methods, closures,
+subprocesses nor threads; loggers can be simply cloned, passed as parameters, and dropped once no
+longer necessary. Cloned loggers can then change levels, modify or introduce new fixed arguments,
+and even define new sinks and filters, without affecting the rest.
+
+Sinks and filters are shared by reference, and preserve state across stacked loggers. So for
+example, a rate limiting filter such as `filter::Burst` will correctly limit sink writes for
+a parent logger and all its clones - and sub-clones.
+
+### Asynchronous Logging
+
+Any logger, at any time, can independently enable/disable asynchronous mode. Rasant keeps track
+of asynchronous logger instances and, when any exists, spawns a common async queue handler running
+on a dedicated thread, which is automatically destroyed once no asynchronous logger instances
+are present.
+
+This handler takes processed log requests from loggers, and executes them sequentially through a
+FIFO queue, decoupling sink writes from log calls. Non-async and async loggers writing to the same
+sinks can safely coexist.
+
+<p>
+    <img src="block_diagram_-_async.svg" title="Asynchronous logging block diagram" width="640px"/>
+</p>
+
+Having an intermediate queue means log operations become slightly slower, as data needs to be
+copied with each call, but it effectively gives log calls a fixed, predictable lock time, which is very
+useful when sink write operations are expected to be slow.
+
+The async queue handler is the only global abstraction in Rasant, and it's designed to be as
+lightweight as possible. The handler is simple and stateless, tracking async loggers via a global
+refcounts, and blindly dispatching write operations to log sinks by reference.
 
 ## Design and Behavior
 
@@ -51,7 +117,7 @@ All logging abstractions (loggers themselves, sinks, filters) are designed to be
 cheap, simple and self-contained. This makes loggers, and shared items such as sinks,
 very efficient to instantiate, clone and destroy.
 
-There are no global root loggers, sinks or overall state in Rasant. The _only_ global
+There are no global root loggers, sinks or overall state in Rasant. The only global
 abstraction is a single async queue handler, shared by all loggers in asynchronous
 mode, and mostly because Rust supports only native OS threads in the standard library.
 This handler is otherwise stateless, blindly dispatching queued write operations to
@@ -94,8 +160,8 @@ very mature, with plenty of third party extension crates available.
 happening with frequencies of 100s of nanoseconds. A regular log call can easily
 take 4x that ammount of time to complete.
 
-In general, `tracing` is an **excellent** fit if you lean into Tokio's event-driven
-model, where processes end up being bound by I/O rather than CPU cycles. 
+In general, `tracing` is an excellent fit if you lean into Tokio's event-driven
+model, and your processes are bound by I/O rather than CPU cycles. 
 
 ### slog
 
