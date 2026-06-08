@@ -64,9 +64,9 @@ pub const DEFAULT_LOG_DELIMITER_STRING: &[u8] = "\n".as_bytes();
 pub const DEFAULT_LOG_DELIMITER_STRING: &[u8] = "\r\n".as_bytes();
 
 /// How long to wait for open threads to finalize.
-pub const THREAD_FINALIZE_TIMEOUT: Duration = Duration::from_secs(5);
+pub const THREAD_FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
 /// How often to check on open threads for finalization.
-pub const THREAD_FINALIZE_SPINLOCK_WAIT: Duration = Duration::from_millis(50);
+pub const THREAD_FINALIZE_SPINLOCK_WAIT: Duration = Duration::from_millis(100);
 
 /// Timeout for network operations.
 pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);

@@ -72,7 +72,11 @@ impl AsyncSinkHandler {
 				let start = Timestamp::now();
 				while !rx_handler.is_finished() {
 					if Timestamp::now().diff_as_duration(&start) > THREAD_FINALIZE_TIMEOUT {
-						panic!("failed to shut downh AsyncSinkHanlder after {wait:?}", wait = THREAD_FINALIZE_TIMEOUT);
+						panic!(
+							"failed to shut down AsyncSinkHandler after {wait:?} with {refcount} async loggers",
+							wait = THREAD_FINALIZE_TIMEOUT,
+							refcount = refcount()
+						);
 					};
 					sleep(THREAD_FINALIZE_SPINLOCK_WAIT);
 					thread::yield_now();
@@ -110,13 +114,17 @@ pub fn inc_refcount() {
 
 /// Decrements the count of active loggers referencing the global async handler.
 pub fn dec_refcount() {
-	let mut count = GLOBAL_ASYNC_HANDLER_REFCOUNT.lock().unwrap();
-	if *count == 0 {
-		panic!("async loggers count decremented below zero");
+	let no_loggers: bool;
+	{
+		let mut count = GLOBAL_ASYNC_HANDLER_REFCOUNT.lock().unwrap();
+		if *count == 0 {
+			panic!("async loggers count decremented below zero");
+		}
+		*count -= 1;
+		no_loggers = *count == 0;
 	}
-	*count -= 1;
 
-	if *count == 0 {
+	if no_loggers {
 		// force handler shutdown once no loggers are referencing the async queue
 		drop();
 	}
