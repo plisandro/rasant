@@ -337,6 +337,8 @@ mod types;
 // Public exported symbols
 pub mod filter;
 pub mod sink;
+pub use attributes::MapIter as AttributesIter;
+pub use attributes::MapKeyIter as AttributesKeyIter;
 pub use attributes::scalar::Scalar;
 pub use attributes::value::Value;
 pub use format::{FormatterConfig, OutputFormat};

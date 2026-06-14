@@ -5,7 +5,6 @@
 //! writes, flush-on-write, and buffering via [`std::io::BufWriter`].
 use std::io;
 
-use crate::attributes;
 use crate::format;
 use crate::sink;
 use crate::sink::Sink;
@@ -74,12 +73,12 @@ impl<'i> sink::Sink for IO<'i> {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
+	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
 		if self.written_to || (!self.written_to && self.initial_delimiter) {
 			self.formatter.write_delimiter(&mut self.out)?;
 		}
 
-		self.formatter.write(&mut self.out, update, attrs)?;
+		self.formatter.write(&mut self.out, update)?;
 		self.written_to = true;
 
 		match self.flush_on_write {

@@ -8,7 +8,6 @@ use ntime::{Duration, Timestamp};
 use std::string;
 use std::u64;
 
-use crate::attributes;
 use crate::filter::Filter;
 use crate::sink;
 use crate::types::Rand;
@@ -59,7 +58,7 @@ impl Filter for Random {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, _: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
 		self.rand.next() <= self.threshold
 	}
 }
@@ -93,7 +92,7 @@ impl Filter for Step {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, _: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
 		if self.step == 0 {
 			return true;
 		}
@@ -149,7 +148,7 @@ impl Filter for RandomStep {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, _: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
 		if self.step == 0 {
 			return true;
 		}
@@ -201,7 +200,7 @@ impl Filter for Burst {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, _: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
 		if self.period == Duration::from_millis(0) {
 			return true;
 		}
@@ -228,18 +227,21 @@ mod random {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = Random::with_seed(RandomConfig { probability: 0.33 }, 27182818);
 		let args = attributes::Map::new();
-		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
-			if filter.pass(&update, &args) {
+			if filter.pass(&update) {
 				got.push(i + 1);
 			}
 		}
@@ -254,18 +256,21 @@ mod step {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = Step::new(StepConfig { step: 3 });
 		let args = attributes::Map::new();
-		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..15 {
-			if filter.pass(&update, &args) {
+			if filter.pass(&update) {
 				got.push(i + 1);
 			}
 		}
@@ -280,18 +285,21 @@ mod random_step {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = RandomStep::with_seed(RandomStepConfig { step: 7 }, 27182818);
 		let args = attributes::Map::new();
-		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
-			if filter.pass(&update, &args) {
+			if filter.pass(&update) {
 				got.push(i + 1);
 			}
 		}
@@ -306,13 +314,17 @@ mod burst {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let args = attributes::Map::new();
-		let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let update = LogUpdate::from((&pupdate, &args));
+
 		let mut filter = Burst::new(BurstConfig {
 			period: Duration::from_millis(50),
 			max_updates: 3,
@@ -320,7 +332,7 @@ mod burst {
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..15 {
-			if filter.pass(&update, &args) {
+			if filter.pass(&update) {
 				got.push(i + 1);
 			}
 			ntime::sleep_millis(10);

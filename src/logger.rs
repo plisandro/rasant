@@ -10,7 +10,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
-use crate::sink::LogUpdate;
+use crate::sink::{LogUpdate, PartialLogUpdate};
 use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
@@ -25,7 +25,7 @@ pub struct Logger {
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	filters: Vec<FilterRef>,
-	common_update: LogUpdate,
+	common_partial_update: PartialLogUpdate,
 	common_attributes: attributes::Map,
 }
 
@@ -50,7 +50,7 @@ impl<'i> Logger {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			filters: Vec::new(),
-			common_update: LogUpdate::blank(),
+			common_partial_update: PartialLogUpdate::blank(),
 			common_attributes: attributes::Map::new(),
 		}
 	}
@@ -214,27 +214,28 @@ impl<'i> Logger {
 			}
 		};
 
-		self.common_update.set_when(Timestamp::now());
-		self.common_update.set_level(level);
-		self.common_update.set_msg(msg);
-		let update = &self.common_update;
+		// TODO: replace with copy_from() once ntime supports it.
+		self.common_partial_update.when = Timestamp::now();
+		self.common_partial_update.level = level;
+		self.common_partial_update.set_msg(msg);
+		let update = LogUpdate::from((&self.common_partial_update, attrs));
 
 		// apply filters, if any
-		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update, &attrs)) {
+		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {
 			return self;
 		}
 
 		// if we're about to panic, parse the message before attempting to
 		// deliver the log update - and losing ownership.
-		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update, attrs)) } else { None };
+		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update)) } else { None };
 
 		for asink in self.sinks.iter() {
 			let res = match self.async_sink_sender {
 				Some(ref tx) => {
-					queue::log(&tx, &asink, &update, &attrs);
+					queue::log(&tx, &asink, &update);
 					Ok(())
 				}
-				None => asink.lock().unwrap().log(&update, &attrs),
+				None => asink.lock().unwrap().log(&update),
 			};
 			if let Err(e) = res {
 				panic!("failed to log update {update:?} on sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
@@ -382,7 +383,7 @@ impl Clone for Logger {
 			attributes: self.attributes.clone(),
 			sinks: self.sinks.clone(),
 			filters: self.filters.clone(),
-			common_update: LogUpdate::blank(),
+			common_partial_update: PartialLogUpdate::blank(),
 			common_attributes: attributes::Map::new(),
 		};
 		clone.set_async(self.is_async());

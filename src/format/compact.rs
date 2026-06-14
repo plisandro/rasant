@@ -78,16 +78,16 @@ pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::R
 	}
 }
 
-/// Serializes a [`LogUpdate`], + attributes [`Map`] as [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate, attrs: &Map) -> io::Result<()> {
+/// Serializes a [`LogUpdate`] as [`OutputFormat::Compact`] into a [`io::Write`].
+pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// build output header
-	update.when.write(out, time_format)?;
-	write!(out, " [{level}] {msg}", level = update.level.as_short_str(), msg = update.msg)?;
+	update.when().write(out, time_format)?;
+	write!(out, " [{level}] {msg}", level = update.level().as_short_str(), msg = update.message())?;
 
 	// append fields
-	for (key, val) in attrs.iter() {
+	for (key, val) in update.attributes().iter() {
 		write!(out, " {key}=")?;
-		write_value(out, attrs, &val)?;
+		write_value(out, update.attributes(), &val)?;
 	}
 
 	Ok(())
@@ -98,8 +98,10 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 #[cfg(test)]
 mod tests {
 	use super::*;
+
 	use crate::attributes::{Scalar, Value};
 	use crate::level::Level;
+	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -160,13 +162,6 @@ mod tests {
 
 	#[test]
 	fn serialize() {
-		let update = LogUpdate::new(
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			"test compact update ❤️".into(),
-		);
-		let time_format = &ntime::Format::TimestampNanoseconds;
-
 		let mut attrs = Map::new();
 		attrs.insert("an_int", Value::from(123));
 		attrs.insert("a_float", Value::from(-456.789));
@@ -174,10 +169,19 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
+		let pupdate = PartialLogUpdate::new(
+			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
+			Level::Warning,
+			"test compact update ❤️".into(),
+		);
+
+		let update = LogUpdate::from((&pupdate, &attrs));
+		let time_format = &ntime::Format::TimestampNanoseconds;
+
 		let want =
 			"1776016599123000456 [WRN] test compact update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}";
 		let mut out = Vec::new();
-		assert!(write(&mut out, time_format, &update, &attrs).is_ok());
+		assert!(write(&mut out, time_format, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 	}
 }

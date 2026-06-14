@@ -380,13 +380,14 @@ impl Map {
 	}
 }
 
-/// A key iterator for [`Map`]
+/// A key iterator for attribute maps.
 pub struct MapKeyIter<'s> {
 	map: &'s Map,
 	idx: usize,
 }
 
 impl<'i> MapKeyIter<'i> {
+	/// Intiializes an attribute map key iterator.
 	pub fn new(map: &'i Map) -> Self {
 		Self { map: map, idx: 0 }
 	}
@@ -403,13 +404,14 @@ impl<'i> Iterator for MapKeyIter<'i> {
 	}
 }
 
-/// A key:value iterator for [`Map`].
+/// A key:[`Value`] iterator for attribute maps.
 pub struct MapIter<'s> {
 	map: &'s Map,
 	idx: usize,
 }
 
 impl<'i> MapIter<'i> {
+	/// Intiializes an attribute map key -> [`Value`] iterator.
 	pub fn new(map: &'i Map) -> Self {
 		Self { map: map, idx: 0 }
 	}

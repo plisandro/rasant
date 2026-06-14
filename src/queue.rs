@@ -5,7 +5,7 @@ use std::thread;
 
 use crate::attributes;
 use crate::constant::{THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
-use crate::sink::LogUpdate;
+use crate::sink::{LogUpdate, PartialLogUpdate};
 use crate::types::{AsyncSinkSender, SinkRef};
 
 static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncSinkHandler>> = Mutex::new(None);
@@ -13,8 +13,14 @@ static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u32> = Mutex::new(0);
 
 pub enum AsyncSinkOp {
 	// TODO: allow for multiple sinks in the same Log op
-	Log { sink: SinkRef, update: LogUpdate, attrs: attributes::Map },
-	FlushSink { sink: SinkRef },
+	Log {
+		sink: SinkRef,
+		partial_update: PartialLogUpdate,
+		attrs: attributes::Map,
+	},
+	FlushSink {
+		sink: SinkRef,
+	},
 }
 
 struct AsyncSinkHandler {
@@ -29,13 +35,16 @@ impl AsyncSinkHandler {
 		let rx_handler = thread::spawn(move || {
 			while let Ok(cmd) = rx.recv() {
 				match cmd {
-					AsyncSinkOp::Log { sink, update, attrs } => match sink.lock() {
-						Ok(mut s) => match s.log(&update, &attrs) {
-							Ok(_) => (),
-							Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
-						},
-						Err(e) => panic!("failed to acquire lock on sink: {e}"),
-					},
+					AsyncSinkOp::Log { sink, partial_update, attrs } => {
+						let update = LogUpdate::from((&partial_update, &attrs));
+						match sink.lock() {
+							Ok(mut s) => match s.log(&update) {
+								Ok(_) => (),
+								Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
+							},
+							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						}
+					}
 					AsyncSinkOp::FlushSink { sink } => match sink.lock() {
 						Ok(mut s) => match s.flush() {
 							Ok(_) => (),
@@ -136,16 +145,17 @@ pub fn get_sender() -> AsyncSinkSender {
 }
 
 /// Queues a log operation for the async handler.
-pub fn log(tx: &AsyncSinkSender, sink: &SinkRef, update: &LogUpdate, attrs: &attributes::Map) {
+pub fn log(tx: &AsyncSinkSender, sink: &SinkRef, update: &LogUpdate) {
+	let (partial_update, attrs) = update.parts();
 	match tx.send(AsyncSinkOp::Log {
 		sink: sink.clone(),
-		update: update.clone(),
+		partial_update: partial_update.clone(),
 		attrs: attrs.clone(),
 	}) {
 		Ok(_) => (),
 		Err(e) => {
 			let sink_name = sink.lock().unwrap().name().to_string();
-			panic!("failed to queue log update {update:?} + {attrs} on {sink_name}: {e}");
+			panic!("failed to queue log update {update:?} +  {attrs} on {sink_name}: {e}");
 		}
 	};
 }

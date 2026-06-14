@@ -29,26 +29,26 @@ pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::R
 	compact::write_value(out, attrs, val)
 }
 
-/// Serializes a [`LogUpdate`], + attributes [Map] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate, attrs: &Map) -> io::Result<()> {
+/// Serializes a [`LogUpdate`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
+pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// update messages above debug are highlighted in white
-	let msg_color = if Level::Debug.includes(&update.level) { Color::Default } else { Color::BrightWhite };
-	let level_color = update.level.color();
+	let msg_color = if Level::Debug.includes(&update.level()) { Color::Default } else { Color::BrightWhite };
+	let level_color = update.level().color();
 
-	update.when.write(out, time_format)?;
+	update.when().write(out, time_format)?;
 	write!(
 		out,
 		" {level_open}{level}{level_close} {msg_open}{msg}{msg_close}",
 		level_open = level_color.to_escape_str(),
-		level = update.level.as_short_str(),
+		level = update.level().as_short_str(),
 		level_close = Color::Default.to_escape_str(),
 		msg_open = msg_color.to_escape_str(),
-		msg = update.msg,
+		msg = update.message(),
 		msg_close = Color::Default.to_escape_str(),
 	)?;
 
 	// append fields
-	for (key, val) in attrs.iter() {
+	for (key, val) in update.attributes().iter() {
 		write!(
 			out,
 			" {key_open}{key}{key_close}={vals_open}",
@@ -57,7 +57,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 			// error attributes are highlighted in red
 			vals_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
 		)?;
-		write_value(out, attrs, &val)?;
+		write_value(out, update.attributes(), &val)?;
 		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;
 	}
 
@@ -69,11 +69,10 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		attributes::{Scalar, Value},
-		console,
-	};
-	//use crate::level::Level;
+
+	use crate::attributes::{Scalar, Value};
+	use crate::console;
+	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -110,18 +109,19 @@ mod tests {
 
 	#[test]
 	fn serialize_color() {
-		let update = LogUpdate::new(
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			"test compact update".into(),
-		);
-		let time_format = &ntime::Format::TimestampNanoseconds;
-
 		let mut attrs = Map::new();
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+
+		let pupdate = PartialLogUpdate::new(
+			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
+			Level::Warning,
+			"test compact update".into(),
+		);
+		let update = LogUpdate::from((&pupdate, &attrs));
+		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		for tc in [
 			(
@@ -138,7 +138,7 @@ mod tests {
 			let mut out = Vec::new();
 
 			console::colorterm_force(enable);
-			assert!(write(&mut out, time_format, &update, &attrs).is_ok());
+			assert!(write(&mut out, time_format, &update).is_ok());
 			console::colorterm_unforce();
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}

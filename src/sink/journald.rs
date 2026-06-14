@@ -160,7 +160,7 @@ impl sink::Sink for Journald {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate, attrs: &Map) -> io::Result<()> {
+	fn log<'f>(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		self.output_buf.clear();
 
 		// TODO: add _HOSTNAME?
@@ -171,8 +171,8 @@ _SOURCE_REALTIME_TIMESTAMP={timestamp}
 PRIORITY={level}
 MESSAGE\n",
 			pid = self.process_id,
-			timestamp = update.when.as_millis(),
-			level = update.level.syslog_severity(),
+			timestamp = update.when().as_millis(),
+			level = update.level().syslog_severity(),
 		)?;
 
 		// MESSAGEs must be RLEncoded, per https://systemd.io/JOURNAL_NATIVE_PROTOCOL/, as
@@ -183,9 +183,9 @@ MESSAGE\n",
 		// journald protocol.
 		//
 		let msg_start = self.output_buf.len();
-		self.output_buf.write(update.msg.as_bytes())?;
+		self.output_buf.write(update.message().as_bytes())?;
 		if self.message_format == MessageFormat::WithAttributes {
-			self.write_buf_attributes_text(attrs)?;
+			self.write_buf_attributes_text(update.attributes())?;
 		}
 
 		// the final LF doesn't count against the message size
@@ -193,7 +193,7 @@ MESSAGE\n",
 		self.output_buf.write(&[b'\n'])?;
 		self.output_buf.splice(msg_start..msg_start, (msg_len as u64).to_le_bytes());
 
-		self.write_buf_attribute_fields(attrs)?;
+		self.write_buf_attribute_fields(update.attributes())?;
 
 		match &self.datagram {
 			Some(dg) => _ = dg.send(self.output_buf.as_slice())?,
@@ -228,6 +228,7 @@ mod tests {
 
 	use crate::attributes::{Scalar, Value};
 	use crate::level::Level;
+	use crate::sink::PartialLogUpdate;
 	use crate::sink::{LogUpdate, Sink};
 
 	#[test]
@@ -260,7 +261,7 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 		for tc in [(MessageFormat::Raw, want_raw), (MessageFormat::WithAttributes, want_with_attrs)] {
 			let (message_format, want) = tc;
 
-			let update = LogUpdate::new(
+			let pupdate = PartialLogUpdate::new(
 				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 				Level::Warning,
 				"test Syslog message update".into(),
@@ -276,13 +277,15 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 				Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee 💔")])),
 			);
 
+			let update = LogUpdate::from((&pupdate, &attrs));
+
 			let mut sink = Journald::black_hole(JournaldConfig {
 				message_format: message_format,
 				..JournaldConfig::default()
 			});
 			sink.process_id = 12345;
 
-			assert!(sink.log(&update, &attrs).is_ok());
+			assert!(sink.log(&update).is_ok());
 
 			let got = &sink.output_buf;
 			assert_eq!(got, want);

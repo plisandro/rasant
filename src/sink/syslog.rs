@@ -431,12 +431,12 @@ impl sink::Sink for Syslog {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate, attrs: &Map) -> io::Result<()> {
+	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
 		self.output_buf.clear();
 		match self.format {
 			SyslogFormat::RFC5424 | SyslogFormat::RFC5424Full => {
-				write!(&mut self.output_buf, "<{pri}>1 ", pri = self.facility_mask + update.level.syslog_severity())?;
-				update.when.write(&mut self.output_buf, &ntime::Format::UtcNanosRFC3339)?;
+				write!(&mut self.output_buf, "<{pri}>1 ", pri = self.facility_mask + update.level().syslog_severity())?;
+				update.when().write(&mut self.output_buf, &ntime::Format::UtcNanosRFC3339)?;
 				write!(
 					self.output_buf,
 					" {hostname} {process_name} {process_id} - ",
@@ -444,24 +444,24 @@ impl sink::Sink for Syslog {
 					process_name = self.process_name,
 					process_id = self.process_id
 				)?;
-				self.write_buf_attributes_5424(attrs)?;
+				self.write_buf_attributes_5424(update.attributes())?;
 				self.output_buf.write(&[b' '])?;
-				encoding::str_write(&mut self.output_buf, update.msg.as_str(), &encoding::Mode::Utf8Bom)?;
+				encoding::str_write(&mut self.output_buf, update.message(), &encoding::Mode::Utf8Bom)?;
 				if self.format == SyslogFormat::RFC5424Full {
-					self.write_buf_attributes_text(attrs)?;
+					self.write_buf_attributes_text(update.attributes())?;
 				}
 			}
 			SyslogFormat::RFC3164 => {
-				write!(&mut self.output_buf, "<{pri}>", pri = self.facility_mask + update.level.syslog_severity())?;
-				update.when.write(&mut self.output_buf, &ntime::Format::LocalRFC3164)?;
+				write!(&mut self.output_buf, "<{pri}>", pri = self.facility_mask + update.level().syslog_severity())?;
+				update.when().write(&mut self.output_buf, &ntime::Format::LocalRFC3164)?;
 				write!(
 					self.output_buf,
 					" {process_name}[{process_id}]: {message}",
 					process_name = self.process_name,
 					process_id = self.process_id,
-					message = update.msg,
+					message = update.message(),
 				)?;
-				self.write_buf_attributes_text(attrs)?;
+				self.write_buf_attributes_text(update.attributes())?;
 			}
 		}
 
@@ -511,7 +511,7 @@ mod tests {
 
 	use crate::attributes::{Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::{LogUpdate, Sink};
+	use crate::sink::{LogUpdate, PartialLogUpdate, Sink};
 
 	#[test]
 	fn output_format() {
@@ -534,7 +534,7 @@ mod tests {
 		] {
 			let (format, want) = tc;
 
-			let update = LogUpdate::new(
+			let pupdate = PartialLogUpdate::new(
 				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 				Level::Warning,
 				"test Syslog message update ❤️".into(),
@@ -547,6 +547,8 @@ mod tests {
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
+			let update = LogUpdate::from((&pupdate, &attrs));
+
 			let mut sink = Syslog::new(SyslogConfig {
 				server: SyslogSocket::BlackHole(),
 				format: format,
@@ -555,7 +557,7 @@ mod tests {
 			sink.process_name = "test_process".into();
 			sink.process_id = 1234;
 			sink.hostname = "localhost".into();
-			assert!(sink.log(&update, &attrs).is_ok());
+			assert!(sink.log(&update).is_ok());
 
 			let got = str::from_utf8(&sink.output_buf).unwrap();
 

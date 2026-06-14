@@ -8,7 +8,6 @@
 
 use std::string;
 
-use crate::attributes;
 use crate::filter::Filter;
 use crate::level::Level;
 use crate::sink;
@@ -41,8 +40,8 @@ impl Filter for In {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, update: &sink::LogUpdate, _: &attributes::Map) -> bool {
-		self.levels.iter().any(|l| *l == update.level)
+	fn pass<'f>(&mut self, update: &sink::LogUpdate) -> bool {
+		self.levels.iter().any(|l| *l == *update.level())
 	}
 }
 
@@ -53,12 +52,12 @@ mod tests {
 	use super::*;
 	use ntime::Timestamp;
 
+	use crate::attributes;
 	use crate::filter::Filter;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn level_in() {
-		let args = attributes::Map::new();
-
 		let mut filter = In::new(InConfig {
 			levels: [Level::Trace, Level::Warning, Level::Panic],
 		});
@@ -73,9 +72,9 @@ mod tests {
 			(Level::Panic, true),
 		] {
 			let (level, want): (Level, bool) = tc;
-			let update = sink::LogUpdate::new(Timestamp::now(), level, "this is a test log".into());
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), level, "this is a test log".into());
 
-			assert_eq!(filter.pass(&update, &args), want);
+			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &attributes::Map::new()))), want);
 		}
 	}
 }

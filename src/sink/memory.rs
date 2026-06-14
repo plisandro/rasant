@@ -82,6 +82,7 @@ pub struct Memory {
 	frozen_logger_id: Option<u32>,
 	frozen_now: Option<ntime::Timestamp>,
 	frozen_now_tick: Option<ntime::Duration>,
+	mock_partial_update: sink::PartialLogUpdate,
 	mock_attributes: attributes::Map,
 }
 
@@ -102,6 +103,7 @@ impl Memory {
 				None
 			},
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
+			mock_partial_update: sink::PartialLogUpdate::blank(),
 			mock_attributes: attributes::Map::new(),
 		}
 	}
@@ -122,16 +124,17 @@ impl sink::Sink for Memory {
 		self.name.as_str()
 	}
 
-	fn log(&mut self, update: &sink::LogUpdate, attrs: &attributes::Map) -> io::Result<()> {
+	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
 		let mut out = self.out.lock().unwrap();
 
 		let entry = if self.frozen_now.is_some() || self.frozen_logger_id.is_some() {
 			// apply mocks
-			let mut mock_update = update.clone();
-			self.mock_attributes.copy_from(attrs);
+			let (pupdate, uattrs) = update.parts();
+			self.mock_partial_update.copy_from(pupdate);
+			self.mock_attributes.copy_from(uattrs);
 
 			if let Some(t) = self.frozen_now.as_mut() {
-				mock_update.when = t.clone();
+				self.mock_partial_update.when = t.clone();
 			}
 			if let Some(id) = self.frozen_logger_id {
 				if self.mock_attributes.has(ATTRIBUTE_KEY_LOGGER_ID) {
@@ -140,9 +143,9 @@ impl sink::Sink for Memory {
 				};
 			}
 
-			self.formatter.as_bytes(&mock_update, &self.mock_attributes)
+			self.formatter.as_bytes(&sink::LogUpdate::from((&self.mock_partial_update, &self.mock_attributes)))
 		} else {
-			self.formatter.as_bytes(update, attrs)
+			self.formatter.as_bytes(update)
 		};
 
 		if !out.is_empty() {

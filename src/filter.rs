@@ -7,7 +7,6 @@ pub mod level;
 pub mod matches;
 pub mod sample;
 
-use crate::attributes;
 use crate::sink::LogUpdate;
 
 /// Defines a log filter usable by [Logger][`crate::logger::Logger`]s.
@@ -15,10 +14,10 @@ pub trait Filter {
 	/// Returns a [`&str`] name for the filter.
 	fn name(&self) -> &str;
 	/// Verifies whether a [`LogUpdate`] with attributes shouuld be logged.
-	fn pass(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> bool;
+	fn pass<'f>(&mut self, update: &'f LogUpdate) -> bool;
 
 	/// Verifies whether a [`LogUpdate`] with attributes shouuld be skipped.
-	fn skip(&mut self, update: &LogUpdate, attrs: &attributes::Map) -> bool {
-		!self.pass(update, attrs)
+	fn skip<'f>(&mut self, update: &LogUpdate) -> bool {
+		!self.pass(update)
 	}
 }

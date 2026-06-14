@@ -55,21 +55,21 @@ impl Filter for Message {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, update: &sink::LogUpdate, _: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
 		match self.match_all {
 			true => {
-				if !self.has.iter().all(|x| update.msg.contains((*x).as_str())) {
+				if !self.has.iter().all(|x| update.message().contains((*x).as_str())) {
 					return false;
 				}
-				if !self.has_not.iter().all(|x| !update.msg.contains((*x).as_str())) {
+				if !self.has_not.iter().all(|x| !update.message().contains((*x).as_str())) {
 					return false;
 				}
 			}
 			false => {
-				if !self.has.is_empty() && !self.has.iter().any(|x| update.msg.contains((*x).as_str())) {
+				if !self.has.is_empty() && !self.has.iter().any(|x| update.message().contains((*x).as_str())) {
 					return false;
 				}
-				if !self.has_not.is_empty() && !self.has_not.iter().any(|x| !update.msg.contains((*x).as_str())) {
+				if !self.has_not.is_empty() && !self.has_not.iter().any(|x| !update.message().contains((*x).as_str())) {
 					return false;
 				}
 			}
@@ -120,11 +120,11 @@ impl Filter for AttributeKey {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, attrs: &attributes::Map) -> bool {
+	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
 		let mut has_matches: usize = 0;
 		let mut has_not_matches: usize = 0;
 
-		for key in attrs.key_iter() {
+		for key in update.attributes().key_iter() {
 			has_matches += self.has.iter().filter(|x| key == *x).count();
 			has_not_matches += self.has_not.iter().filter(|x| key == *x).count();
 		}
@@ -195,8 +195,8 @@ impl Filter for AttributeValue {
 		self.name.as_str()
 	}
 
-	fn pass(&mut self, _: &sink::LogUpdate, attrs: &attributes::Map) -> bool {
-		let Some(val) = attrs.get(self.key.as_str()) else {
+	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
+		let Some(val) = update.attributes().get(self.key.as_str()) else {
 			return false;
 		};
 		if self.has.is_empty() && self.has_not.is_empty() {
@@ -217,7 +217,7 @@ impl Filter for AttributeValue {
 			};
 
 			for s in ss {
-				s.into_raw_string(&mut self.str_cache, attrs);
+				s.into_raw_string(&mut self.str_cache, update.attributes());
 				if !found_has && i < self.has.len() {
 					found_has = self.str_cache.contains(self.has[i].as_str())
 				}
@@ -250,13 +250,13 @@ mod tests {
 	use crate::attributes::Value;
 	use crate::filter::Filter;
 	use crate::level::Level;
+	use crate::sink::LogUpdate;
 
 	#[test]
 	fn message() {
 		fn run(mut filter: Message, want: bool) {
-			let args = attributes::Map::new();
-			let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
-			assert_eq!(filter.pass(&update, &args), want);
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &attributes::Map::new()))), want);
 		}
 
 		run(
@@ -454,13 +454,13 @@ mod tests {
 	#[test]
 	fn attribute_keys_single() {
 		fn run(mut filter: AttributeKey, want: bool) {
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
 			let mut args = attributes::Map::new();
 			args.insert("a_string", Value::from("hello there!"));
 			args.insert("an_int", Value::from(12345));
 			args.insert("a_float", Value::from(6789.0123 as f32));
 
-			let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
-			assert_eq!(filter.pass(&update, &args), want);
+			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &args))), want);
 		}
 
 		run(
@@ -567,13 +567,13 @@ mod tests {
 	#[test]
 	fn attribute_values() {
 		fn run(mut filter: AttributeValue, want: bool) {
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
 			let mut args = attributes::Map::new();
 			args.insert("a_string", Value::from("hello there!"));
 			args.insert("an_int", Value::from(12345));
 			args.insert("a_float", Value::from(6789.0123 as f32));
 
-			let update = sink::LogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
-			assert_eq!(filter.pass(&update, &args), want);
+			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &args))), want);
 		}
 
 		run(
