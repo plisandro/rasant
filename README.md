@@ -32,11 +32,12 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
   - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
   - Leveled, [structured](#attributes) contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
-  - [Log filters](#filtering) with sampling support.
+  - [Log filters](#filtering), including log sampling, with support for third-party implementations.
   - [Highly configurable log sinks](#configuring-sinks):
     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
     - [systemd](https://systemd.io/)'s journald.
     - syslog [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164) (classic BSD) and [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424) (2009) protocols.
+    - Support for third-party sink implementations.
   - [Dynamic async logging](#asynchronous-logging) with constant lock time.
 
 See [Why Rasant?](assets/why_rasant.md) for background, design details, and comparsions with other
@@ -241,7 +242,6 @@ Contributions will be accepted under the [project's license](#licence).
 Rasant is under active development, with more features planned for future versions.
 
   - New output formants (hierarchical pretty print?)
-  - Support for third-party log sinks
   - [Protobuf](https://protobuf.dev/) binary format support?
 
 ## License

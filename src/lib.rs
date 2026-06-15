@@ -12,12 +12,13 @@
 //!   - *Blazing fast* performance, with zero allocations on most operations.
 //!   - [Level]ed, [structured](#attributes) contextual logging with [nanosecond precision](https://crates.io/crates/ntime).
 //!   - [Simple API](#basic-logging), with support for [stacked logging](#stacking).
-//!   - [Log filters](#filtering) with sampling support.
+//!   - [Log filters](#filtering), including log sampling, with support for [third-party implementations](#third-party-filters).
 //!   - [Highly configurable log sinks](#configuring-sinks):
 //!     - General I/O (files, stdout, stderr...) in text, JSON and [CBOR](https://cbor.io/) format.
 //!     - [systemd](https://systemd.io/)'s journald.
 //!     - syslog [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) (classic BSD) and
 //!       [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) (2009) protocols.
+//!     - Support for [third-party sink implementations](#third-party-sinks).
 //!   - [Dynamic async logging](#asynchronous-logging) with constant lock time.
 //!
 //! # Examples
@@ -215,6 +216,22 @@
 //!
 //! Once a [sink] is added to a [logger](Logger), it cannot be removed nor modified.
 //!
+//! ## Sinks
+//!
+//! [Sinks][sink]s are configurable destinations for log updates, of which [logger][Logger]s
+//! can have an arbitrary number of instances associated with. When a log operation
+//! is performed, [logger][Logger]s dispatch log writes to each of its [sink]s, in sequence.
+//!
+//! ### Third-Party Sinks
+//!
+//! If Rasant's built-in [sink]s don't fulfill your needs, these can be easily
+//! constructed as external modules, by implementing the [`sink::Sink`] trait. See
+//! `tests/` for examples.
+//!
+//! In general sinks are expected to be stateless and efficient. If your new sink code
+//! fulfills these requirements, and don't introduce unnecessary dependencies, consider
+//! [contributing it](#repository)!
+//!
 //! ## Attributes
 //!
 //! ### Types
@@ -300,6 +317,17 @@
 //! Note that [filter]s are evaluated at logging time, even for [logger](Logger)s in
 //! asynchronous mode; as a result, every [filter] will introduce additional latency
 //! on **all** log operations for that [logger](Logger).
+//!
+//! ### Third-Party Filters
+//!
+//! If Rasant's built-in filters don't fulfill your needs, these can be easily
+//! constructed as external modules, by implementing the [`filter::Filter`] trait. See
+//! `tests/` for examples.
+//!
+//! In general filters are expected to be lightweight and efficient, given that they
+//! are evaluated for every log update processed by [logger][Logger]s. If your new
+//! filter code fulfills these requirements, and don't introduce unnecessary
+//! dependencies, consider [contributing it](#repository)!
 //!
 //! ## Error Handling
 //!
