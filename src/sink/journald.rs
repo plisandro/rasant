@@ -137,7 +137,7 @@ impl Journald {
 
 	// Serializes all attributes as journald fields into the write buffer.
 	fn write_buf_attribute_fields(&mut self, attrs: &Map) -> io::Result<()> {
-		for (key, val) in attrs.iter() {
+		for (key, val) in attrs.key_value_iter() {
 			self.write_buf_value(attrs, key, &val)?;
 		}
 
@@ -147,7 +147,7 @@ impl Journald {
 	// Serializes all attributes as plaintext into the write buffer.
 	fn write_buf_attributes_text(&mut self, attrs: &Map) -> io::Result<()> {
 		// TODO: handle escaping?
-		for (key, val) in attrs.iter() {
+		for (key, val) in attrs.key_value_iter() {
 			write!(&mut self.output_buf, " {key}={val}")?;
 		}
 

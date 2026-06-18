@@ -85,7 +85,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	write!(out, " [{level}] {msg}", level = update.level().as_short_str(), msg = update.message())?;
 
 	// append fields
-	for (key, val) in update.attributes().iter() {
+	for (key, val) in update.attributes().key_value_iter() {
 		write!(out, " {key}=")?;
 		write_value(out, update.attributes(), &val)?;
 	}

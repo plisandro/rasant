@@ -196,7 +196,7 @@ impl Filter for AttributeValue {
 	}
 
 	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
-		let Some(val) = update.attributes().get(self.key.as_str()) else {
+		let Some(val) = update.attributes().get_value(self.key.as_str()) else {
 			return false;
 		};
 		if self.has.is_empty() && self.has_not.is_empty() {

@@ -6,10 +6,10 @@
 use ntime::Format;
 use std::io;
 
-use crate::attributes::Map;
 use crate::attributes::value::Value;
+use crate::attributes::{Map, MetadataField, MetadataImpl};
 use crate::console::Color;
-use crate::constant::{ATTRIBUTE_KEY_ERROR, DEFAULT_LOG_DELIMITER_STRING};
+use crate::constant::DEFAULT_LOG_DELIMITER_STRING;
 use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::level::Level;
@@ -48,14 +48,14 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	)?;
 
 	// append fields
-	for (key, val) in update.attributes().iter() {
+	for (key, val, meta) in update.attributes().iter() {
 		write!(
 			out,
 			" {key_open}{key}{key_close}={vals_open}",
 			key_open = Color::Cyan.to_escape_str(),
 			key_close = Color::Default.to_escape_str(),
 			// error attributes are highlighted in red
-			vals_open = if key == ATTRIBUTE_KEY_ERROR { Color::BrightRed.to_escape_str() } else { "" }
+			vals_open = if meta.get(MetadataField::Error) { Color::BrightRed.to_escape_str() } else { "" }
 		)?;
 		write_value(out, update.attributes(), &val)?;
 		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;

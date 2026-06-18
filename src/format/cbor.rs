@@ -221,7 +221,7 @@ pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: 
 	_ = write_string(out, &update.message())?;
 
 	// attributess
-	for (key, val) in update.attributes().iter() {
+	for (key, val) in update.attributes().key_value_iter() {
 		_ = write_string(out, key)?;
 		write_value(out, update.attributes(), &val)?;
 	}

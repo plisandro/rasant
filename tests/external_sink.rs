@@ -19,8 +19,8 @@ impl sink::Sink for DummySink {
 		let mut out = SINK_OUTPUT.lock().unwrap();
 
 		write!(out, "level: {:?}, msg: {}, attrs:", update.level(), update.message())?;
-		for (k, v) in update.attributes().iter() {
-			write!(out, " <{} -> {}>", k, v)?;
+		for (key, value, meta) in update.attributes().iter() {
+			write!(out, " <{} (metadata 0x{:08b}) -> {}>", key, meta, value)?;
 		}
 		out.push('\n' as u8);
 
@@ -43,8 +43,8 @@ fn external_sink() {
 	r::debug!(log, "i'm not logged at all :(");
 
 	let got = String::from_utf8(SINK_OUTPUT.lock().unwrap().clone()).expect("invalid UTF-8 contents for dummy sink");
-	let want = "level: Info, msg: single value, attrs: <result -> 1234>\n\
-	            level: Info, msg: a list, attrs: <result -> [1, 2, 3, 4]>\n";
+	let want = "level: Info, msg: single value, attrs: <result (metadata 0x00000000) -> 1234>\n\
+	            level: Info, msg: a list, attrs: <result (metadata 0x00000000) -> [1, 2, 3, 4]>\n";
 
 	assert_eq!(got, want);
 }

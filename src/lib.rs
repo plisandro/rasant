@@ -365,10 +365,10 @@ mod types;
 // Public exported symbols
 pub mod filter;
 pub mod sink;
-pub use attributes::MapIter as AttributesIter;
-pub use attributes::MapKeyIter as AttributesKeyIter;
 pub use attributes::scalar::Scalar;
 pub use attributes::value::Value;
+pub use attributes::{MapIter as AttributesIter, MapKeyIter as AttributesKeyIter, MapKeyValueIter as AttributesKeyValueIter};
+pub use attributes::{Metadata as AttributeMetadata, MetadataField as AttributeMetadataField};
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
 pub use logger::Logger;

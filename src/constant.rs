@@ -51,6 +51,11 @@ pub const ATTRIBUTE_KEY_TIMESTAMP: &str = "timestamp";
 /// Attribute key for logger IDs.
 pub const ATTRIBUTE_KEY_LOGGER_ID: &str = "logger_id";
 
+/// Restricted attribute keys; these cannot be set by end users.
+pub const ATTRIBUTE_KEYS_RESTRICTED: [&str; 3] = [ATTRIBUTE_KEY_LEVEL, ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP];
+/// Priority attribute keys. These are always returned first when iterating through attributes.
+pub const ATTRIBUTE_KEYS_PRIORITY: [&str; 2] = [ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_ERROR];
+
 /// Maximum allowed [`crate::logger::Logger`] depth.
 pub const MAX_LOGGER_DEPTH: u16 = 1024;
 

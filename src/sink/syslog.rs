@@ -401,7 +401,7 @@ impl Syslog {
 
 		// "[rasant@0 error=\"timeout reading from socket\" items=1120213 done=3493 extra=\"\\[1, 2, 3, 4, 5\\]\" more_extra=\"{{\\\"lala\\\": 1, \\\"lele\\\": 2}}\"]"
 		let mut i: usize = 0;
-		for (key, val) in attrs.iter() {
+		for (key, val) in attrs.key_value_iter() {
 			write!(&mut self.output_buf, "[rasant@{i} ")?;
 			encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8)?;
 			self.output_buf.write("=".as_bytes())?;
@@ -418,7 +418,7 @@ impl Syslog {
 	// have no support for structured data.
 	fn write_buf_attributes_text(&mut self, attrs: &Map) -> io::Result<()> {
 		// TODO: handle escaping?
-		for (key, val) in attrs.iter() {
+		for (key, val) in attrs.key_value_iter() {
 			write!(&mut self.output_buf, " {key}={val}")?;
 		}
 
