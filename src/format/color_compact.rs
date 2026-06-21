@@ -24,43 +24,39 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
-/// Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
+// Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
+fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
 	compact::write_value(out, attrs, val)
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
-	// update messages above debug are highlighted in white
-	let msg_color = if Level::Debug.includes(&update.level()) { Color::Default } else { Color::BrightWhite };
-	let level_color = update.level().color();
-
+	out.write(Color::White.to_escape_str().as_bytes())?;
 	update.when().write(out, time_format)?;
 	write!(
 		out,
-		" {level_open}{level}{level_close} {msg_open}{msg}{msg_close}",
-		level_open = level_color.to_escape_str(),
+		" {level_color}{level} {msg_color}{msg}",
+		level_color = update.level().color().to_escape_str(),
 		level = update.level().as_short_str(),
-		level_close = Color::Default.to_escape_str(),
-		msg_open = msg_color.to_escape_str(),
+		// update messages above debug are highlighted
+		msg_color = (if Level::Debug.includes(&update.level()) { Color::White } else { Color::BrightWhite }).to_escape_str(),
 		msg = update.message(),
-		msg_close = Color::Default.to_escape_str(),
 	)?;
 
 	// append fields
 	for (key, val, meta) in update.attributes().iter() {
 		write!(
 			out,
-			" {key_open}{key}{key_close}={vals_open}",
+			" {key_color}{key}={val_color}",
 			// non-ephemeral key names are highlighted
-			key_open = (if meta.get(MetadataField::Ephemeral) { Color::Cyan } else { Color::BrightCyan }).to_escape_str(),
-			key_close = Color::Default.to_escape_str(),
+			key_color = (if meta.get(MetadataField::Ephemeral) { Color::Cyan } else { Color::BrightCyan }).to_escape_str(),
 			// error attributes are highlighted in red
-			vals_open = if meta.get(MetadataField::Error) { Color::BrightRed.to_escape_str() } else { "" }
+			val_color = (if meta.get(MetadataField::Error) { Color::BrightRed } else { Color::White }).to_escape_str(),
 		)?;
 		write_value(out, update.attributes(), &val)?;
-		write!(out, "{vals_close}", vals_close = Color::Default.to_escape_str())?;
 	}
+
+	write!(out, "{color_close}", color_close = Color::Default.to_escape_str())?;
 
 	Ok(())
 }
@@ -132,7 +128,7 @@ mod tests {
 			),
 			(
 				true,
-				"1776016599123000456 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mtest compact update\u{1b}[0m \u{1b}[96man_int\u{1b}[0m=123\u{1b}[0m \u{1b}[36ma_float\u{1b}[0m=-456.789\u{1b}[0m \u{1b}[96msome_string\u{1b}[0m=\"hi there!\"\u{1b}[0m \u{1b}[36ma_set\u{1b}[0m=[0x14da0eb6, true]\u{1b}[0m",
+				"\u{1b}[37m1776016599123000456 \u{1b}[33mWRN \u{1b}[97mtest compact update \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]\u{1b}[0m",
 			),
 		] {
 			let (enable, want) = tc;
