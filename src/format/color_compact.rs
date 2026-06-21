@@ -52,7 +52,8 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 		write!(
 			out,
 			" {key_open}{key}{key_close}={vals_open}",
-			key_open = Color::Cyan.to_escape_str(),
+			// non-ephemeral key names are highlighted
+			key_open = (if meta.get(MetadataField::Ephemeral) { Color::Cyan } else { Color::BrightCyan }).to_escape_str(),
 			key_close = Color::Default.to_escape_str(),
 			// error attributes are highlighted in red
 			vals_open = if meta.get(MetadataField::Error) { Color::BrightRed.to_escape_str() } else { "" }
@@ -111,9 +112,9 @@ mod tests {
 	fn serialize_color() {
 		let mut attrs = Map::new();
 		attrs.insert("an_int", Value::from(123 as i32));
-		attrs.insert("a_float", Value::from(-456.789));
+		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
 		let pupdate = PartialLogUpdate::new(
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
@@ -130,7 +131,7 @@ mod tests {
 			),
 			(
 				true,
-				"1776016599123000456 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mtest compact update\u{1b}[0m \u{1b}[36man_int\u{1b}[0m=123\u{1b}[0m \u{1b}[36ma_float\u{1b}[0m=-456.789\u{1b}[0m \u{1b}[36msome_string\u{1b}[0m=\"hi there!\"\u{1b}[0m \u{1b}[36ma_set\u{1b}[0m=[0x14da0eb6, true]\u{1b}[0m",
+				"1776016599123000456 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mtest compact update\u{1b}[0m \u{1b}[96man_int\u{1b}[0m=123\u{1b}[0m \u{1b}[36ma_float\u{1b}[0m=-456.789\u{1b}[0m \u{1b}[96msome_string\u{1b}[0m=\"hi there!\"\u{1b}[0m \u{1b}[36ma_set\u{1b}[0m=[0x14da0eb6, true]\u{1b}[0m",
 			),
 		] {
 			let (enable, want) = tc;

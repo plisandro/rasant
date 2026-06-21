@@ -551,11 +551,11 @@ mod formatting {
 				time_format: ntime::Format::UtcMillisDateTime,
 				colorterm: true,
 				want: "2026-03-04 15:10:15.000 \u{1b}[32mINF\u{1b}[0m \u{1b}[97mroot test info\u{1b}[0m\n\
-                       2026-03-04 15:10:16.234 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mroot test warn\u{1b}[0m\n\
-                       2026-03-04 15:10:17.468 \u{1b}[32mINF\u{1b}[0m \u{1b}[97mfirst test info\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m\n\
-                       2026-03-04 15:10:18.702 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mfirst test warn\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m\n\
-                       2026-03-04 15:10:19.936 \u{1b}[36mDBG\u{1b}[0m \u{1b}[0mfirst test debug\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m\n\
-                       2026-03-04 15:10:21.170 \u{1b}[31mERR\u{1b}[0m \u{1b}[97msomething failed\u{1b}[0m \u{1b}[36merror\u{1b}[0m=\u{1b}[91m\"oh no\"\u{1b}[0m \u{1b}[36mnumber\u{1b}[0m=1\u{1b}[0m",
+				       2026-03-04 15:10:16.234 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mroot test warn\u{1b}[0m\n\
+				       2026-03-04 15:10:17.468 \u{1b}[32mINF\u{1b}[0m \u{1b}[97mfirst test info\u{1b}[0m \u{1b}[96mnumber\u{1b}[0m=1\u{1b}[0m\n\
+				       2026-03-04 15:10:18.702 \u{1b}[33mWRN\u{1b}[0m \u{1b}[97mfirst test warn\u{1b}[0m \u{1b}[96mnumber\u{1b}[0m=1\u{1b}[0m\n\
+				       2026-03-04 15:10:19.936 \u{1b}[94mDBG\u{1b}[0m \u{1b}[0mfirst test debug\u{1b}[0m \u{1b}[96mnumber\u{1b}[0m=1\u{1b}[0m\n\
+				       2026-03-04 15:10:21.170 \u{1b}[31mERR\u{1b}[0m \u{1b}[97msomething failed\u{1b}[0m \u{1b}[36merror\u{1b}[0m=\u{1b}[91m\"oh no\"\u{1b}[0m \u{1b}[96mnumber\u{1b}[0m=1\u{1b}[0m",
 			},
 			TestCase {
 				name: "compact color, non-ANSI console",

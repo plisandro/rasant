@@ -46,8 +46,8 @@ impl Level {
 	/// Returns a color associated with a given level, useful mostly for pretty printing.
 	pub fn color(&self) -> Color {
 		match *self {
-			Self::Trace => Color::Blue,
-			Self::Debug => Color::Cyan,
+			Self::Trace => Color::White,
+			Self::Debug => Color::BrightBlue,
 			Self::Info => Color::Green,
 			Self::Warning => Color::Yellow,
 			Self::Error => Color::Red,
