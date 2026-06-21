@@ -47,5 +47,5 @@ name = "log_write"
 harness = false
 
 [[bench]]
-name = "writes"
+name = "sinks"
 harness = false
