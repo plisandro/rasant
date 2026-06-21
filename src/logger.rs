@@ -207,8 +207,8 @@ impl<'i> Logger {
 				// straight up copying and extending ephemeral attributes is the most efficient
 				// way to deal with potential collisions. trust me, i've tried everything else.
 				self.common_attributes.copy_from(&self.attributes);
-				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref(k, &v));
-				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref(k, &v));
+				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
+				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 
 				&self.common_attributes
 			}

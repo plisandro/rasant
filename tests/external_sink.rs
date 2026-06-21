@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use rasant as r;
 use rasant::Level;
 use rasant::sink;
+use rasant::{AttributeMetadataField, AttributeMetadataImpl};
 
 static SINK_OUTPUT: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 
@@ -20,7 +21,7 @@ impl sink::Sink for DummySink {
 
 		write!(out, "level: {:?}, msg: {}, attrs:", update.level(), update.message())?;
 		for (key, value, meta) in update.attributes().iter() {
-			write!(out, " <{} (metadata 0x{:08b}) -> {}>", key, meta, value)?;
+			write!(out, " <{key}{eph} -> {value}>", eph = if meta.get(AttributeMetadataField::Ephemeral) { " (ephemeral)" } else { "" })?;
 		}
 		out.push('\n' as u8);
 
@@ -37,14 +38,15 @@ fn external_sink() {
 	let sink = DummySink {};
 	let mut log = rasant::Logger::new();
 	log.set_level(Level::Info).add_sink(sink);
+	r::set!(log, name = "test");
 
-	r::info!(log, "single value", result = 1234);
-	r::info!(log, "a list", result = r::list!([1, 2, 3, 4]));
+	r::info!(log, "single value", result_a = 1234);
+	r::info!(log, "a list", result_b = r::list!([1, 2, 3, 4]));
 	r::debug!(log, "i'm not logged at all :(");
 
 	let got = String::from_utf8(SINK_OUTPUT.lock().unwrap().clone()).expect("invalid UTF-8 contents for dummy sink");
-	let want = "level: Info, msg: single value, attrs: <result (metadata 0x00000000) -> 1234>\n\
-	            level: Info, msg: a list, attrs: <result (metadata 0x00000000) -> [1, 2, 3, 4]>\n";
+	let want = "level: Info, msg: single value, attrs: <name -> \"test\"> <result_a (ephemeral) -> 1234>\n\
+	            level: Info, msg: a list, attrs: <name -> \"test\"> <result_b (ephemeral) -> [1, 2, 3, 4]>\n";
 
 	assert_eq!(got, want);
 }

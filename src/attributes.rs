@@ -9,7 +9,7 @@ use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEYS_PRIORITY, ATTRIBUTE_KE
 pub use scalar::Scalar;
 pub use value::Value;
 
-/// Metadata flags for attributes.
+/// Attribute metadata flags for attributes.
 pub enum MetadataField {
 	/// The attribute key is restricted - i.e. it cannot be set by users.
 	Restricted = (1 << 0),
@@ -17,12 +17,17 @@ pub enum MetadataField {
 	Priority = (1 << 1),
 	/// An attribute for an error.
 	Error = (1 << 2),
-	// TODO: add ephemeral flag
+	/// Ephemeral attribute - i.e. defined just for an individual log write.
+	Ephemeral = (1 << 3),
 }
 
+/// Attribute metadata implementation.
 pub trait MetadataImpl {
+	/// Resolves base [`Metadata`] for a given attribute key, as [`&str].
 	fn from_key<'f>(key: &'f str) -> Self;
+	/// Evaluates whether a [`MetadataField`] is set or not.
 	fn get(&self, field: MetadataField) -> bool;
+	/// Sets/unsets a [`MetadataField`].
 	fn set(&mut self, field: MetadataField, value: bool);
 }
 
@@ -183,6 +188,10 @@ impl Map {
 
 	fn meta_by_idx(&self, idx: usize) -> Metadata {
 		self.keys[idx].1
+	}
+
+	fn set_meta_by_idx(&mut self, idx: usize, meta: Metadata) {
+		self.keys[idx].1 = meta
 	}
 
 	fn value_by_idx(&self, idx: usize) -> Value<'_> {
@@ -374,7 +383,7 @@ impl Map {
 		}
 	}
 
-	fn set(&mut self, key: &str, val: &Value) {
+	fn set(&mut self, key: &str, val: &Value, ephemeral: bool) {
 		if key.is_empty() {
 			panic!("empty log attribute key {{\"\" -> {val:?}}}");
 		}
@@ -382,7 +391,7 @@ impl Map {
 			panic!("invalid log attribute key {{\"{key}\" -> {val:?}}}");
 		}
 
-		let meta = Metadata::from_key(key);
+		let mut meta = Metadata::from_key(key);
 		if meta.get(MetadataField::Restricted) {
 			panic!("cannot use restricted log attribute key {{\"{key}\" -> {val:?}}}");
 		}
@@ -412,8 +421,13 @@ impl Map {
 			panic!("no scalars for attribute key {{\"{key}\" -> {val:?}}}");
 		}
 
+		if ephemeral {
+			meta.set(MetadataField::Ephemeral, true);
+		}
+
 		if let Some(i) = self.idx_by_key(key) {
 			// overwrite existing key
+			self.set_meta_by_idx(i, meta);
 			self.scalar_pool_replace(i, ss_1, ss_2);
 			return;
 		}
@@ -435,11 +449,19 @@ impl Map {
 	}
 
 	pub fn insert_ref(&mut self, key: &str, val: &Value) {
-		self.set(key, val);
+		self.set(key, val, false);
 	}
 
 	pub fn insert(&mut self, key: &str, val: Value) {
-		self.set(key, &val);
+		self.set(key, &val, false);
+	}
+
+	pub fn insert_ref_ephemeral(&mut self, key: &str, val: &Value) {
+		self.set(key, val, true);
+	}
+
+	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
+		self.set(key, &val, true);
 	}
 
 	pub fn str_by_idx<'f>(&'f self, idx: usize) -> &'f str {
@@ -541,8 +563,13 @@ impl<'i> Iterator for MapIter<'i> {
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut first: bool = true;
-		for (key, val, _) in self.iter() {
-			write!(f, "{spacer}{key}=", spacer = if first { "" } else { " " })?;
+		for (key, val, meta) in self.iter() {
+			write!(
+				f,
+				"{spacer}{ephemeral}{key}=",
+				spacer = if first { "" } else { " " },
+				ephemeral = if meta.get(MetadataField::Ephemeral) { "*" } else { "" }
+			)?;
 			val.write_fmt(f, self)?;
 			first = false;
 		}
@@ -561,11 +588,11 @@ mod map {
 	fn indexed_keys_order() {
 		let mut attr = Map::new();
 
-		attr.set("key_a", &Value::from(123));
-		attr.set("key_b", &Value::from(456));
-		attr.set("key_c", &Value::from(&[Scalar::from(789), Scalar::from("abc")]));
-		attr.set("key_b", &Value::from("overwrites should not change key order"));
-		attr.set("error", &Value::from("priority keys should go first"));
+		attr.set("key_a", &Value::from(123), true);
+		attr.set("key_b", &Value::from(456), false);
+		attr.set("key_c", &Value::from(&[Scalar::from(789), Scalar::from("abc")]), true);
+		attr.set("key_b", &Value::from("overwrites should not change key order"), true);
+		attr.set("error", &Value::from("priority keys should go first"), false);
 
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 5);
@@ -583,63 +610,63 @@ mod map {
 		assert_eq!(attr.len(), 0);
 		assert_eq!(attr.store_size(), 0);
 
-		attr.set("c", &Value::from(-5678));
-		attr.set("d", &Value::from(9012.3456));
-		attr.set("b", &Value::from(1234));
+		attr.set("c", &Value::from(-5678), true);
+		attr.set("d", &Value::from(9012.3456), false);
+		attr.set("b", &Value::from(1234), true);
 		assert_eq!(attr.len(), 3);
 		assert_eq!(attr.store_size(), 3);
-		assert_eq!(attr.to_string(), "c=-5678 d=9012.3456 b=1234");
+		assert_eq!(attr.to_string(), "*c=-5678 d=9012.3456 *b=1234");
 
 		// overwrite existing key
-		attr.set("d", &Value::from(7890.1234));
-		attr.set("error", &Value::from("first!"));
-		attr.set("e", &Value::from(&[Scalar::from(7788 as usize), Scalar::from(9900)]));
-		attr.set("a", &Value::Scalar(Scalar::from("lalala")));
+		attr.set("d", &Value::from(7890.1234), true);
+		attr.set("error", &Value::from("first!"), false);
+		attr.set("e", &Value::from(&[Scalar::from(7788 as usize), Scalar::from(9900)]), true);
+		attr.set("a", &Value::Scalar(Scalar::from("lalala")), false);
 		assert_eq!(attr.len(), 6);
 		assert_eq!(attr.store_size(), 7);
-		assert_eq!(attr.to_string(), "error=\"first!\" c=-5678 d=7890.1234 b=1234 e=[0x1e6c, 9900] a=\"lalala\"");
+		assert_eq!(attr.to_string(), "error=\"first!\" *c=-5678 *d=7890.1234 *b=1234 *e=[0x1e6c, 9900] a=\"lalala\"");
 	}
 
 	#[test]
 	fn key_overwrite() {
 		let mut attr = Map::new();
 
-		attr.set("a", &Value::from(&[Scalar::from(1234), Scalar::from(-5678)]));
-		attr.set("b", &Value::from("lalala"));
-		attr.set("c", &Value::from(&[Scalar::from(true), Scalar::from(false), Scalar::from(true)]));
-		attr.set("d", &Value::from(false));
+		attr.set("a", &Value::from(&[Scalar::from(1234), Scalar::from(-5678)]), false);
+		attr.set("b", &Value::from("lalala"), true);
+		attr.set("c", &Value::from(&[Scalar::from(true), Scalar::from(false), Scalar::from(true)]), false);
+		attr.set("d", &Value::from(false), true);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
-		assert_eq!(attr.to_string(), "a=[1234, -5678] b=\"lalala\" c=[true, false, true] d=false");
+		assert_eq!(attr.to_string(), "a=[1234, -5678] *b=\"lalala\" c=[true, false, true] *d=false");
 
 		// same size overwrite
-		attr.set("b", &Value::from(123.456));
+		attr.set("b", &Value::from(123.456), false);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
-		assert_eq!(attr.to_string(), "a=[1234, -5678] b=123.456 c=[true, false, true] d=false");
+		assert_eq!(attr.to_string(), "a=[1234, -5678] b=123.456 c=[true, false, true] *d=false");
 
 		// overwrite with size increasee
-		attr.set("b", &Value::from(&[Scalar::from(1), Scalar::from(2), Scalar::from(3), Scalar::from(4)]));
+		attr.set("b", &Value::from(&[Scalar::from(1), Scalar::from(2), Scalar::from(3), Scalar::from(4)]), true);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);
-		assert_eq!(attr.to_string(), "a=[1234, -5678] b=[1, 2, 3, 4] c=[true, false, true] d=false");
+		assert_eq!(attr.to_string(), "a=[1234, -5678] *b=[1, 2, 3, 4] c=[true, false, true] *d=false");
 
 		// overwrite with size decrease
-		attr.set("c", &Value::from("lololo"));
+		attr.set("c", &Value::from("lololo"), true);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 8);
-		assert_eq!(attr.to_string(), "a=[1234, -5678] b=[1, 2, 3, 4] c=\"lololo\" d=false");
+		assert_eq!(attr.to_string(), "a=[1234, -5678] *b=[1, 2, 3, 4] *c=\"lololo\" *d=false");
 
 		// modify the first and last attribute sizes to check edge handling
-		attr.set("a", &Value::from(1234));
+		attr.set("a", &Value::from(1234), true);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 7);
-		assert_eq!(attr.to_string(), "a=1234 b=[1, 2, 3, 4] c=\"lololo\" d=false");
+		assert_eq!(attr.to_string(), "*a=1234 *b=[1, 2, 3, 4] *c=\"lololo\" *d=false");
 
-		attr.set("d", &Value::from((&[Scalar::from("sub_a"), Scalar::from("sub_b")], &[Scalar::from(true), Scalar::from(false)])));
+		attr.set("d", &Value::from((&[Scalar::from("sub_a"), Scalar::from("sub_b")], &[Scalar::from(true), Scalar::from(false)])), false);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);
-		assert_eq!(attr.to_string(), "a=1234 b=[1, 2, 3, 4] c=\"lololo\" d={\"sub_a\": true, \"sub_b\": false}");
+		assert_eq!(attr.to_string(), "*a=1234 *b=[1, 2, 3, 4] *c=\"lololo\" d={\"sub_a\": true, \"sub_b\": false}");
 	}
 
 	#[test]
@@ -719,43 +746,43 @@ mod map {
 	#[test]
 	#[should_panic]
 	fn insert_empty_key() {
-		Map::new().set("", &Value::from("oh no"));
+		Map::new().set("", &Value::from("oh no"), false);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_whitespaces_key() {
-		Map::new().set("no whitespace\tin\tkeys", &Value::from("please!"));
+		Map::new().set("no whitespace\tin\tkeys", &Value::from("please!"), true);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_non_ascii() {
-		Map::new().set("como_estás", &Value::from(1234));
+		Map::new().set("como_estás", &Value::from(1234), false);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_unicode_key() {
-		Map::new().set("oh❤pretty!", &Value::from(5678));
+		Map::new().set("oh❤pretty!", &Value::from(5678), true);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_restricted_key() {
-		Map::new().set("level", &Value::from(55555));
+		Map::new().set("level", &Value::from(55555), false);
 	}
 
 	#[test]
 	#[should_panic]
 	fn insert_empty_list() {
-		Map::new().set("a_key", &Value::from(&[]));
+		Map::new().set("a_key", &Value::from(&[]), true);
 	}
 
 	#[test]
 	#[should_panic]
 	fn invalid_empty_map() {
-		Map::new().set("wrong_map", &Value::from((&[], &[])));
+		Map::new().set("wrong_map", &Value::from((&[], &[])), false);
 	}
 
 	#[test]
@@ -767,6 +794,7 @@ mod map {
 				[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")].as_slice(),
 				[Scalar::from(123), Scalar::from("oh no")].as_slice(),
 			),
+			true,
 		);
 	}
 
@@ -779,6 +807,7 @@ mod map {
 				[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_a")].as_slice(),
 				[Scalar::from(123), Scalar::from(456.789), Scalar::from("oh no")].as_slice(),
 			),
+			false,
 		);
 	}
 
