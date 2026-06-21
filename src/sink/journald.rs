@@ -264,6 +264,7 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 			let pupdate = PartialLogUpdate::new(
 				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 				Level::Warning,
+				1,
 				"test Syslog message update".into(),
 			);
 

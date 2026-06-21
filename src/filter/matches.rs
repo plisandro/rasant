@@ -255,7 +255,7 @@ mod tests {
 	#[test]
 	fn message() {
 		fn run(mut filter: Message, want: bool) {
-			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
 			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &attributes::Map::new()))), want);
 		}
 
@@ -454,7 +454,7 @@ mod tests {
 	#[test]
 	fn attribute_keys_single() {
 		fn run(mut filter: AttributeKey, want: bool) {
-			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "unused update :(".into());
 			let mut args = attributes::Map::new();
 			args.insert("a_string", Value::from("hello there!"));
 			args.insert("an_int", Value::from(12345));
@@ -567,7 +567,7 @@ mod tests {
 	#[test]
 	fn attribute_values() {
 		fn run(mut filter: AttributeValue, want: bool) {
-			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "unused update :(".into());
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "unused update :(".into());
 			let mut args = attributes::Map::new();
 			args.insert("a_string", Value::from("hello there!"));
 			args.insert("an_int", Value::from(12345));

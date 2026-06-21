@@ -537,6 +537,7 @@ mod tests {
 			let pupdate = PartialLogUpdate::new(
 				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 				Level::Warning,
+				0,
 				"test Syslog message update ❤️".into(),
 			);
 

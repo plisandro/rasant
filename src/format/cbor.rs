@@ -386,6 +386,7 @@ mod tests {
 		let pupdate = PartialLogUpdate::new(
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
+			0,
 			"test CBOR update".into(),
 		);
 
@@ -420,6 +421,7 @@ mod tests {
 		let pupdate = PartialLogUpdate::new(
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
+			0,
 			"test CBOR update #1".into(),
 		);
 		attrs.clear();
@@ -433,6 +435,7 @@ mod tests {
 		let pupdate = PartialLogUpdate::new(
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp"),
 			Level::Info,
+			0,
 			"test CBOR update #2".into(),
 		);
 		attrs.clear();

@@ -236,7 +236,7 @@ mod random {
 	fn filtering() {
 		let mut filter = Random::with_seed(RandomConfig { probability: 0.33 }, 27182818);
 		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
 		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
@@ -265,7 +265,7 @@ mod step {
 	fn filtering() {
 		let mut filter = Step::new(StepConfig { step: 3 });
 		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
 		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
@@ -294,7 +294,7 @@ mod random_step {
 	fn filtering() {
 		let mut filter = RandomStep::with_seed(RandomStepConfig { step: 7 }, 27182818);
 		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
 		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut got: Vec<usize> = Vec::new();
@@ -322,7 +322,7 @@ mod burst {
 	#[test]
 	fn filtering() {
 		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, "this is a test log".into());
+		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
 		let update = LogUpdate::from((&pupdate, &args));
 
 		let mut filter = Burst::new(BurstConfig {

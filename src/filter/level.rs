@@ -72,7 +72,7 @@ mod tests {
 			(Level::Panic, true),
 		] {
 			let (level, want): (Level, bool) = tc;
-			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), level, "this is a test log".into());
+			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), level, 0, "this is a test log".into());
 
 			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &attributes::Map::new()))), want);
 		}

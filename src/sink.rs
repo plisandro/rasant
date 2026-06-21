@@ -2,6 +2,7 @@
 //!
 //! This module defines the [`Sink`] and [`LogUpdate`] traits for sinks,
 //! and exports all available sink types.
+
 pub mod black_hole;
 pub mod file;
 pub mod io;
@@ -24,7 +25,7 @@ pub type LogDepth = u16;
 
 /// Details for a log update, _execept attributes_. This struct is later
 /// encapsulaed by [`LogUpdate`], allowing to handle attributes as references
-/// whenever possible, avoiding expensive copies while remaining
+/// whenever possible, and avoiding expensive copies while remaining
 /// [`Sync`]-compatible.
 #[derive(Clone, Debug)]
 pub struct PartialLogUpdate {
@@ -32,8 +33,8 @@ pub struct PartialLogUpdate {
 	pub when: ntime::Timestamp,
 	/// [Level][`level::Level`] for the log update.
 	pub level: level::Level,
-	// TODO: use me for fancy hierarchic log output
-	//depth: LogDepth,
+	/// Number of parent instances for the [`Logger`][crate::logger::Logger] generating this log update.
+	pub depth: LogDepth,
 	/// Message for the log update.
 	pub msg: String,
 }
@@ -44,16 +45,17 @@ impl PartialLogUpdate {
 		Self {
 			when: ntime::Timestamp::epoch(),
 			level: level::Level::Panic,
+			depth: 0,
 			msg: String::from(""),
 		}
 	}
 
-	/// Initializes a [`PartialLogUpdate`] for a given timestamp, log level and log meessage.
-	pub fn new(now: ntime::Timestamp, level: level::Level, msg: String) -> Self {
+	/// Initializes a [`PartialLogUpdate`] for a given timestamp, log level, depth and log meessage.
+	pub fn new(now: ntime::Timestamp, level: level::Level, depth: LogDepth, msg: String) -> Self {
 		Self {
 			when: now,
 			level: level,
-			//depth: depth,
+			depth: depth,
 			msg: msg,
 		}
 	}
@@ -111,6 +113,11 @@ impl<'i> LogUpdate<'i> {
 	/// Returne the [`Level`][level::Level] for the [`LogUpdate`].
 	pub fn level(&self) -> &'i level::Level {
 		&self.partial.level
+	}
+
+	/// Returne the [`LogDepth`]for the [`LogUpdate`].
+	pub fn depth(&self) -> &'i LogDepth {
+		&self.partial.depth
 	}
 
 	/// Returne th log message for the [`LogUpdate`].

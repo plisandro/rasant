@@ -10,7 +10,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
-use crate::sink::{LogUpdate, PartialLogUpdate};
+use crate::sink::{LogDepth, LogUpdate, PartialLogUpdate};
 use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
 
 static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
@@ -19,7 +19,7 @@ static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
 pub struct Logger {
 	id: u32,
 	enabled: bool,
-	depth: sink::LogDepth,
+	depth: LogDepth,
 	level: Level,
 	async_sink_sender: Option<AsyncSinkSender>,
 	attributes: attributes::Map,
@@ -217,6 +217,7 @@ impl<'i> Logger {
 		// TODO: replace with copy_from() once ntime supports it.
 		self.common_partial_update.when = Timestamp::now();
 		self.common_partial_update.level = level;
+		self.common_partial_update.depth = self.depth;
 		self.common_partial_update.set_msg(msg);
 		let update = LogUpdate::from((&self.common_partial_update, attrs));
 
