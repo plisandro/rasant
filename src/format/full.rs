@@ -60,6 +60,7 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorFull`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// construct header and measure its lenght to properly align all log output lines
+	// TODO: rework once ntime returns proper time format length
 	buf.clear();
 	update.when().write(buf, time_format)?;
 
