@@ -237,13 +237,6 @@ You can reach out through regular GitHub issues and bug reports, or via the
 
 Contributions will be accepted under the [project's license](#licence).
 
-## To-Do's
-
-Rasant is under active development, with more features planned for future versions.
-
-  - New output formants (hierarchical pretty print?)
-  - [Protobuf](https://protobuf.dev/) binary format support?
-
 ## License
 
 Rasant is distrubuted under the [MIT license][mit].

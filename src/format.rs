@@ -3,6 +3,7 @@ mod cbor;
 mod color_compact;
 mod color_full;
 mod compact;
+mod full;
 mod json;
 
 use std::io;
@@ -22,8 +23,13 @@ pub enum OutputFormat {
 	///
 	/// `2026-01-02 15:16:17.890 INF some log message key_1=value_1 key2=value_2`
 	ColorCompact,
-	// TODO: add non-color full output,
-	//Full,
+	/// Full multi-line hierarchical log output.
+	/// ```text
+	/// 2026-01-02 15:16:17.890 [INFO   ] fixed_key_1=value_1
+	///                                   ephemeral_key_2=[value_2, value_3]
+	///                                   some log message
+	/// ```
+	Full,
 	/// Colored full multi-line hierarchical log output, for terminals supporting standard [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code).
 	/// ```text
 	/// 2026-01-02 15:16:17.890 WARNING fixed_key_1=value_1
@@ -51,6 +57,7 @@ impl OutputFormat {
 		match self {
 			Self::Compact => "compact",
 			Self::ColorCompact => "compact (w/console color)",
+			Self::Full => "full",
 			Self::ColorFull => "full (w/console color)",
 			Self::Json => "JSON",
 			Self::Cbor => "CBOR",
@@ -84,6 +91,11 @@ impl FormatterConfig {
 	/// Returns a default [`FormatterConfig`] for color [`OutputFormat::ColorCompact`], with date/time + milliseconds in local timezone.
 	pub fn default_color_compact() -> Self {
 		color_compact::default_format_config()
+	}
+
+	/// Returns a default [`FormatterConfig`] for color [`OutputFormat::Full`], with date/time + milliseconds in local timezone.
+	pub fn default_full() -> Self {
+		full::default_format_config()
 	}
 
 	/// Returns a default [`FormatterConfig`] for color [`OutputFormat::ColorFull`], with date/time + milliseconds in local timezone.
@@ -134,6 +146,7 @@ impl Formatter {
 		match self.format {
 			OutputFormat::Compact => compact::write(out, &self.time_format, update),
 			OutputFormat::ColorCompact => color_compact::write(out, &self.time_format, update),
+			OutputFormat::Full => full::write(out, &mut self.work_buffer, &self.delimiter, &self.time_format, update),
 			OutputFormat::ColorFull => color_full::write(out, &mut self.work_buffer, &self.delimiter, &self.time_format, update),
 			OutputFormat::Json => json::write(out, &self.time_format, &self.time_key, update),
 			OutputFormat::Cbor => cbor::write(out, &mut self.work_buffer, &self.time_format, &self.time_key, update),
