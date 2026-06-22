@@ -39,18 +39,13 @@ impl MetadataImpl for Metadata {
 	fn from_key<'f>(key: &'f str) -> Self {
 		let mut res: Metadata = 0;
 
-		for restricted_key in ATTRIBUTE_KEYS_RESTRICTED {
-			if key == restricted_key {
-				// don't bother resolving the rest of metadata for restricted keys
-				return MetadataField::Restricted as Metadata;
-			}
+		if ATTRIBUTE_KEYS_RESTRICTED.iter().any(|&r| key == r) {
+			// don't bother resolving the rest of metadata for restricted keys
+			return MetadataField::Restricted as Metadata;
 		}
 
-		for priority_key in ATTRIBUTE_KEYS_PRIORITY {
-			if key == priority_key {
-				res |= MetadataField::Priority as Metadata;
-				break;
-			}
+		if ATTRIBUTE_KEYS_PRIORITY.iter().any(|&p| key == p) {
+			res |= MetadataField::Priority as Metadata;
 		}
 
 		if key == ATTRIBUTE_KEY_ERROR {
@@ -395,6 +390,7 @@ impl Map {
 		if meta.get(MetadataField::Restricted) {
 			panic!("cannot use restricted log attribute key {{\"{key}\" -> {val:?}}}");
 		}
+		meta.set(MetadataField::Ephemeral, ephemeral);
 
 		let (ss_1, ss_2): (&[Scalar], &[Scalar]) = match val {
 			Value::Scalar(s) => (slice::from_ref(s), &[]),
@@ -419,10 +415,6 @@ impl Map {
 		};
 		if ss_1.is_empty() {
 			panic!("no scalars for attribute key {{\"{key}\" -> {val:?}}}");
-		}
-
-		if ephemeral {
-			meta.set(MetadataField::Ephemeral, true);
 		}
 
 		if let Some(i) = self.idx_by_key(key) {
