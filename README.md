@@ -55,15 +55,12 @@ All I/O sinks support multiple formattings, including compact (one log entry per
 
 ## Usage 
 
-Latest stable release is **v0.8.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v1.0.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "0.8.0"
+rasant = "1.0.0"
 ```
-
-Rasant is under active development and on track for a v1.0.0 release. You may see small public
-API changes until then, but the library is otherwise stable and fully functional.
 
 ## Getting Started
 

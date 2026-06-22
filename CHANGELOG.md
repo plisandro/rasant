@@ -2,6 +2,13 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 1.0.0 (2026-06-22)
+
+  - Improved overall performance.
+  - Support for third-party sinks and filters.
+  - Log attribute metadata for enhanced sink output.
+  - Full log output with stacking hierarchy.
+
 ## Version 0.8.0 (2026-05-18)
 
   - [CBOR](https://cbor.io/) output formatting.
