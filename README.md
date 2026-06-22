@@ -21,10 +21,6 @@ It offers [nanosecond precision](https://github.com/plisandro/ntime), stackable 
 dispatch logs to multiple sinks in tens of nanoseconds, being normally bottlenecked by I/O
 operations. Can't wait that long? There's built-in [async support](#asynchronous-logging)!
 
-![Sample text output image](assets/sample_output_text.png)
-
-![Sample JSON output image](assets/sample_output_json.png)
-
 ## Main Features
 
   - Minimal dependencies.
@@ -42,6 +38,20 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
 
 See [Why Rasant?](assets/why_rasant.md) for background, design details, and comparsions with other
 logging solutions for Rust.
+
+## Output Examples
+
+All I/O sinks support multiple formattings, including compact (one log entry per line)...
+
+![Sample compact output image](assets/sample_output_-_color_compact.png)
+
+...full stacking hierarchy...
+
+![Sample full output image](assets/sample_output_-_color_full.png)
+
+...and good ol' JSON.
+
+![Sample JSON output image](assets/sample_output_-_json.png)
 
 ## Usage 
 
