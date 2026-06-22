@@ -4,6 +4,7 @@ use std::process;
 use std::sync::LazyLock;
 
 use crate::c_bindings;
+use crate::sink::LogDepth;
 
 /// Ennvironment variable to detect the presence of ANSI color-capable terminals.
 pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
@@ -80,3 +81,10 @@ pub const DEFUALT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";
 /// Default local *NIX syslog sockets.
 #[cfg(unix)]
 pub const DEFAULT_LOCAL_SYSLOG_SOCKETS: [&str; 3] = ["/dev/log", "/var/run/log", "/var/run/syslog"];
+
+/// Maximum rendered log depth for [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] outputs.
+pub const FORMAT_FULL_MAX_DEPTH: LogDepth = 5;
+/// Log depth separator for [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] outputs.
+pub const FORMAT_FULL_DEPTH_SEPARATOR: &str = "   ";
+/// Ellipsis when log depth exceeds [`FORMAT_FULL_MAX_DEPTH`] on [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] outputs.
+pub const FORMAT_FULL_DEPTH_ELLIPSIS: &str = "...";

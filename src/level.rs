@@ -25,7 +25,12 @@ pub enum Level {
 	Panic = 6,
 }
 
-const ALL_LEVELS: [Level; 7] = [Level::Trace, Level::Debug, Level::Info, Level::Warning, Level::Error, Level::Fatal, Level::Panic];
+/// A list of all supported log [`Level`]s, in ascending severity.
+pub const ALL_LEVELS: [Level; 7] = [Level::Trace, Level::Debug, Level::Info, Level::Warning, Level::Error, Level::Fatal, Level::Panic];
+/// Maximum string lenght for a short [`Level`] name (f.ex. `INF`).
+pub const LEVEL_SHORT_NAME_MAX_LENGTH: usize = 3;
+/// Maximum string lenght for a longt [`Level`] name (f.ex. `WARNING`).
+pub const LEVEL_LONG_NAME_MAX_LENGTH: usize = 7;
 
 impl Level {
 	/// Returns a numeric value for the log level.
@@ -56,7 +61,7 @@ impl Level {
 		}
 	}
 
-	/// Returns a string name for the level.
+	/// Returns a name for the level.
 	pub fn as_str(&self) -> &'static str {
 		match *self {
 			Self::Trace => "trace",
@@ -66,6 +71,19 @@ impl Level {
 			Self::Error => "error",
 			Self::Fatal => "fatal",
 			Self::Panic => "panic",
+		}
+	}
+
+	/// Returns a full uppercase name for the level.
+	pub fn as_long_str(&self) -> &'static str {
+		match *self {
+			Self::Trace => "TRACE",
+			Self::Debug => "DEBUG",
+			Self::Info => "INFO",
+			Self::Warning => "WARNING",
+			Self::Error => "ERROR",
+			Self::Fatal => "FATAL",
+			Self::Panic => "PANIC",
 		}
 	}
 

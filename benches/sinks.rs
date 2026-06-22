@@ -53,6 +53,20 @@ fn io_color_compact(bencher: Bencher) {
 }
 
 #[divan::bench]
+fn io_color_full(bencher: Bencher) {
+	let sink = BlackHole::new(BlackHoleConfig {
+		formatter_cfg: FormatterConfig {
+			format: OutputFormat::ColorFull,
+			time_format: TimeFormat::TimestampNanoseconds,
+			..FormatterConfig::default()
+		},
+		..BlackHoleConfig::default()
+	});
+
+	run(bencher, sink);
+}
+
+#[divan::bench]
 fn io_json(bencher: Bencher) {
 	let sink = BlackHole::new(BlackHoleConfig {
 		formatter_cfg: FormatterConfig {

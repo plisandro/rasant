@@ -79,6 +79,11 @@ impl PartialLogUpdate {
 		self.level = level;
 	}
 
+	/// Updates the log depth for a [`PartialLogUpdate`].
+	pub fn set_depth(&mut self, depth: LogDepth) {
+		self.depth = depth;
+	}
+
 	/// Updates the message string for a [`PartialLogUpdate`].
 	pub fn set_msg(&mut self, msg: &str) {
 		self.msg.clear();

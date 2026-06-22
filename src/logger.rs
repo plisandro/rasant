@@ -570,6 +570,40 @@ mod formatting {
 					   2026-03-04 15:10:19.936 DBG first test debug number=1\n\
 					   2026-03-04 15:10:21.170 ERR something failed error=\"oh no\" number=1",
 			},
+			TestCase {
+				name: "full color, ANSI console",
+				out_format: format::OutputFormat::ColorFull,
+				time_format: ntime::Format::UtcMillisDateTime,
+				colorterm: true,
+				want: "\u{1b}[37m2026-03-04 15:10:15.000 \u{1b}[32mINFO    \u{1b}[97mroot test info\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWARNING \u{1b}[97mroot test warn\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:17.468 \u{1b}[32mINFO    \u{1b}[96mnumber=\u{1b}[37m1
+                                \u{1b}[97mfirst test info\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:18.702 \u{1b}[33mWARNING \u{1b}[96mnumber=\u{1b}[37m1
+                                \u{1b}[97mfirst test warn\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:19.936 \u{1b}[94mDEBUG   \u{1b}[96mnumber=\u{1b}[37m1
+                                \u{1b}[37mfirst test debug\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:21.170 \u{1b}[31mERROR   \u{1b}[96mnumber=\u{1b}[37m1
+                                \u{1b}[36merror=\u{1b}[91m\"oh no\"
+                                \u{1b}[97msomething failed\u{1b}[0m",
+			},
+			TestCase {
+				name: "full color, non-ANSI console",
+				out_format: format::OutputFormat::ColorFull,
+				time_format: ntime::Format::UtcMillisDateTime,
+				colorterm: false,
+				want: "2026-03-04 15:10:15.000 INFO    root test info
+2026-03-04 15:10:16.234 WARNING root test warn
+2026-03-04 15:10:17.468 INFO    number=1
+                                first test info
+2026-03-04 15:10:18.702 WARNING number=1
+                                first test warn
+2026-03-04 15:10:19.936 DEBUG   number=1
+                                first test debug
+2026-03-04 15:10:21.170 ERROR   number=1
+                                error=\"oh no\"
+                                something failed",
+			},
 		];
 
 		for tc in test_cases {

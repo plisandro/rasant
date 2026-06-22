@@ -143,3 +143,47 @@ impl ToString for Color {
 		self.to_str().into()
 	}
 }
+
+/// Computes the visible length of a string as a `&[u8]` buffer - that is, the length
+/// of the string ignoring ANSI escape sequences. The string is considered as being
+/// pure ASCII.
+pub fn buffer_visible_length(buf: &[u8]) -> usize {
+	let mut res: usize = 0;
+
+	let mut i: usize = 0;
+	while i < buf.len() {
+		if buf[i] == 0x1b {
+			while i < buf.len() - 1 && buf[i] != 'm' as u8 {
+				i += 1;
+			}
+			i += 1
+		} else {
+			res += 1;
+			i += 1;
+		}
+	}
+
+	return res;
+}
+
+/* ----------------------- Tests ----------------------- */
+
+#[cfg(test)]
+mod buffer_length {
+	use super::*;
+
+	#[test]
+	fn non_color() {
+		assert_eq!(buffer_visible_length("".as_bytes()), 0);
+		assert_eq!(buffer_visible_length("lala".as_bytes()), 4);
+		assert_eq!(buffer_visible_length("abcde 12345".as_bytes()), 11);
+	}
+
+	#[test]
+	fn color() {
+		assert_eq!(buffer_visible_length("\x1B[31m".as_bytes()), 0);
+		assert_eq!(buffer_visible_length("\x1B[31m\x1B[0m".as_bytes()), 0);
+		assert_eq!(buffer_visible_length("\x1B[34mblue\x1B[0m".as_bytes()), 4);
+		assert_eq!(buffer_visible_length("\x1B[34mblue \x1B[31mRED".as_bytes()), 8);
+	}
+}
