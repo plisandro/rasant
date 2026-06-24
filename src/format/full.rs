@@ -35,8 +35,9 @@ fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Resul
 	compact::write_value(out, attrs, val)
 }
 
+// Write a spacer based on the [`LogDepth`] for a [`LogUpdate`].
 fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<()> {
-	if depth < FORMAT_FULL_MAX_DEPTH {
+	if depth <= FORMAT_FULL_MAX_DEPTH {
 		for _ in 0..depth {
 			write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 		}
@@ -44,13 +45,13 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 		return Ok(());
 	}
 
-	let half: LogDepth = depth / 2 + (if depth % 2 == 0 { 0 } else { 1 });
+	let half: LogDepth = FORMAT_FULL_MAX_DEPTH / 2;
 
-	for _ in 0..(half - 1) {
+	for _ in 0..half {
 		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
 	write!(out, "{FORMAT_FULL_DEPTH_ELLIPSIS}")?;
-	for _ in 0..depth - half {
+	for _ in 0..FORMAT_FULL_MAX_DEPTH - half - 1 {
 		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
 
@@ -173,9 +174,9 @@ mod tests {
 			),
 			(
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"1776016599123000456 [PANIC  ]         ...          an_int=123 some_string=\"hi there!\"
-                                                   a_float=-456.789 a_set=[0x14da0eb6, true]
-                                                   test full, over max depth",
+				"1776016599123000456 [PANIC  ]      ...       an_int=123 some_string=\"hi there!\"
+                                             a_float=-456.789 a_set=[0x14da0eb6, true]
+                                             test full, over max depth",
 			),
 		] {
 			let (pupdate, want) = tc;

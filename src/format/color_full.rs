@@ -53,9 +53,9 @@ fn write_attribute<T: io::Write>(out: &mut T, attrs: &Map, key: &str, val: &Valu
 	Ok(())
 }
 
-//
+// Write a spacer based on the [`LogDepth`] for a [`LogUpdate`].
 fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<()> {
-	if depth < FORMAT_FULL_MAX_DEPTH {
+	if depth <= FORMAT_FULL_MAX_DEPTH {
 		for _ in 0..depth {
 			write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 		}
@@ -63,13 +63,13 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 		return Ok(());
 	}
 
-	let half: LogDepth = depth / 2 + (if depth % 2 == 0 { 0 } else { 1 });
+	let half: LogDepth = FORMAT_FULL_MAX_DEPTH / 2;
 
-	for _ in 0..(half - 1) {
+	for _ in 0..half {
 		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
 	write!(out, "{spacer_color}{FORMAT_FULL_DEPTH_ELLIPSIS}", spacer_color = Color::BrightBlack.to_escape_str(),)?;
-	for _ in 0..depth - half {
+	for _ in 0..FORMAT_FULL_MAX_DEPTH - half - 1 {
 		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
 
@@ -220,16 +220,16 @@ mod tests {
 			(
 				false,
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"1776016599123000456 PANIC           ...          an_int=123 some_string=\"hi there!\"
-                                                 a_float=-456.789 a_set=[0x14da0eb6, true]
-                                                 test full, over max depth",
+				"1776016599123000456 PANIC        ...       an_int=123 some_string=\"hi there!\"
+                                           a_float=-456.789 a_set=[0x14da0eb6, true]
+                                           test full, over max depth",
 			),
 			(
 				true,
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"\u{1b}[37m1776016599123000456 \u{1b}[35mPANIC           \u{1b}[90m...          \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\"
-                                                 \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
-                                                 \u{1b}[97mtest full, over max depth\u{1b}[0m",
+				"\u{1b}[37m1776016599123000456 \u{1b}[35mPANIC        \u{1b}[90m...       \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\"
+                                           \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
+                                           \u{1b}[97mtest full, over max depth\u{1b}[0m",
 			),
 		] {
 			let (enable, pupdate, want) = tc;
