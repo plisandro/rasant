@@ -28,7 +28,7 @@ path = "src/lib.rs"
 divan = "0.1.21"
 
 [dependencies]
-ntime = "0.6.0"
+ntime = "0.7.1"
 
 [[bench]]
 name = "allocs"

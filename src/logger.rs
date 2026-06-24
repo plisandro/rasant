@@ -214,8 +214,7 @@ impl<'i> Logger {
 			}
 		};
 
-		// TODO: replace with copy_from() once ntime supports it.
-		self.common_partial_update.when = Timestamp::now();
+		self.common_partial_update.when.copy_from(&Timestamp::now());
 		self.common_partial_update.level = level;
 		self.common_partial_update.depth = self.depth;
 		self.common_partial_update.set_msg(msg);

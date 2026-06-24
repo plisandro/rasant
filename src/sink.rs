@@ -62,8 +62,7 @@ impl PartialLogUpdate {
 
 	/// Updates a [`PartialLogUpdate`] with the contents of another [`PartialLogUpdate`].
 	pub fn copy_from(&mut self, other: &Self) {
-		// TODO: replace with copy_from() once ntime supports it.
-		self.when = other.when.clone();
+		self.when.copy_from(&other.when);
 		self.level = other.level;
 		self.msg.clear();
 		self.msg.insert_str(0, other.msg.as_str());
