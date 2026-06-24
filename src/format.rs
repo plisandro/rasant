@@ -146,8 +146,8 @@ impl Formatter {
 		match self.format {
 			OutputFormat::Compact => compact::write(out, &self.time_format, update),
 			OutputFormat::ColorCompact => color_compact::write(out, &self.time_format, update),
-			OutputFormat::Full => full::write(out, &mut self.work_buffer, &self.delimiter, &self.time_format, update),
-			OutputFormat::ColorFull => color_full::write(out, &mut self.work_buffer, &self.delimiter, &self.time_format, update),
+			OutputFormat::Full => full::write(out, &self.delimiter, &self.time_format, update),
+			OutputFormat::ColorFull => color_full::write(out, &self.delimiter, &self.time_format, update),
 			OutputFormat::Json => json::write(out, &self.time_format, &self.time_key, update),
 			OutputFormat::Cbor => cbor::write(out, &mut self.work_buffer, &self.time_format, &self.time_key, update),
 		}

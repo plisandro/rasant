@@ -86,5 +86,9 @@ pub const DEFAULT_LOCAL_SYSLOG_SOCKETS: [&str; 3] = ["/dev/log", "/var/run/log",
 pub const FORMAT_FULL_MAX_DEPTH: LogDepth = 5;
 /// Log depth separator for [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] outputs.
 pub const FORMAT_FULL_DEPTH_SEPARATOR: &str = "   ";
+/// [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] log depth separator length.
+pub const FORMAT_FULL_DEPTH_SEPARATOR_LENGTH: usize = 3;
 /// Ellipsis when log depth exceeds [`FORMAT_FULL_MAX_DEPTH`] on [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] outputs.
 pub const FORMAT_FULL_DEPTH_ELLIPSIS: &str = "...";
+/// [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] log depth ellipsis length.
+pub const FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH: usize = 3;

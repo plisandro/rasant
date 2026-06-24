@@ -11,11 +11,12 @@
 
 use ntime::Format;
 use std::io;
-use std::io::Write;
 
 use crate::attributes::value::Value;
 use crate::attributes::{Map, MetadataField, MetadataImpl};
-use crate::constant::{DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_MAX_DEPTH};
+use crate::constant::{
+	DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_DEPTH_SEPARATOR_LENGTH, FORMAT_FULL_MAX_DEPTH,
+};
 use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::level::LEVEL_LONG_NAME_MAX_LENGTH;
@@ -33,6 +34,15 @@ pub fn default_format_config() -> FormatterConfig {
 // Serializes a [`Value`] for [`OutputFormat::ColorFull`] into a [`io::Write`].
 fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
 	compact::write_value(out, attrs, val)
+}
+
+// Compute spacer length based on the [`LogDepth`] for a [`LogUpdate`].
+fn depth_spacer_len(depth: LogDepth) -> usize {
+	if depth <= FORMAT_FULL_MAX_DEPTH {
+		return depth as usize * FORMAT_FULL_DEPTH_SEPARATOR_LENGTH;
+	}
+
+	return FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH + (FORMAT_FULL_MAX_DEPTH - 1) as usize * FORMAT_FULL_DEPTH_SEPARATOR_LENGTH;
 }
 
 // Write a spacer based on the [`LogDepth`] for a [`LogUpdate`].
@@ -59,18 +69,15 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorFull`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
-	// construct header and measure its lenght to properly align all log output lines
-	// TODO: rework once ntime returns proper time format length
-	buf.clear();
-	update.when().write(buf, time_format)?;
+pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
+	// compute header length to properly align all log output lines
+	// "<time str> [WARNING]" + <depth spacer>
+	let header_len: usize = update.when().string_len(time_format) + 10 + depth_spacer_len(*update.depth());
 
-	write!(buf, " [{level:<LEVEL_LONG_NAME_MAX_LENGTH$}]", level = update.level().as_long_str(),)?;
-
-	write_depth_spacer(buf, *update.depth())?;
-
-	let header_len = buf.len();
-	out.write(buf)?;
+	// write header
+	update.when().write(out, time_format)?;
+	write!(out, " [{level:<LEVEL_LONG_NAME_MAX_LENGTH$}]", level = update.level().as_long_str(),)?;
+	write_depth_spacer(out, *update.depth())?;
 
 	// output fixed attributes on the first line, if any...
 	let mut wrote: bool = false;
@@ -181,15 +188,13 @@ mod tests {
 		] {
 			let (pupdate, want) = tc;
 
-			let mut buf: Vec<u8> = Vec::new();
-			let delimiter: Vec<u8> = [b'\n'].to_vec();
-
 			let mut out = Vec::new();
+			let delimiter: Vec<u8> = [b'\n'].to_vec();
 
 			let update = LogUpdate::from((&pupdate, &attrs));
 			let time_format = &ntime::Format::TimestampNanoseconds;
 
-			assert!(write(&mut out, &mut buf, &delimiter, time_format, &update).is_ok());
+			assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
