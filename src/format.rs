@@ -13,7 +13,7 @@ use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 use crate::sink::LogUpdate;
 
 /// Supported log output format for all [`sink`][crate::sink]s.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
 	/// A compact string.
 	///
@@ -45,6 +45,16 @@ pub enum OutputFormat {
 	Cbor,
 }
 
+/// A list of all supported log [`OutputFormat`]s.
+pub const ALL_OUTPUT_FORMATS: [OutputFormat; 6] = [
+	OutputFormat::Compact,
+	OutputFormat::ColorCompact,
+	OutputFormat::Full,
+	OutputFormat::ColorFull,
+	OutputFormat::Json,
+	OutputFormat::Cbor,
+];
+
 /// Formatting errors.
 #[derive(Clone, Debug)]
 pub enum FormatterError {
@@ -52,8 +62,21 @@ pub enum FormatterError {
 }
 
 impl OutputFormat {
+	/// Returns a short name for an `OutputFormat`.
+	pub fn as_short_str(&self) -> &str {
+		match self {
+			Self::Compact => "compact",
+			Self::ColorCompact => "color_compact",
+			Self::Full => "full",
+			Self::ColorFull => "color_full",
+			Self::Json => "json",
+			Self::Cbor => "cbor",
+		}
+		.into()
+	}
+
 	/// Returns a name for an `OutputFormat`.
-	pub fn name(&self) -> String {
+	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Compact => "compact",
 			Self::ColorCompact => "compact (w/console color)",
@@ -63,6 +86,20 @@ impl OutputFormat {
 			Self::Cbor => "CBOR",
 		}
 		.into()
+	}
+}
+
+impl TryFrom<&str> for OutputFormat {
+	type Error = &'static str;
+
+	fn try_from(name: &str) -> Result<Self, <OutputFormat as TryFrom<&str>>::Error> {
+		for of in ALL_OUTPUT_FORMATS {
+			if name.eq_ignore_ascii_case(of.as_short_str()) {
+				return Ok(of);
+			}
+		}
+
+		Err("invalid OutputFormat name")
 	}
 }
 
@@ -202,4 +239,23 @@ pub fn as_panic_string(update: &LogUpdate) -> String {
 		..FormatterConfig::default_compact()
 	});
 	formatter.as_string(update)
+}
+
+/* ----------------------- Tests ----------------------- */
+
+#[cfg(test)]
+mod from {
+	use super::*;
+
+	#[test]
+	fn from_name() {
+		assert_eq!(OutputFormat::try_from(""), Err("invalid OutputFormat name"));
+		assert_eq!(OutputFormat::try_from("boo"), Err("invalid OutputFormat name"));
+		assert_eq!(OutputFormat::try_from("compact"), Ok(OutputFormat::Compact));
+		assert_eq!(OutputFormat::try_from("COLOR_COMPACT"), Ok(OutputFormat::ColorCompact));
+		assert_eq!(OutputFormat::try_from("fUlL"), Ok(OutputFormat::Full));
+		assert_eq!(OutputFormat::try_from("cOlOr_fUlL"), Ok(OutputFormat::ColorFull));
+		assert_eq!(OutputFormat::try_from("json"), Ok(OutputFormat::Json));
+		assert_eq!(OutputFormat::try_from("CBOR"), Ok(OutputFormat::Cbor));
+	}
 }
