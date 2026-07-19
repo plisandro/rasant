@@ -31,7 +31,7 @@ pub enum Scalar {
 	Uint(u64),
 	/// An unsigned long integer, internally stored as a [`i128`].
 	LongUint(u128),
-	/// A pointer-sized unsigned integer, stored as a [`isize`].
+	/// A pointer-sized unsigned integer, stored as a [`usize`].
 	Usize(usize),
 	/// A float, internally stored as a [`f64`].
 	Float(f64),

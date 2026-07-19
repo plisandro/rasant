@@ -17,7 +17,7 @@ macro_rules! list {
 /// Creates a [Map][`crate::Value::Map`] from key/value types which can be cast to collections of [Scalar][`crate::Scalar`]s.
 #[macro_export]
 macro_rules! map {
-    // list!(keys_collection, values_collection)
+    // map!(keys_collection, values_collection)
     ($keys:expr, $values:expr) => {
 	    rasant::Value::Map(
 	        &rasant::Scalar::to_array($keys),

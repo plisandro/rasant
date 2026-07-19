@@ -86,6 +86,12 @@ impl<'i, T: Into<Scalar>> From<T> for Value<'i> {
 }
 
 // casters for Value::List
+impl<'i> From<&'i Vec<Scalar>> for Value<'i> {
+	fn from(v: &'i Vec<Scalar>) -> Self {
+		Self::List(v.as_slice())
+	}
+}
+
 impl<'i> From<&'i [Scalar]> for Value<'i> {
 	fn from(ss: &'i [Scalar]) -> Self {
 		match ss.len() {
@@ -94,14 +100,6 @@ impl<'i> From<&'i [Scalar]> for Value<'i> {
 		}
 	}
 }
-
-/*
-impl<'i, const N: usize> From<[Scalar; N]> for Value<'i> {
-	fn from(a: [Scalar; N]) -> Self {
-		Self::List(a.as_slice())
-	}
-}
-*/
 
 impl<'i, const N: usize> From<&'i [Scalar; N]> for Value<'i> {
 	fn from(l: &'i [Scalar; N]) -> Self {
@@ -119,19 +117,17 @@ impl<'i, T: ToScalar, const N: usize> ToValue for [T; N] {
 */
 
 // casters for Value::Map
+impl<'i> From<(&'i Vec<Scalar>, &'i Vec<Scalar>)> for Value<'i> {
+	fn from(m: (&'i Vec<Scalar>, &'i Vec<Scalar>)) -> Self {
+		Self::Map(m.0.as_slice(), m.1.as_slice())
+	}
+}
+
 impl<'i> From<(&'i [Scalar], &'i [Scalar])> for Value<'i> {
 	fn from(m: (&'i [Scalar], &'i [Scalar])) -> Self {
 		Self::Map(m.0, m.1)
 	}
 }
-
-/*
-impl<'i, const N: usize> From<([Scalar; N], [Scalar; N])> for Value<'i> {
-	fn from(m: ([Scalar; N], [Scalar; N])) -> Self {
-		Self::Map(m.0.as_slice(), m.1.as_slice())
-	}
-}
-*/
 
 impl<'i, const N: usize> From<(&'i [Scalar; N], &'i [Scalar; N])> for Value<'i> {
 	fn from(m: (&'i [Scalar; N], &'i [Scalar; N])) -> Self {
@@ -145,14 +141,6 @@ impl<'i> From<[&'i [Scalar]; 2]> for Value<'i> {
 	}
 }
 
-/*
-impl<'i, const N: usize> From<[[Scalar; N]; 2]> for Value<'i> {
-	fn from(m: [[Scalar; N]; 2]) -> Self {
-		Self::Map(m[0].as_slice(), m[1].as_slice())
-	}
-}
-*/
-
 impl<'i, const N: usize> From<[&'i [Scalar; N]; 2]> for Value<'i> {
 	fn from(m: [&'i [Scalar; N]; 2]) -> Self {
 		Self::Map(m[0].as_slice(), m[1].as_slice())
@@ -165,6 +153,26 @@ impl<'i, const N: usize> From<&'i [&'i [Scalar; N]; 2]> for Value<'i> {
 	}
 }
 
+/*
+impl<'i, K: Into<Scalar>, V: Into<Scalar>> From<&'i collections::HashMap<K, V>> for Value<'i>
+where
+	Scalar: From<&'i K>,
+	Scalar: From<&'i V>,
+{
+	fn from(m: &'i collections::HashMap<K, V>) -> Self {
+		let mut keys: Vec<Scalar> = Vec::with_capacity(m.len());
+		let mut vals: Vec<Scalar> = Vec::with_capacity(m.len());
+
+		for (k, v) in m.iter() {
+			keys.push(Scalar::from(k));
+			vals.push(Scalar::from(v));
+		}
+
+		Self::Map(&keys.into_boxed_slice(), vals.as_mut_slice())
+	}
+}
+*/
+
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
@@ -174,7 +182,7 @@ mod tests {
 	use ntime::{Duration, Timestamp};
 
 	#[test]
-	fn from_value_scalar() {
+	fn from_scalar() {
 		assert_eq!(Value::from(true), Value::Scalar(Scalar::Bool(true)));
 		assert_eq!(Value::from("lalala"), Value::Scalar(Scalar::StringSlice("lalala", false)));
 		assert_eq!(Value::from("declaró\nen\tcontra"), Value::Scalar(Scalar::StringSlice("declaró\nen\tcontra", true)));
@@ -205,15 +213,55 @@ mod tests {
 	}
 
 	#[test]
-	fn from_value_set() {
+	fn from_scalar_vec() {
+		let v: Vec<Scalar> = vec![Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
+
+		assert_eq!(Value::from(&v), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
+	}
+
+	#[test]
+	fn from_collection() {
 		let arr = [Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
 		let slice = &[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)];
 		assert_eq!(Value::from(&arr), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
 		assert_eq!(Value::from(slice), Value::List(&[Scalar::Bool(true), Scalar::from("boo"), Scalar::Size(-12345678901234567)]));
 	}
 
+	/*
 	#[test]
 	fn from_value_map() {
+		let mut map: collections::HashMap<&str, f32> = collections::HashMap::new();
+
+		map.insert("key_a", 12.34);
+		map.insert("key_b", 56.78);
+		map.insert("key_c", 90.12);
+
+		assert_eq!(
+			Value::from(&map),
+			Value::Map(
+				&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
+				&[Scalar::Float(12.34), Scalar::Float(56.78), Scalar::Float(90.12)]
+			)
+		);
+	}
+	*/
+
+	#[test]
+	fn from_map_vecs() {
+		let keys = vec![Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")];
+		let vals = vec![Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)];
+
+		assert_eq!(
+			Value::from((&keys, &vals)),
+			Value::Map(
+				&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
+				&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)]
+			)
+		);
+	}
+
+	#[test]
+	fn from_map_collections() {
 		let arrays = [
 			&[Scalar::from("key_a"), Scalar::from("key_b"), Scalar::from("key_c")],
 			&[Scalar::Bool(false), Scalar::Int(-123), Scalar::Float(456.789)],
