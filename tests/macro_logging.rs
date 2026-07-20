@@ -7,7 +7,7 @@ use std::io::{Error, ErrorKind};
 fn macro_logging() {
 	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
-		mock_logger_id: true,
+		mock_trace: true,
 		..sink::memory::MemoryConfig::default()
 	});
 	let mem_sink_output = mem_sink.output();
@@ -31,7 +31,7 @@ fn macro_logging() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100\n\
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100 caller_filename=\"src/some_file.rs\" caller_line=567\n\
 	            2026-03-04 15:10:16.234 [INF] root test, info without args\n\
 				2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"\n\
 				2026-03-04 15:10:18.702 [WRN] root test, warn\n\

@@ -1,10 +1,11 @@
+use core::panic;
 use ntime::Timestamp;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::Value;
-use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_LOGGER_ID, MAX_LOGGER_DEPTH};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, ATTRIBUTE_KEY_TRACE_LOGGER_ID, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
 use crate::level::Level;
@@ -189,7 +190,14 @@ impl<'i> Logger {
 		self
 	}
 
-	fn log_with_two<const X: usize, const Y: usize>(&mut self, level: Level, msg: &'i str, attrs_1: [(&'i str, Value); X], attrs_2: [(&'i str, Value); Y]) -> &mut Self {
+	fn log_expanded<const X: usize, const Y: usize>(
+		&mut self,
+		level: Level,
+		msg: &'i str,
+		attrs_1: [(&'i str, Value); X],
+		attrs_2: [(&'i str, Value); Y],
+		loc: Option<&'static panic::Location<'static>>,
+	) -> &mut Self {
 		if !self.enabled {
 			return self;
 		}
@@ -202,7 +210,7 @@ impl<'i> Logger {
 		}
 
 		let attrs = match attrs_1.is_empty() && attrs_2.is_empty() {
-			true => &self.attributes,
+			true => &mut self.attributes,
 			false => {
 				// straight up copying and extending ephemeral attributes is the most efficient
 				// way to deal with potential collisions. trust me, i've tried everything else.
@@ -210,15 +218,24 @@ impl<'i> Logger {
 				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 
-				&self.common_attributes
+				&mut self.common_attributes
 			}
 		};
+
+		// add trace-specific attributes, if necessary.
+		if level == Level::Trace {
+			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LOGGER_ID, Value::from(self.id));
+			if let Some(loc) = loc {
+				attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+				attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+			}
+		}
 
 		self.common_partial_update.when.copy_from(&Timestamp::now());
 		self.common_partial_update.level = level;
 		self.common_partial_update.depth = self.depth;
 		self.common_partial_update.set_msg(msg);
-		let update = LogUpdate::from((&self.common_partial_update, attrs));
+		let update = LogUpdate::from((&self.common_partial_update, attrs as &attributes::Map));
 
 		// apply filters, if any
 		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {
@@ -252,94 +269,115 @@ impl<'i> Logger {
 	}
 
 	/// Logs a message with a given level, and no additional attributes.
+	#[inline]
+	#[track_caller]
 	pub fn log(&mut self, level: Level, msg: &'i str) -> &mut Self {
-		self.log_with_two(level, msg, [], [])
+		self.log_expanded(level, msg, [], [], Some(panic::Location::caller()))
 	}
 
 	/// Logs a message with a given level and additional attribute [`Value`]s.
+	#[inline]
+	#[track_caller]
 	pub fn log_with<const L: usize>(&mut self, level: Level, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with_two(level, msg, attrs, [])
+		self.log_expanded(level, msg, attrs, [], Some(panic::Location::caller()))
 	}
 
-	/// Logs a [`Level::Trace`] message, with no additional attributes.
+	/// Logs a [`Level::Trace`] message, with no user-provided attributes, and the caller's filename and line number annotated as attributes.
+	#[inline]
+	#[track_caller]
 	pub fn trace(&mut self, msg: &'i str) -> &mut Self {
-		self.trace_with(msg, [])
+		self.log_expanded(Level::Trace, msg, [], [], Some(panic::Location::caller()))
 	}
 
-	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s.
+	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s. Caller's filename and line are also annotated as attributes.
+	#[inline]
+	#[track_caller]
 	pub fn trace_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		let id = self.id;
-		self.log_with_two(Level::Trace, msg, attrs, [(ATTRIBUTE_KEY_LOGGER_ID, Value::from(id))])
+		self.log_expanded(Level::Trace, msg, attrs, [], Some(panic::Location::caller()))
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.
+	#[inline]
 	pub fn debug(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Debug, msg)
+		self.log_expanded(Level::Debug, msg, [], [], None)
 	}
 
 	/// Logs a [`Level::Debug`] message, with additional attribute [`Value`]s.
+	#[inline]
 	pub fn debug_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Debug, msg, attrs)
+		self.log_expanded(Level::Debug, msg, attrs, [], None)
 	}
 
 	/// Logs a [`Level::Info`] message, with no additional attributes.
+	#[inline]
 	pub fn info(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Info, msg)
+		self.log_expanded(Level::Info, msg, [], [], None)
 	}
 
 	/// Logs a [`Level::Info`] message, with additional attribute [`Value`]s.
+	#[inline]
 	pub fn info_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
 		self.log_with(Level::Info, msg, attrs)
 	}
 
 	/// Logs a [`Level::Warning`] message, with no additional attributes.
+	#[inline]
 	pub fn warn(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Warning, msg)
+		self.log_expanded(Level::Warning, msg, [], [], None)
 	}
 
 	/// Logs a [`Level::Warning`] message, with additional attribute [`Value`]s.
+	#[inline]
 	pub fn warn_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Warning, msg, attrs)
+		self.log_expanded(Level::Warning, msg, attrs, [], None)
 	}
 
 	/// Logs a [`Level::Error`] message, with no additional attributes.
+	#[inline]
 	pub fn err(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Error, msg)
+		self.log_expanded(Level::Error, msg, [], [], None)
 	}
 
 	/// Logs a [`Level::Error`] message, with additional attribute [`Value`]s.
+	#[inline]
 	pub fn err_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Error, msg, attrs)
+		self.log_expanded(Level::Error, msg, attrs, [], None)
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
+	#[inline]
 	pub fn error<T: Error>(&mut self, error: T, msg: &'i str) -> &mut Self {
-		self.log_with(Level::Error, msg, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))])
+		self.log_expanded(Level::Error, msg, [], [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], None)
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
+	#[inline]
 	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with_two(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))])
+		self.log_expanded(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], None)
 	}
 
 	/// Logs a [`Level::Fatal`] message, with no additional attributes.
+	#[inline]
 	pub fn fatal(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Fatal, msg)
+		self.log_expanded(Level::Fatal, msg, [], [], None)
 	}
 
 	/// Logs a [`Level::Fatal`] message, with additional attribute [`Value`]s.
+	#[inline]
 	pub fn fatal_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Fatal, msg, attrs)
+		self.log_expanded(Level::Fatal, msg, attrs, [], None)
 	}
 
 	/// Logs a [`Level::Panic`] message, with no additional attributes, and panics the current process.
+	#[inline]
 	pub fn panic(&mut self, msg: &'i str) -> &mut Self {
-		self.log(Level::Panic, msg)
+		self.log_expanded(Level::Panic, msg, [], [], None)
 	}
 
-	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s.
+	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s, and panics the current process.
+	#[inline]
 	pub fn panic_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Panic, msg, attrs)
+		self.log_expanded(Level::Panic, msg, attrs, [], None)
 	}
 
 	/// Flushes all pending writes on [`sink`]s for this [`Logger`].

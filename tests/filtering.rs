@@ -8,7 +8,7 @@ use rasant::sink;
 fn step() {
 	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
-		mock_logger_id: true,
+		mock_trace: true,
 		..sink::memory::MemoryConfig::default()
 	});
 	let mem_sink_output = mem_sink.output();
@@ -39,7 +39,7 @@ fn step() {
 fn burst() {
 	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
-		mock_logger_id: true,
+		mock_trace: true,
 		..sink::memory::MemoryConfig::default()
 	});
 	let mem_sink_output = mem_sink.output();

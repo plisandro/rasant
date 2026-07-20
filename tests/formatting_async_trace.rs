@@ -8,7 +8,7 @@ use std::io::{Error, ErrorKind};
 fn async_trace() {
 	let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 		mock_time: true,
-		mock_logger_id: true,
+		mock_trace: true,
 		..sink::memory::MemoryConfig::default()
 	});
 	let mem_sink_output = mem_sink.output();
@@ -30,17 +30,17 @@ fn async_trace() {
 
 	// collect result only after all loggers are dropped, as we'll race the output otherwise
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100\n\
-	            2026-03-04 15:10:16.234 [TRA] enabled async log updates total_async_loggers=1 logger_id=101\n\
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100 caller_filename=\"src/some_file.rs\" caller_line=567\n\
+	            2026-03-04 15:10:16.234 [TRA] enabled async log updates total_async_loggers=1 logger_id=101 caller_filename=\"src/some_file.rs\" caller_line=577\n\
 				2026-03-04 15:10:17.468 [INF] root test info\n\
 				2026-03-04 15:10:18.702 [WRN] root test warn\n\
 				2026-03-04 15:10:19.936 [FAT] oh no something horrible happened why=\"fire!\"\n\
-				2026-03-04 15:10:21.170 [TRA] enabled async log updates total_async_loggers=2 logger_id=102\n\
+				2026-03-04 15:10:21.170 [TRA] enabled async log updates total_async_loggers=2 logger_id=102 caller_filename=\"src/some_file.rs\" caller_line=587\n\
 				2026-03-04 15:10:22.404 [INF] first test info number=1\n\
 				2026-03-04 15:10:23.638 [WRN] first test warn number=1\n\
 				2026-03-04 15:10:24.872 [ERR] something failed error=\"oh no\" number=1\n\
-				2026-03-04 15:10:26.106 [TRA] disabled async log updates number=1 total_async_loggers=1 logger_id=103\n\
-				2026-03-04 15:10:27.340 [TRA] disabled async log updates total_async_loggers=0 logger_id=104";
+				2026-03-04 15:10:26.106 [TRA] disabled async log updates number=1 total_async_loggers=1 logger_id=103 caller_filename=\"src/some_file.rs\" caller_line=597\n\
+				2026-03-04 15:10:27.340 [TRA] disabled async log updates total_async_loggers=0 logger_id=104 caller_filename=\"src/some_file.rs\" caller_line=607";
 
 	assert_eq!(got, want);
 }

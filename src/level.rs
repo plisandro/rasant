@@ -8,8 +8,9 @@ use crate::console::Color;
 /// but not [`Level::Debug`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Level {
-	/// Used for tracing code execution path. Rasant will log some operations at
-	/// this level, such as sink additions and log level changes.
+	/// Used for tracing code execution path; updates at this level get additional built-in
+	/// attributes such as logger ID, caller filename and line number. Rasant will also
+	/// log trace updates for some operations, such as sink additions and log level changes.
 	Trace = 0,
 	/// Messages useful for debugging and troubleshooting.
 	Debug = 1,
