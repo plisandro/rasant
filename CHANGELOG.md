@@ -2,6 +2,18 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 1.1.0 (2026-07-22)
+
+Bugfixes and minor feature updates.
+
+  - `Format::Full` and `Format::ColorFull` I/O sink formats are now 100% buffer-less.
+  - Fix spacing ellipsing bug for `Format::Full` and `Format::ColorFull`.
+  - `Trace` level updates include caller filename and line as attributes.
+  - Support initializing `List` and `Map` values from `Vec`tors.
+  - Rework log macros to accept `Logger`s as expressions instead of items.
+  - `Scalar` casting support for `std::net` sockets/addresses.
+  - Support resolving I/O output formats by name.
+
 ## Version 1.0.0 (2026-06-22)
 
   - Improved overall performance.
