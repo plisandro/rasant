@@ -1,6 +1,8 @@
 use ntime::{Duration, Timestamp};
+use std::ffi;
 use std::fmt;
 use std::net;
+use std::path;
 use std::string;
 use std::thread;
 
@@ -247,6 +249,30 @@ impl From<&net::SocketAddr> for Scalar {
 	}
 }
 
+impl From<&ffi::OsString> for Scalar {
+	fn from(pb: &ffi::OsString) -> Self {
+		Scalar::from(String::from(pb.to_string_lossy()))
+	}
+}
+
+impl From<&ffi::OsStr> for Scalar {
+	fn from(os: &ffi::OsStr) -> Self {
+		Scalar::from(String::from(os.to_string_lossy()))
+	}
+}
+
+impl From<&path::PathBuf> for Scalar {
+	fn from(pb: &path::PathBuf) -> Self {
+		Scalar::from(String::from(pb.to_string_lossy()))
+	}
+}
+
+impl From<&path::Path> for Scalar {
+	fn from(p: &path::Path) -> Self {
+		Scalar::from(String::from(p.to_string_lossy()))
+	}
+}
+
 macro_rules! cast_signed_to_scalar {
 	($t: ty) => {
 		impl From<$t> for Scalar {
@@ -411,6 +437,18 @@ mod tests {
 			Scalar::from(&net::SocketAddr::V6(addr6)),
 			Scalar::String(String::from("[1020:3040:5060:7080:90a0:b0c0:d0e0:f00d%2]:8888"), false)
 		);
+	}
+
+	#[test]
+	fn from_os_string() {
+		assert_eq!(Scalar::from(ffi::OsStr::new("a OS string ref")), Scalar::String(String::from("a OS string ref"), false));
+		assert_eq!(Scalar::from(&ffi::OsString::from("an owned OS string")), Scalar::String(String::from("an owned OS string"), false));
+	}
+
+	#[test]
+	fn from_path() {
+		assert_eq!(Scalar::from(path::Path::new("/random/path")), Scalar::String(String::from("/random/path"), false));
+		assert_eq!(Scalar::from(&path::PathBuf::from("/random/path/buf")), Scalar::String(String::from("/random/path/buf"), false));
 	}
 
 	#[test]
