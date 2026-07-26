@@ -1,7 +1,8 @@
 //! Log file [sink][`crate::sink`] module.
 //!
 //! Log file sinks are very similar to regular [crate::sink::file] sinks, but impose an
-//! opinionated file name format. Only logging directories are configurable.
+//! opinionated file name format. Only logging directories and file prefixes are
+//! configurable.
 use ntime;
 use std::env;
 use std::path;
@@ -15,6 +16,8 @@ use crate::sink::io::IO;
 pub struct LogFileConfig {
 	/// Base directory for log files, as a [`std::path::PathBuf`]
 	pub log_directory: path::PathBuf,
+	/// Optional log file name prefix.
+	pub log_prefix: Option<String>,
 	/// Output formatting configuration.
 	pub formatter_cfg: format::FormatterConfig,
 	/// Whether to use local or UTC timestamp on log file names.
@@ -31,6 +34,7 @@ impl<'i> Default for LogFileConfig {
 	fn default() -> Self {
 		Self {
 			log_directory: env::temp_dir(),
+			log_prefix: None,
 			formatter_cfg: format::FormatterConfig::default(),
 			local_timestamp: false,
 			buffered: true,
@@ -49,7 +53,12 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 	};
 
 	let log_file_name = path::PathBuf::from(format!(
-		"{process_name}_{timestamp}_{pid}.log",
+		"{process_name}{prefix_spacer}{prefix}_{timestamp}_{pid}.log",
+		prefix_spacer = if conf.log_prefix.is_some() { "_" } else { "" },
+		prefix = match &conf.log_prefix {
+			Some(s) => s.as_str(),
+			None => "",
+		},
 		timestamp = ntime::Timestamp::now().as_string(if conf.local_timestamp { &ntime::Format::LocalFileName } else { &ntime::Format::UtcFileName }),
 		pid = *PROCESS_ID,
 	));
