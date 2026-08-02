@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="652.61823"
+   height="743.66461"
+   viewBox="0 0 652.6182 743.66461"
+   sodipodi:docname="rasant_logo.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1">Rasant Logo</title>
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.3688377"
+     inkscape:cx="593.20399"
+     inkscape:cy="244.73317"
+     inkscape:window-width="3072"
+     inkscape:window-height="1659"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1" />
+  <g
+     inkscape:groupmode="layer"
+     inkscape:label="rasant_logo"
+     id="g1"
+     style="display:inline"
+     transform="translate(-0.23697091,-2.4052753)">
+    <path
+       style="display:inline;fill:#eff0ec;fill-opacity:0.7516557;stroke:none;stroke-width:5;stroke-opacity:1"
+       d="M 477.31492,330.60773 638.2279,288.24862 c 0,0 24.51254,1.07736 10.07321,26.08702 -14.43934,25.00965 -121.39503,189.58287 -121.39503,189.58287 l -52.43232,23.50414 83.42679,186.22514 c 0,0 6.22993,28.29159 -16.78867,12.39779 C 519.41575,711.06492 350.49586,590.96133 350.49586,590.96133 L 144.3826,742.83425 c 0,0 -30.89898,13.18905 -21.43785,-13.68923 6.54044,-18.58084 89.10912,-203.0138 89.10912,-203.0138 L 24.279006,597.6768 c 0,0 -30.5792292,-2.64035 -11.106354,-23.50415 C 31.252763,554.8011 139.47514,444.51243 139.47514,444.51243 L 4.3908839,343.5221 c 0,0 -15.2378539,-24.03755 12.6560771,-22.21271 27.636741,1.80801 221.610499,20.66299 221.610499,20.66299 L 573.39779,7.7486187 c 0,0 34.0008,-17.8189167 23.50414,11.6229283 C 586.31216,49.074585 477.31492,330.60773 477.31492,330.60773 Z"
+       id="path5"
+       sodipodi:nodetypes="ccscccsccsccsccsccsc"
+       inkscape:label="border" />
+    <path
+       style="display:inline;fill:#3f464e;fill-opacity:1;stroke-width:5"
+       d="M 13.149842,334.59043 189.21162,462.80139 287.47016,358.69847 Z"
+       id="path4"
+       inkscape:label="shape_4" />
+    <path
+       style="display:inline;fill:#2c343b;fill-opacity:1;stroke-width:5"
+       d="M 20.45531,585.89852 587.08702,12.526934 423.84184,429.8939 Z"
+       id="path3"
+       sodipodi:nodetypes="cccc"
+       inkscape:label="shape_3" />
+    <path
+       style="display:inline;fill:#b5471f;fill-opacity:1;stroke-width:5"
+       d="M 548.8605,720.62155 325.61295,558.29624 449.1325,502.74611 Z"
+       id="path1"
+       sodipodi:nodetypes="cccc"
+       inkscape:label="shape_2" />
+    <path
+       style="display:inline;fill:#ec662c;fill-opacity:1;stroke:none;stroke-width:5;stroke-opacity:1"
+       d="M 132.50138,737.66851 237.36602,500.81906 349.20442,378.1326 642.61878,299.09669 519.15746,493.8453 349.46271,575.46409 Z"
+       id="path2"
+       inkscape:label="shape_1" />
+  </g>
+  <metadata
+     id="metadata1">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Rasant Logo</dc:title>
+        <dc:date>2026-10-02</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Lisandro Pin</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>
