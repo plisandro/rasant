@@ -11,7 +11,7 @@
    xml:space="preserve"
    id="svg138"
    sodipodi:docname="block_diagram_-_basic.svg"
-   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -26,14 +26,14 @@
    inkscape:deskcolor="#d1d1d1"
    inkscape:document-units="mm"
    inkscape:zoom="0.91807103"
-   inkscape:cx="339.29837"
-   inkscape:cy="229.28509"
-   inkscape:window-width="1778"
-   inkscape:window-height="1190"
+   inkscape:cx="339.84299"
+   inkscape:cy="228.74047"
+   inkscape:window-width="1836"
+   inkscape:window-height="1188"
    inkscape:window-x="26"
    inkscape:window-y="23"
    inkscape:window-maximized="0"
-   inkscape:current-layer="g138"><inkscape:page
+   inkscape:current-layer="svg138"><inkscape:page
      x="0"
      y="0"
      width="18599.82"
@@ -355,22 +355,22 @@
     <text
    class="SVGTextShape"
    id="text44"
-   style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.889px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.889px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan44"
-     style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
        x="6036"
        y="13439"
        id="tspan43"
-       style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="white-space:pre;-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
+         style="white-space:pre;-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
          id="tspan42">Filters</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -411,22 +411,22 @@
     <text
    class="SVGTextShape"
    id="text49"
-   style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.889px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.889px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan49"
-     style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
        x="12234"
        y="13439"
        id="tspan48"
-       style="-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="white-space:pre;-inkscape-font-specification:'Fira Sans, Normal';font-family:'Fira Sans';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88892545px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
+         style="white-space:pre;-inkscape-font-specification:'FreeSans, Normal';font-family:FreeSans;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:493.88900958px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
          id="tspan47">Sinks</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -457,23 +457,23 @@
     <text
    class="SVGTextShape"
    id="text52"
-   x="-74.369034"
-   style="font-style:normal;font-variant:normal;font-weight:800;font-stretch:normal;font-size:564.444px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Ultra-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="-252.30971"
+   style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:635px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Semi-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan52"
-     style="font-style:normal;font-variant:normal;font-weight:800;font-stretch:normal;font-size:564.444px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Ultra-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:635px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Semi-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="8720.6309"
+       x="8542.6904"
        y="18385"
        id="tspan51"
-       style="font-style:normal;font-variant:normal;font-weight:800;font-stretch:normal;font-size:564.444px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Ultra-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:635px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Semi-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="635px"
          font-weight="700"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:800;font-stretch:normal;font-size:564.444px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Ultra-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:635px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Semi-Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan50">Logger</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -504,24 +504,24 @@
     <text
    class="SVGTextShape"
    id="text55"
-   x="-99.763062"
-   y="1.6536"
-   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="6.4137583"
+   y="-14.155924"
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan55"
-     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="7869.2373"
-       y="20690.652"
+       x="7975.4141"
+       y="20674.844"
        id="tspan54"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan53">Fixed attributes</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -688,24 +688,24 @@
     <text
    class="SVGTextShape"
    id="text82"
-   x="96.681206"
-   y="35.602619"
-   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="129.2778"
+   y="39.306721"
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan82"
-     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="2997.6812"
-       y="8049.6021"
+       x="3030.2778"
+       y="8053.3062"
        id="tspan81"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan80">I/O</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -791,24 +791,24 @@
     <text
    class="SVGTextShape"
    id="text96"
-   x="91.390587"
-   y="-5.3905859"
-   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="99.046349"
+   y="-8.8479853"
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan96"
-     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="7407.3906"
-       y="8008.6094"
+       x="7415.0464"
+       y="8005.1519"
        id="tspan95"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan94">Syslog</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -894,24 +894,24 @@
     <text
    class="SVGTextShape"
    id="text110"
-   x="104.46389"
-   y="13.377337"
-   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="114.58802"
+   y="36.343204"
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan110"
-     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="11949.464"
-       y="8027.377"
+       x="11959.588"
+       y="8050.3428"
        id="tspan109"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan108">Journald</tspan></tspan></tspan></text>
    </g>
   </g>
@@ -997,24 +997,24 @@
     <text
    class="SVGTextShape"
    id="text124"
-   x="125.00251"
-   y="-109.60155"
-   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+   x="139.07829"
+   y="-112.31776"
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
      class="TextParagraph"
      id="tspan124"
-     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
        class="TextPosition"
-       x="17444.002"
-       y="7904.3984"
+       x="17458.078"
+       y="7901.6821"
        id="tspan123"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"><tspan
          font-family="'Fira Sans Compressed', sans-serif"
          font-size="564px"
          font-weight="400"
          lengthAdjust="spacingAndGlyphs"
          fill="#000000"
          stroke="none"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:'Fira Sans';-inkscape-font-specification:'Fira Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:493.889px;font-family:FreeSans;-inkscape-font-specification:'FreeSans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre"
          id="tspan122">…</tspan></tspan></tspan></text>
    </g>
   </g>
