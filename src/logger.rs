@@ -231,9 +231,9 @@ impl<'i> Logger {
 			}
 		}
 
-		self.common_partial_update.when.copy_from(&Timestamp::now());
-		self.common_partial_update.level = level;
-		self.common_partial_update.depth = self.depth;
+		self.common_partial_update.set_when_from(&Timestamp::now());
+		self.common_partial_update.set_level(level);
+		self.common_partial_update.set_depth(self.depth);
 		self.common_partial_update.set_msg(msg);
 		let update = LogUpdate::from((&self.common_partial_update, attrs as &attributes::Map));
 

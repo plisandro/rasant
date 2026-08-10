@@ -218,7 +218,7 @@
 //!
 //! ## Sinks
 //!
-//! [Sinks][sink]s are configurable destinations for log updates, of which [logger][Logger]s
+//! [Sink][sink]s are configurable destinations for log updates, of which [logger][Logger]s
 //! can have an arbitrary number of instances associated with. When a log operation
 //! is performed, [logger][Logger]s dispatch log writes to each of its [sink]s, in sequence.
 //!

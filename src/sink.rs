@@ -30,13 +30,13 @@ pub type LogDepth = u16;
 #[derive(Clone, Debug)]
 pub struct PartialLogUpdate {
 	/// [Timestamp][`ntime::Timestamp`] for the log update.
-	pub when: ntime::Timestamp,
+	when: ntime::Timestamp,
 	/// [Level][`level::Level`] for the log update.
-	pub level: level::Level,
+	level: level::Level,
 	/// Number of parent instances for the [`Logger`][crate::logger::Logger] generating this log update.
-	pub depth: LogDepth,
+	depth: LogDepth,
 	/// Message for the log update.
-	pub msg: String,
+	msg: String,
 }
 
 impl PartialLogUpdate {
@@ -50,7 +50,7 @@ impl PartialLogUpdate {
 		}
 	}
 
-	/// Initializes a [`PartialLogUpdate`] for a given timestamp, log level, depth and log meessage.
+	/// Initializes a [`PartialLogUpdate`] for a given [Timestamp][`ntime::Timestamp`], log level, depth and log meessage.
 	pub fn new(now: ntime::Timestamp, level: level::Level, depth: LogDepth, msg: String) -> Self {
 		Self {
 			when: now,
@@ -61,6 +61,7 @@ impl PartialLogUpdate {
 	}
 
 	/// Updates a [`PartialLogUpdate`] with the contents of another [`PartialLogUpdate`].
+	#[inline]
 	pub fn copy_from(&mut self, other: &Self) {
 		self.when.copy_from(&other.when);
 		self.level = other.level;
@@ -69,21 +70,31 @@ impl PartialLogUpdate {
 	}
 
 	/// Updates the time for a [`PartialLogUpdate`].
+	#[inline]
 	pub fn set_when(&mut self, when: ntime::Timestamp) {
 		self.when = when;
 	}
 
+	/// Updates the time for a [`PartialLogUpdate`] from a [Timestamp][`ntime::Timestamp`] reference.
+	#[inline]
+	pub fn set_when_from(&mut self, when: &ntime::Timestamp) {
+		self.when.copy_from(when);
+	}
+
 	/// Updates the level for a [`PartialLogUpdate`].
+	#[inline]
 	pub fn set_level(&mut self, level: level::Level) {
 		self.level = level;
 	}
 
 	/// Updates the log depth for a [`PartialLogUpdate`].
+	#[inline]
 	pub fn set_depth(&mut self, depth: LogDepth) {
 		self.depth = depth;
 	}
 
 	/// Updates the message string for a [`PartialLogUpdate`].
+	#[inline]
 	pub fn set_msg(&mut self, msg: &str) {
 		self.msg.clear();
 		self.msg.insert_str(0, msg);
@@ -105,31 +116,38 @@ impl<'i> From<(&'i PartialLogUpdate, &'i attributes::Map)> for LogUpdate<'i> {
 
 impl<'i> LogUpdate<'i> {
 	/// Returns references for the underlying [`PartialLogUpdate`] + attributes map of a [`LogUpdate`].
+	// TODO: make me private?
+	#[inline]
 	pub fn parts(&self) -> (&'i PartialLogUpdate, &'i attributes::Map) {
 		(self.partial, self.attrs)
 	}
 
 	/// Returns the [`Timestamp`][ntime::Timestamp] for the [`LogUpdate`].
+	#[inline]
 	pub fn when(&self) -> &'i ntime::Timestamp {
 		&self.partial.when
 	}
 
-	/// Returne the [`Level`][level::Level] for the [`LogUpdate`].
+	/// Returns the [`Level`][level::Level] for the [`LogUpdate`].
+	#[inline]
 	pub fn level(&self) -> &'i level::Level {
 		&self.partial.level
 	}
 
-	/// Returne the [`LogDepth`]for the [`LogUpdate`].
+	/// Returns the [`LogDepth`]for the [`LogUpdate`].
+	#[inline]
 	pub fn depth(&self) -> &'i LogDepth {
 		&self.partial.depth
 	}
 
-	/// Returne th log message for the [`LogUpdate`].
+	/// Returns th log message for the [`LogUpdate`].
+	#[inline]
 	pub fn message(&self) -> &'i str {
 		self.partial.msg.as_str()
 	}
 
 	/// Returns an attributes map reference for the [`LogUpdate`].
+	#[inline]
 	pub fn attributes(&self) -> &'i attributes::Map {
 		self.attrs
 	}
