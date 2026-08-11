@@ -370,14 +370,16 @@ impl<'i> Logger {
 
 	/// Logs a [`Level::Panic`] message, with no additional attributes, and panics the current process.
 	#[inline]
-	pub fn panic(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Panic, msg, [], [], None)
+	pub fn panic(&mut self, msg: &'i str) -> ! {
+		_ = self.log_expanded(Level::Panic, msg, [], [], None);
+		panic!(r"rasant::logger::Logger::panic() didn't panic properly ¯\_(ツ)_/¯")
 	}
 
 	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s, and panics the current process.
 	#[inline]
-	pub fn panic_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Panic, msg, attrs, [], None)
+	pub fn panic_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> ! {
+		_ = self.log_expanded(Level::Panic, msg, attrs, [], None);
+		panic!(r"rasant::logger::Logger::panic_with() didn't panic properly ¯\_(ツ)_/¯")
 	}
 
 	/// Flushes all pending writes on [`sink`]s for this [`Logger`].
