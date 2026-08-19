@@ -189,7 +189,7 @@ use rasant as r;
 let mut log = r::Logger::new();
 log.set_level(r::Level::Info).add_sink(r::sink::stdout::default());
 
-r::info!(log, "this is writen synchronously");
+r::info!(log, "this is written synchronously");
 log.set_async(true);
 r::info!(log, "and these write");
 r::warn!(log, "asynchronously, but");

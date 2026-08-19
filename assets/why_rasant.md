@@ -11,6 +11,19 @@ entries to sinks, it's not implemented.
 As a result, Rasant can routinely dispatch log entries to multiple sinks in tens of
 nanoseconds, and it's normally bottlenecked by I/O operations.
 
+## Concepts
+
+Rasant is a structured logging library: it logs fixed messages with an associated set
+of attributes as key-value pairs, organizing log details as to be easily parsed both
+by humans and automation.
+
+Attribute keys are strings, while **values** are arbitrary arrangements of **scalars** (integers,
+floats and strings):
+
+  * A single **scalar**; this is the most commonly used type.
+  * A **list of scalars**.
+  * A **map of scalars**, with keys being scalars as well.
+
 ## Architecture
 
 Rasant is built around self-contained, independent abstractions which can be cross-referenced,
@@ -30,6 +43,14 @@ allowing very flexible setups while minimizing resource usage:
 
 There is no global state in Rasant. Loggers, sinks, and filters can be independently
 instantiated, and destroyed, at any time.
+
+### Attributes
+
+Attributes can be set for logger as a whole (_fixed_), affecting all log
+operations, or for individual log writes (_ephemeral_).
+
+Upon key collisions, ephemeral attributes take precedence and override logger settings
+for the log operation at hand, but without modifying the logger's state.
 
 ### Stacking
 
@@ -74,7 +95,7 @@ copied with each call, but it effectively gives log calls a fixed, predictable l
 useful when sink write operations are expected to be slow.
 
 The async queue handler is the only global abstraction in Rasant, and it's designed to be as
-lightweight as possible. The handler is simple and stateless, tracking async loggers via a global
+lightweight as possible. The handler is simple and stateless, tracking async loggers via global
 refcounts, and blindly dispatching write operations to log sinks by reference.
 
 ## Design and Behavior

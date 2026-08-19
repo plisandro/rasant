@@ -140,7 +140,7 @@ impl<'i> LogUpdate<'i> {
 		&self.partial.depth
 	}
 
-	/// Returns th log message for the [`LogUpdate`].
+	/// Returns the log message for the [`LogUpdate`].
 	#[inline]
 	pub fn message(&self) -> &'i str {
 		self.partial.msg.as_str()
