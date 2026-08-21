@@ -9,7 +9,7 @@ use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEYS_PRIORITY, ATTRIBUTE_KE
 pub use scalar::Scalar;
 pub use value::Value;
 
-/// Attribute metadata flags for attributes.
+/// Metadata flags for attributes.
 pub enum MetadataField {
 	/// The attribute key is restricted - i.e. it cannot be set by users.
 	Restricted = (1 << 0),

@@ -93,6 +93,7 @@ impl Journald {
 	fn write_buf_scalar(&mut self, attrs: &Map, s: &Scalar) -> io::Result<()> {
 		let out = &mut self.output_buf;
 		match s {
+			Scalar::None => write!(out, "="),
 			Scalar::Bool(b) => write!(out, "={}", b),
 			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8JournalDataValue),
 			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8JournalDataValue),
@@ -242,18 +243,21 @@ A_FLOAT=-456.789
 SOME_STRING\n\x0d\0\0\0\0\0\0\0hi there! \xe2\x9d\xa4
 A_LIST=349834934
 A_LIST=true
-A_MAP={\"key #1\": false}\nA_MAP={\"key #2\": \"weee \\u{1f494}\"}
+NOTHING=
+A_MAP={\"key #1\": false}
+A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 "
 		.as_slice();
 		let want_with_attrs = b"_PID=12345
 _SOURCE_REALTIME_TIMESTAMP=1776016599123
 PRIORITY=4
-MESSAGE\n\xa5\0\0\0\0\0\0\0test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there! \\u{2764}\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee \\u{1f494}\"}
+MESSAGE\n\xb4\0\0\0\0\0\0\0test Syslog message update an_int=123 a_float=-456.789 some_string=\"hi there! \\u{2764}\" a_list=[0x14da0eb6, true] nothing=<none> a_map={\"key #1\": false, \"key #2\": \"weee \\u{1f494}\"}
 AN_INT=123
 A_FLOAT=-456.789
 SOME_STRING\n\x0d\0\0\0\0\0\0\0hi there! \xe2\x9d\xa4
 A_LIST=349834934
 A_LIST=true
+NOTHING=
 A_MAP={\"key #1\": false}
 A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 ".as_slice();
@@ -273,6 +277,7 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 			attrs.insert("a_float", Value::from(-456.789));
 			attrs.insert("some_string", Value::from("hi there! ❤"));
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+			attrs.insert("nothing", Value::from(None::<bool>));
 			attrs.insert(
 				"a_map",
 				Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee 💔")])),

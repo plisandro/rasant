@@ -23,6 +23,7 @@ pub fn default_format_config() -> FormatterConfig {
 /// Serializes a [`Scalar`] for [`OutputFormat::Compact`] into a [`io::Write`].
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
+		Scalar::None => write!(out, "<none>"),
 		Scalar::Bool(b) => write!(out, "{}", b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
@@ -107,6 +108,7 @@ mod tests {
 	#[test]
 	fn serialize_scalar() {
 		for tc in [
+			(Scalar::None, "<none>"),
 			(Scalar::from(true), "true"),
 			(Scalar::from(""), "\"\""),
 			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
@@ -131,6 +133,7 @@ mod tests {
 	#[test]
 	fn serialize_value() {
 		for tc in [
+			(Value::from(Scalar::None), "<none>"),
 			(Value::from(true), "true"),
 			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
 			(
@@ -138,10 +141,11 @@ mod tests {
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(-123),
+					Scalar::from(None::<bool>),
 					Scalar::from(89801234567890123 as usize),
 					Scalar::from(5678901.2345),
 				]),
-				"[false, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]",
+				"[false, \"abcd 1234\", -123, <none>, 0x13f09bf3ecf84cb, 5678901.2345]",
 			),
 			(
 				Value::from((
@@ -166,6 +170,7 @@ mod tests {
 		attrs.insert("an_int", Value::from(123));
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
+		attrs.insert("nothing", Value::from(None::<f32>));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
@@ -179,8 +184,7 @@ mod tests {
 		let update = LogUpdate::from((&pupdate, &attrs));
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
-		let want =
-			"1776016599123000456 [WRN] test compact update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}";
+		let want = "1776016599123000456 [WRN] test compact update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

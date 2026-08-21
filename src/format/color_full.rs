@@ -19,9 +19,10 @@ use crate::console::Color;
 use crate::constant::{
 	DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_DEPTH_SEPARATOR_LENGTH, FORMAT_FULL_MAX_DEPTH,
 };
+use crate::format::color_compact;
 use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
-use crate::level::{LEVEL_LONG_NAME_MAX_LENGTH, Level};
+use crate::level::LEVEL_LONG_NAME_MAX_LENGTH;
 use crate::sink::{LogDepth, LogUpdate};
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::ColorFull`].
@@ -43,10 +44,8 @@ fn write_attribute<T: io::Write>(out: &mut T, attrs: &Map, key: &str, val: &Valu
 	write!(
 		out,
 		" {key_color}{key}={val_color}",
-		// non-ephemeral key names are highlighted
-		key_color = (if meta.get(MetadataField::Ephemeral) { Color::Cyan } else { Color::BrightCyan }).to_escape_str(),
-		// error attributes are highlighted in red
-		val_color = (if meta.get(MetadataField::Error) { Color::BrightRed } else { Color::White }).to_escape_str(),
+		key_color = color_compact::key_color(meta).to_escape_str(),
+		val_color = color_compact::val_color(meta).to_escape_str(),
 	)?;
 	write_value(out, attrs, val)?;
 
@@ -133,8 +132,7 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 	write!(
 		out,
 		" {msg_color}{msg}{msg_close}",
-		// update messages above debug are highlighted in white
-		msg_color = (if Level::Debug.includes(&update.level()) { Color::White } else { Color::BrightWhite }).to_escape_str(),
+		msg_color = color_compact::message_color(update).to_escape_str(),
 		msg = update.message(),
 		msg_close = Color::Default.to_escape_str(),
 	)?;
@@ -150,6 +148,7 @@ mod tests {
 
 	use crate::attributes::{Scalar, Value};
 	use crate::console;
+	use crate::level::Level;
 	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
@@ -192,6 +191,7 @@ mod tests {
 		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("nothing", Value::from(None::<bool>));
 
 		let ts = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
 
@@ -199,42 +199,42 @@ mod tests {
 			(
 				false,
 				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
-				"1776016599123000456 WARNING an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 WARNING an_int=123 some_string=\"hi there!\" nothing=<none>
                             a_float=-456.789 a_set=[0x14da0eb6, true]
                             test full, no depth",
 			),
 			(
 				true,
 				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
-				"\u{1b}[37m1776016599123000456 \u{1b}[33mWARNING \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\"
+				"\u{1b}[37m1776016599123000456 \u{1b}[33mWARNING \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                             \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                             \u{1b}[97mtest full, no depth\u{1b}[0m",
 			),
 			(
 				false,
 				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
-				"1776016599123000456 INFO             an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 INFO             an_int=123 some_string=\"hi there!\" nothing=<none>
                                      a_float=-456.789 a_set=[0x14da0eb6, true]
                                      test full, half depth",
 			),
 			(
 				true,
 				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
-				"\u{1b}[37m1776016599123000456 \u{1b}[32mINFO             \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\"
+				"\u{1b}[37m1776016599123000456 \u{1b}[32mINFO             \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                                      \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                                      \u{1b}[97mtest full, half depth\u{1b}[0m",
 			),
 			(
 				false,
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"1776016599123000456 PANIC        ...       an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 PANIC        ...       an_int=123 some_string=\"hi there!\" nothing=<none>
                                            a_float=-456.789 a_set=[0x14da0eb6, true]
                                            test full, over max depth",
 			),
 			(
 				true,
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"\u{1b}[37m1776016599123000456 \u{1b}[35mPANIC        \u{1b}[90m...       \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\"
+				"\u{1b}[37m1776016599123000456 \u{1b}[35mPANIC        \u{1b}[90m...       \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                                            \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                                            \u{1b}[97mtest full, over max depth\u{1b}[0m",
 			),

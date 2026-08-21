@@ -7,7 +7,7 @@ use ntime::Format;
 use std::io;
 
 use crate::attributes::value::Value;
-use crate::attributes::{Map, MetadataField, MetadataImpl};
+use crate::attributes::{Map, Metadata, MetadataField, MetadataImpl};
 use crate::console::Color;
 use crate::constant::DEFAULT_LOG_DELIMITER_STRING;
 use crate::format::compact;
@@ -29,6 +29,35 @@ fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Resul
 	compact::write_value(out, attrs, val)
 }
 
+// Computes the message color escape string for an [`LogUpdate`]s.
+#[inline]
+pub fn message_color(update: &LogUpdate) -> Color {
+	// update messages above debug are highlighted
+	if Level::Debug.includes(&update.level()) {
+		return Color::White;
+	}
+	Color::BrightWhite
+}
+
+// Computes the key color escape string given an attribute's [`Metadata`].
+#[inline]
+pub fn key_color(meta: Metadata) -> Color {
+	// non-ephemeral key names are highlighted
+	if meta.get(MetadataField::Ephemeral) {
+		return Color::Cyan;
+	}
+	Color::BrightCyan
+}
+
+// Computes the value color escape string given an attribute's [`Metadata`].
+#[inline]
+pub fn val_color(meta: Metadata) -> Color {
+	if meta.get(MetadataField::Error) {
+		return Color::BrightRed;
+	}
+	Color::White
+}
+
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	out.write(Color::White.to_escape_str().as_bytes())?;
@@ -38,8 +67,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 		" {level_color}{level} {msg_color}{msg}",
 		level_color = update.level().color().to_escape_str(),
 		level = update.level().as_short_str(),
-		// update messages above debug are highlighted
-		msg_color = (if Level::Debug.includes(&update.level()) { Color::White } else { Color::BrightWhite }).to_escape_str(),
+		msg_color = message_color(update).to_escape_str(),
 		msg = update.message(),
 	)?;
 
@@ -48,10 +76,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 		write!(
 			out,
 			" {key_color}{key}={val_color}",
-			// non-ephemeral key names are highlighted
-			key_color = (if meta.get(MetadataField::Ephemeral) { Color::Cyan } else { Color::BrightCyan }).to_escape_str(),
+			key_color = key_color(meta).to_escape_str(),
 			// error attributes are highlighted in red
-			val_color = (if meta.get(MetadataField::Error) { Color::BrightRed } else { Color::White }).to_escape_str(),
+			val_color = val_color(meta).to_escape_str(),
 		)?;
 		write_value(out, update.attributes(), &val)?;
 	}
@@ -82,10 +109,11 @@ mod tests {
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(-123),
+					Scalar::None,
 					Scalar::from(89801234567890123 as usize),
 					Scalar::from(5678901.2345),
 				]),
-				"[false, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]",
+				"[false, \"abcd 1234\", -123, <none>, 0x13f09bf3ecf84cb, 5678901.2345]",
 			),
 			(
 				Value::from((
@@ -110,6 +138,7 @@ mod tests {
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
+		attrs.insert("nothing", Value::from(None::<u32>));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
 		let pupdate = PartialLogUpdate::new(
@@ -124,11 +153,11 @@ mod tests {
 		for tc in [
 			(
 				false,
-				"1776016599123000456 WRN test compact update an_int=123 a_float=-456.789 some_string=\"hi there!\" a_set=[0x14da0eb6, true]",
+				"1776016599123000456 WRN test compact update an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_set=[0x14da0eb6, true]",
 			),
 			(
 				true,
-				"\u{1b}[37m1776016599123000456 \u{1b}[33mWRN \u{1b}[97mtest compact update \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]\u{1b}[0m",
+				"\u{1b}[37m1776016599123000456 \u{1b}[33mWRN \u{1b}[97mtest compact update \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none> \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]\u{1b}[0m",
 			),
 		] {
 			let (enable, want) = tc;

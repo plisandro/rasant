@@ -335,6 +335,8 @@ impl Syslog {
 	fn write_buf_scalar_5424(&mut self, attrs: &Map, s: &Scalar) -> io::Result<()> {
 		let out = &mut self.output_buf;
 		match s {
+			// None's are serialized as empty strings.
+			Scalar::None => Ok(()),
 			Scalar::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8Rfc5424ParamValue),
 			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8Rfc5424ParamValue),
@@ -520,16 +522,16 @@ mod tests {
 			/*
 			(
 				SyslogFormat::RFC3164,
-				"<12>Apr 12 19:56:39 test_process[1234]: test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
+				"<12>Apr 12 19:56:39 test_process[1234]: test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
 			),
 			*/
 			(
 				SyslogFormat::RFC5424,
-				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@4 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f}",
+				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 nothing=\"\"][rasant@4 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@5 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f}",
 			),
 			(
 				SyslogFormat::RFC5424Full,
-				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@4 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
+				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 nothing=\"\"][rasant@4 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@5 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
 			),
 		] {
 			let (format, want) = tc;
@@ -545,6 +547,7 @@ mod tests {
 			attrs.insert("an_int", Value::from(123 as i32));
 			attrs.insert("a_float", Value::from(-456.789));
 			attrs.insert("some_string", Value::from("hi there!"));
+			attrs.insert("nothing", Value::from(None::<i32>));
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 

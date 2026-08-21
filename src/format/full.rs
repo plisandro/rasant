@@ -127,6 +127,7 @@ mod tests {
 	#[test]
 	fn serialize_value() {
 		for tc in [
+			(Value::from(Scalar::None), "<none>"),
 			(Value::from(true), "true"),
 			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
 			(
@@ -163,25 +164,26 @@ mod tests {
 		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("nothing", Value::from(None::<bool>));
 
 		let ts = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
 
 		for tc in [
 			(
 				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
-				"1776016599123000456 [WARNING] an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 [WARNING] an_int=123 some_string=\"hi there!\" nothing=<none>
                               a_float=-456.789 a_set=[0x14da0eb6, true]
                               test full, no depth",
 			),
 			(
 				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
-				"1776016599123000456 [INFO   ]          an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 [INFO   ]          an_int=123 some_string=\"hi there!\" nothing=<none>
                                        a_float=-456.789 a_set=[0x14da0eb6, true]
                                        test full, half depth",
 			),
 			(
 				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
-				"1776016599123000456 [PANIC  ]      ...       an_int=123 some_string=\"hi there!\"
+				"1776016599123000456 [PANIC  ]      ...       an_int=123 some_string=\"hi there!\" nothing=<none>
                                              a_float=-456.789 a_set=[0x14da0eb6, true]
                                              test full, over max depth",
 			),

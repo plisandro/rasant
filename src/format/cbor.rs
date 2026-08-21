@@ -27,13 +27,22 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
+// Serializes a null into a CBOR stream.
+fn write_null<T: io::Write>(out: &mut T) -> io::Result<()> {
+	// tiny field type 7 (special), value 22 (null)
+	out.write(&[((7 << 5) + 22) as u8])?;
+
+	Ok(())
+}
+
 // Serializes a boolean into a CBOR stream.
 fn write_bool<T: io::Write>(out: &mut T, b: bool) -> io::Result<()> {
-	match b {
-		// tiny field type 7 (special)
-		false => _ = out.write(&[((7 << 5) + 20) as u8])?,
-		true => _ = out.write(&[((7 << 5) + 21) as u8])?,
+	// tiny field type 7 (special), value 20 (false) / 21 (true).
+	let val: u8 = match b {
+		false => 20,
+		true => 21,
 	};
+	out.write(&[(7 << 5) as u8 + val])?;
 
 	Ok(())
 }
@@ -167,6 +176,7 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 /// Serializes a [`Scalar`] for [`OutputFormat::Cbor`] into a [`io::Write`].
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
+		Scalar::None => write_null(out),
 		Scalar::Bool(b) => write_bool(out, *b),
 		Scalar::String(s, _) => write_string(out, s.as_str()),
 		Scalar::StringSlice(s, _) => write_string(out, s),
@@ -241,6 +251,9 @@ mod tests {
 	#[test]
 	fn serialize_scalar() {
 		for tc in [
+			// none
+			(Scalar::None, [0xf6].as_slice()),
+			// booleans
 			(Scalar::from(false), [0xf4].as_slice()),
 			(Scalar::from(true), [0xf5].as_slice()),
 			// tiny integer
@@ -335,6 +348,7 @@ mod tests {
 	#[test]
 	fn serialize_value() {
 		for tc in [
+			(Value::from(None::<u32>), [0xf6].as_slice()),
 			(Value::from("lalala"), [0x66, 0x6c, 0x61, 0x6c, 0x61, 0x6c, 0x61].as_slice()),
 			(Value::from(-1234), [0x39, 0x04, 0xd1].as_slice()),
 			(Value::from(true), [0xf5].as_slice()),
@@ -343,13 +357,14 @@ mod tests {
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
+					Scalar::from(None::<bool>),
 					Scalar::from(123),
 					Scalar::from(-89801234567890123 as isize),
 					Scalar::from(5678901.2345),
 				]),
 				[
-					0x85, 0xf4, 0x69, 0x61, 0x62, 0x63, 0x64, 0x20, 0x31, 0x32, 0x33, 0x34, 0x18, 0x7b, 0x3b, 0x01, 0x3f, 0x09, 0xbf, 0x3e, 0xcf, 0x84, 0xca, 0xfb, 0x41, 0x55, 0xa9, 0xcd, 0x4f, 0x02,
-					0x0c, 0x4a,
+					0x86, 0xf4, 0x69, 0x61, 0x62, 0x63, 0x64, 0x20, 0x31, 0x32, 0x33, 0x34, 0xf6, 0x18, 0x7b, 0x3b, 0x01, 0x3f, 0x09, 0xbf, 0x3e, 0xcf, 0x84, 0xca, 0xfb, 0x41, 0x55, 0xa9, 0xcd, 0x4f,
+					0x02, 0x0c, 0x4a,
 				]
 				.as_slice(),
 			),

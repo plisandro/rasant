@@ -14,6 +14,8 @@ use crate::level::Level;
 /// Scalars are the basic data units for Rasant, representing a single type.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {
+	/// An empty value.
+	None,
 	/// A [`bool`]ean.
 	Bool(bool),
 	/// An owned [`String`], and whether it has characters which need escaping.
@@ -44,6 +46,7 @@ pub enum Scalar {
 impl fmt::Display for Scalar {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
+			Self::None => write!(f, "<none>"),
 			Self::Bool(b) => write!(f, "{}", b),
 			Scalar::String(s, escape) => match *escape {
 				false => write!(f, "\"{}\"", s),
@@ -81,6 +84,7 @@ impl<'i> Scalar {
 	/// Writes a raw string representation of a [`Scalar`] into an [`fmt::Write`].
 	pub fn write_fmt_raw<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
 		match self {
+			Self::None => write!(out, "<none>"),
 			Self::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => write!(out, "{}", s),
 			Scalar::StringSlice(s, _) => write!(out, "{}", s),
@@ -145,6 +149,18 @@ impl<'i> Scalar {
 }
 
 /* ----------------------- Casting ----------------------- */
+
+impl<T: Into<Scalar>> From<Option<T>> for Scalar
+where
+	Scalar: From<T>,
+{
+	fn from(ot: Option<T>) -> Self {
+		match ot {
+			None => Self::None,
+			Some(t) => Self::from(t),
+		}
+	}
+}
 
 impl From<bool> for Scalar {
 	fn from(b: bool) -> Self {
@@ -383,7 +399,8 @@ mod tests {
 
 	#[test]
 	fn from_string() {
-		assert_eq!(Scalar::from(true), Scalar::Bool(true));
+		assert_eq!(Scalar::from(None::<&str>), Scalar::None);
+		assert_eq!(Scalar::from(None::<String>), Scalar::None);
 		assert_eq!(Scalar::from("lalala"), Scalar::StringSlice("lalala", false));
 		assert_eq!(Scalar::from("declaró\nen\tcontra"), Scalar::StringSlice("declaró\nen\tcontra", true));
 		assert_eq!(Scalar::from(String::from("lalala")), Scalar::String(String::from("lalala"), false));
@@ -392,25 +409,43 @@ mod tests {
 
 	#[test]
 	fn from_base_type() {
+		assert_eq!(Scalar::from(None::<bool>), Scalar::None);
+		assert_eq!(Scalar::from(true), Scalar::Bool(true));
+		assert_eq!(Scalar::from(None::<i8>), Scalar::None);
 		assert_eq!(Scalar::from(-12 as i8), Scalar::Int(-12));
+		assert_eq!(Scalar::from(None::<i16>), Scalar::None);
 		assert_eq!(Scalar::from(345 as i16), Scalar::Int(345));
+		assert_eq!(Scalar::from(None::<i32>), Scalar::None);
 		assert_eq!(Scalar::from(-678 as i32), Scalar::Int(-678));
+		assert_eq!(Scalar::from(None::<i64>), Scalar::None);
 		assert_eq!(Scalar::from(9012 as i64), Scalar::Int(9012));
+		assert_eq!(Scalar::from(None::<i128>), Scalar::None);
 		assert_eq!(Scalar::from(-3456 as i128), Scalar::LongInt(-3456));
+		assert_eq!(Scalar::from(None::<isize>), Scalar::None);
 		assert_eq!(Scalar::from(7890 as isize), Scalar::Size(7890));
+		assert_eq!(Scalar::from(None::<u8>), Scalar::None);
 		assert_eq!(Scalar::from(12 as u8), Scalar::Uint(12));
+		assert_eq!(Scalar::from(None::<u16>), Scalar::None);
 		assert_eq!(Scalar::from(345 as u16), Scalar::Uint(345));
+		assert_eq!(Scalar::from(None::<u32>), Scalar::None);
 		assert_eq!(Scalar::from(678 as u32), Scalar::Uint(678));
+		assert_eq!(Scalar::from(None::<u64>), Scalar::None);
 		assert_eq!(Scalar::from(9012 as u64), Scalar::Uint(9012));
+		assert_eq!(Scalar::from(None::<u128>), Scalar::None);
 		assert_eq!(Scalar::from(3456 as u128), Scalar::LongUint(3456));
+		assert_eq!(Scalar::from(None::<usize>), Scalar::None);
 		assert_eq!(Scalar::from(7890 as usize), Scalar::Usize(7890));
+		assert_eq!(Scalar::from(None::<f32>), Scalar::None);
 		// yaay precision!
 		assert_eq!(Scalar::from(-123.456 as f32), Scalar::Float(-123.45600128173828));
+		assert_eq!(Scalar::from(None::<f64>), Scalar::None);
 		assert_eq!(Scalar::from(789.012 as f64), Scalar::Float(789.012));
 	}
 
 	#[test]
 	fn from_ntime() {
+		assert_eq!(Scalar::from(None::<Duration>), Scalar::None);
+		assert_eq!(Scalar::from(None::<&Duration>), Scalar::None);
 		assert_eq!(Scalar::from(Duration::from_millis(12345)), Scalar::Uint(12));
 		assert_eq!(Scalar::from(&Duration::from_millis(67890)), Scalar::Uint(67));
 		assert_eq!(Scalar::from(Timestamp::from_millis(12345)), Scalar::Uint(12));
@@ -422,16 +457,22 @@ mod tests {
 		let ip4 = net::Ipv4Addr::new(12, 34, 56, 78);
 		let ip6 = net::Ipv6Addr::new(0x1020, 0x3040, 0x5060, 0x7080, 0x90A0, 0xB0C0, 0xD0E0, 0xF00D);
 
+		assert_eq!(Scalar::from(None::<&net::Ipv4Addr>), Scalar::None);
 		assert_eq!(Scalar::from(&ip4), Scalar::String(String::from("12.34.56.78"), false));
+		assert_eq!(Scalar::from(None::<&net::Ipv6Addr>), Scalar::None);
 		assert_eq!(Scalar::from(&ip6), Scalar::String(String::from("1020:3040:5060:7080:90a0:b0c0:d0e0:f00d"), false));
+		assert_eq!(Scalar::from(None::<&net::IpAddr>), Scalar::None);
 		assert_eq!(Scalar::from(&net::IpAddr::V4(ip4)), Scalar::String(String::from("12.34.56.78"), false));
 		assert_eq!(Scalar::from(&net::IpAddr::V6(ip6)), Scalar::String(String::from("1020:3040:5060:7080:90a0:b0c0:d0e0:f00d"), false));
 
 		let addr4 = net::SocketAddrV4::new(net::Ipv4Addr::new(12, 34, 56, 78), 7777);
 		let addr6 = net::SocketAddrV6::new(net::Ipv6Addr::new(0x1020, 0x3040, 0x5060, 0x7080, 0x90A0, 0xB0C0, 0xD0E0, 0xF00D), 8888, 1, 2);
 
+		assert_eq!(Scalar::from(None::<&net::SocketAddrV4>), Scalar::None);
 		assert_eq!(Scalar::from(&addr4), Scalar::String(String::from("12.34.56.78:7777"), false));
+		assert_eq!(Scalar::from(None::<&net::SocketAddrV4>), Scalar::None);
 		assert_eq!(Scalar::from(&addr6), Scalar::String(String::from("[1020:3040:5060:7080:90a0:b0c0:d0e0:f00d%2]:8888"), false));
+		assert_eq!(Scalar::from(None::<&net::SocketAddr>), Scalar::None);
 		assert_eq!(Scalar::from(&net::SocketAddr::V4(addr4)), Scalar::String(String::from("12.34.56.78:7777"), false));
 		assert_eq!(
 			Scalar::from(&net::SocketAddr::V6(addr6)),
@@ -441,19 +482,24 @@ mod tests {
 
 	#[test]
 	fn from_os_string() {
+		assert_eq!(Scalar::from(None::<&ffi::OsStr>), Scalar::None);
 		assert_eq!(Scalar::from(ffi::OsStr::new("a OS string ref")), Scalar::String(String::from("a OS string ref"), false));
+		assert_eq!(Scalar::from(None::<&ffi::OsString>), Scalar::None);
 		assert_eq!(Scalar::from(&ffi::OsString::from("an owned OS string")), Scalar::String(String::from("an owned OS string"), false));
 	}
 
 	#[test]
 	fn from_path() {
+		assert_eq!(Scalar::from(None::<&path::Path>), Scalar::None);
 		assert_eq!(Scalar::from(path::Path::new("/random/path")), Scalar::String(String::from("/random/path"), false));
+		assert_eq!(Scalar::from(None::<&path::PathBuf>), Scalar::None);
 		assert_eq!(Scalar::from(&path::PathBuf::from("/random/path/buf")), Scalar::String(String::from("/random/path/buf"), false));
 	}
 
 	#[test]
 	fn to_string() {
 		for tc in [
+			(Scalar::None, "<none>"),
 			(Scalar::Bool(true), "true"),
 			(Scalar::Bool(false), "false"),
 			(Scalar::String(String::from(""), false), "\"\""),
@@ -489,6 +535,7 @@ mod tests {
 	#[test]
 	fn into_string() {
 		for tc in [
+			(Scalar::None, "<none>", "<none>"),
 			(Scalar::Bool(true), "true", "true"),
 			(Scalar::Bool(false), "false", "false"),
 			(Scalar::String(String::from(""), false), "\"\"", ""),

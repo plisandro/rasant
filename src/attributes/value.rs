@@ -3,8 +3,8 @@ use std::fmt;
 use crate::attributes::Map;
 use crate::attributes::scalar::Scalar;
 
-/// [Value] definition for all log operations.
-/// These are associated with a single [`&str`] key in attribute maps for [logger][crate::Logger]s.
+/// [`Value`] definition for all log operations.
+/// These are associated with a single [`&str`] key in attribute maps for [`logger`][crate::Logger]s.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value<'e> {
 	/// A single [`Scalar`] value.
@@ -16,6 +16,17 @@ pub enum Value<'e> {
 }
 
 /* ----------------------- Value implementation ----------------------- */
+
+impl<'i> Value<'i> {
+	/// Evaluates whether a [`Value`] is [`None`](Scalar::None), or a combination of.
+	pub fn is_none(&'i self) -> bool {
+		match self {
+			Value::Scalar(s) => *s == Scalar::None,
+			Value::List(ls) => ls.iter().all(|s| *s == Scalar::None),
+			Value::Map(_, vs) => vs.iter().all(|s| *s == Scalar::None),
+		}
+	}
+}
 
 impl<'i> fmt::Display for Value<'i> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -180,6 +191,23 @@ mod tests {
 	use super::*;
 
 	use ntime::{Duration, Timestamp};
+
+	#[test]
+	fn is_none() {
+		assert_eq!(Value::from(123).is_none(), false);
+		assert_eq!(Value::from(None::<bool>).is_none(), true);
+		assert_eq!(Value::List(&[Scalar::from(1), Scalar::from(2), Scalar::from(None::<i32>)]).is_none(), false);
+		assert_eq!(Value::List(&[Scalar::from(None::<i32>), Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none(), true);
+		assert_eq!(Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none(), false);
+		assert_eq!(
+			Value::Map(&[Scalar::from("a"), Scalar::from(None::<&str>)], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none(),
+			false
+		);
+		assert_eq!(
+			Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none(),
+			true
+		);
+	}
 
 	#[test]
 	fn from_scalar() {

@@ -50,7 +50,7 @@ impl Color {
 		*COLORTERM_OK
 	}
 
-	pub fn to_str(&self) -> &str {
+	pub fn to_str(&self) -> &'static str {
 		match *self {
 			Self::Default => "default",
 			Self::Black => "black",
@@ -72,7 +72,7 @@ impl Color {
 		}
 	}
 
-	pub fn to_escape_str(&self) -> &str {
+	pub fn to_escape_str(&self) -> &'static str {
 		if !self.supported() {
 			return "";
 		}
@@ -98,7 +98,7 @@ impl Color {
 		}
 	}
 
-	pub fn to_bg_escape_str(&self) -> &str {
+	pub fn to_bg_escape_str(&self) -> &'static str {
 		if !self.supported() {
 			return "";
 		}

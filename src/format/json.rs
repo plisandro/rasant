@@ -25,6 +25,7 @@ pub fn default_format_config() -> FormatterConfig {
 /// Serializes a [`Scalar`] for [`OutputFormat::Json`] into a [`io::Write`].
 pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
 	match s {
+		Scalar::None => write!(out, "null"),
 		Scalar::Bool(b) => write!(out, "{}", b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
@@ -118,6 +119,7 @@ mod tests {
 	#[test]
 	fn serialize_scalar() {
 		for tc in [
+			(Scalar::from(None::<bool>), "null"),
 			(Scalar::from(true), "true"),
 			(Scalar::from(""), "\"\""),
 			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
@@ -145,6 +147,7 @@ mod tests {
 	#[test]
 	fn serialize_value() {
 		for tc in [
+			(Value::from(None::<i32>), "null"),
 			(Value::from(true), "true"),
 			(Value::from(89801234567890123 as usize), "89801234567890123"),
 			(
@@ -180,6 +183,7 @@ mod tests {
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
+		attrs.insert("nothing", Value::from(None::<f64>));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
@@ -194,7 +198,7 @@ mod tests {
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
-		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
+		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
