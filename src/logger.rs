@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::Value;
-use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, ATTRIBUTE_KEY_TRACE_LOGGER_ID, MAX_LOGGER_DEPTH};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
 use crate::level::Level;
@@ -14,11 +14,8 @@ use crate::sink;
 use crate::sink::{LogDepth, LogUpdate, PartialLogUpdate};
 use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
 
-static GLOBAL_LOGGER_NEXT_UUID: Mutex<u32> = Mutex::new(0);
-
 /// Base logger structure for Rasant.
 pub struct Logger {
-	id: u32,
 	enabled: bool,
 	depth: LogDepth,
 	level: Level,
@@ -31,19 +28,10 @@ pub struct Logger {
 }
 
 impl<'i> Logger {
-	fn next_uuid() -> u32 {
-		let mut next_id = GLOBAL_LOGGER_NEXT_UUID.lock().unwrap();
-		let id = *next_id;
-		*next_id += 1;
-
-		id
-	}
-
 	/// Creates a brand new [`Logger`] instance, with a default level of [`Level::Warning`]
 	/// and no associated sinks.
 	pub fn new() -> Self {
 		Self {
-			id: Self::next_uuid(),
 			enabled: true,
 			depth: 0,
 			level: Level::Warning,
@@ -196,13 +184,13 @@ impl<'i> Logger {
 		msg: &'i str,
 		attrs_1: [(&'i str, Value); X],
 		attrs_2: [(&'i str, Value); Y],
-		loc: Option<&'static panic::Location<'static>>,
+		loc: &'static panic::Location<'static>,
 	) -> &mut Self {
 		if !self.enabled {
 			return self;
 		}
 		if !self.has_sinks() {
-			panic!("tried to log without sinks configured for logger {id}", id = self.id);
+			panic!("tried to log without sinks configured at \"{file}\", line {line}", file = loc.file(), line = loc.line());
 		}
 		// bail out early on negative log requests
 		if !self.level.covers(&level) {
@@ -222,13 +210,14 @@ impl<'i> Logger {
 			}
 		};
 
-		// add trace-specific attributes, if necessary.
+		// add level-specific attributes, if necessary.
 		if level == Level::Trace {
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LOGGER_ID, Value::from(self.id));
-			if let Some(loc) = loc {
-				attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-				attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
-			}
+			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+		}
+		if level == Level::Panic {
+			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
 		}
 
 		self.common_partial_update.set_when_from(&Timestamp::now());
@@ -255,7 +244,12 @@ impl<'i> Logger {
 				None => asink.lock().unwrap().log(&update),
 			};
 			if let Err(e) = res {
-				panic!("failed to log update {update:?} on sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
+				panic!(
+					"failed to log update {update:?} on sink {name} at \"{file}\", line {line}: {e}",
+					name = asink.lock().unwrap().name(),
+					file = loc.file(),
+					line = loc.line()
+				);
 			}
 		}
 
@@ -272,113 +266,113 @@ impl<'i> Logger {
 	#[inline]
 	#[track_caller]
 	pub fn log(&mut self, level: Level, msg: &'i str) -> &mut Self {
-		self.log_expanded(level, msg, [], [], Some(panic::Location::caller()))
+		self.log_expanded(level, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a message with a given level and additional attribute [`Value`]s.
 	#[inline]
 	#[track_caller]
 	pub fn log_with<const L: usize>(&mut self, level: Level, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(level, msg, attrs, [], Some(panic::Location::caller()))
+		self.log_expanded(level, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Trace`] message, with no user-provided attributes, and the caller's filename and line number annotated as attributes.
 	#[inline]
 	#[track_caller]
 	pub fn trace(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Trace, msg, [], [], Some(panic::Location::caller()))
+		self.log_expanded(Level::Trace, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Trace`] message, with additional attribute [`Value`]s. Caller's filename and line are also annotated as attributes.
 	#[inline]
 	#[track_caller]
 	pub fn trace_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Trace, msg, attrs, [], Some(panic::Location::caller()))
+		self.log_expanded(Level::Trace, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Debug`] message, with no additional attributes.
 	#[inline]
 	pub fn debug(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Debug, msg, [], [], None)
+		self.log_expanded(Level::Debug, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Debug`] message, with additional attribute [`Value`]s.
 	#[inline]
 	pub fn debug_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Debug, msg, attrs, [], None)
+		self.log_expanded(Level::Debug, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Info`] message, with no additional attributes.
 	#[inline]
 	pub fn info(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Info, msg, [], [], None)
+		self.log_expanded(Level::Info, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Info`] message, with additional attribute [`Value`]s.
 	#[inline]
 	pub fn info_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_with(Level::Info, msg, attrs)
+		self.log_expanded(Level::Info, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Warning`] message, with no additional attributes.
 	#[inline]
 	pub fn warn(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Warning, msg, [], [], None)
+		self.log_expanded(Level::Warning, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Warning`] message, with additional attribute [`Value`]s.
 	#[inline]
 	pub fn warn_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Warning, msg, attrs, [], None)
+		self.log_expanded(Level::Warning, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Error`] message, with no additional attributes.
 	#[inline]
 	pub fn err(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Error, msg, [], [], None)
+		self.log_expanded(Level::Error, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Error`] message, with additional attribute [`Value`]s.
 	#[inline]
 	pub fn err_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Error, msg, attrs, [], None)
+		self.log_expanded(Level::Error, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with no additional attributes.
 	#[inline]
 	pub fn error<T: Error>(&mut self, error: T, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Error, msg, [], [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], None)
+		self.log_expanded(Level::Error, msg, [], [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Error`] message for a given [`Error`], with additional attribute [`Value`]s.
 	#[inline]
 	pub fn error_with<T: Error, const L: usize>(&mut self, error: T, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], None)
+		self.log_expanded(Level::Error, msg, attrs, [(ATTRIBUTE_KEY_ERROR, Value::from(error.to_string()))], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Fatal`] message, with no additional attributes.
 	#[inline]
 	pub fn fatal(&mut self, msg: &'i str) -> &mut Self {
-		self.log_expanded(Level::Fatal, msg, [], [], None)
+		self.log_expanded(Level::Fatal, msg, [], [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Fatal`] message, with additional attribute [`Value`]s.
 	#[inline]
 	pub fn fatal_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> &mut Self {
-		self.log_expanded(Level::Fatal, msg, attrs, [], None)
+		self.log_expanded(Level::Fatal, msg, attrs, [], panic::Location::caller())
 	}
 
 	/// Logs a [`Level::Panic`] message, with no additional attributes, and panics the current process.
 	#[inline]
 	pub fn panic(&mut self, msg: &'i str) -> ! {
-		_ = self.log_expanded(Level::Panic, msg, [], [], None);
+		_ = self.log_expanded(Level::Panic, msg, [], [], panic::Location::caller());
 		panic!(r"rasant::logger::Logger::panic() didn't panic properly ¯\_(ツ)_/¯")
 	}
 
 	/// Logs a [`Level::Panic`] message, with additional attribute [`Value`]s, and panics the current process.
 	#[inline]
 	pub fn panic_with<const L: usize>(&mut self, msg: &'i str, attrs: [(&'i str, Value); L]) -> ! {
-		_ = self.log_expanded(Level::Panic, msg, attrs, [], None);
+		_ = self.log_expanded(Level::Panic, msg, attrs, [], panic::Location::caller());
 		panic!(r"rasant::logger::Logger::panic_with() didn't panic properly ¯\_(ツ)_/¯")
 	}
 
@@ -399,7 +393,13 @@ impl<'i> Logger {
 				None => asink.lock().unwrap().flush(),
 			};
 			if let Err(e) = res {
-				panic!("failed to flush sink {name} for logger {id}: {e}", name = asink.lock().unwrap().name(), id = self.id);
+				let loc = panic::Location::caller();
+				panic!(
+					"failed to flush logger sink {name} at \"{file}\", line {line}: {e}",
+					name = asink.lock().unwrap().name(),
+					file = loc.file(),
+					line = loc.line()
+				);
 			}
 		}
 
@@ -410,11 +410,16 @@ impl<'i> Logger {
 impl Clone for Logger {
 	fn clone(&self) -> Self {
 		if self.depth >= MAX_LOGGER_DEPTH {
-			panic!("cannot clone logger {id} with maximum log depth of {max_depth}", max_depth = MAX_LOGGER_DEPTH, id = self.id);
+			let loc = panic::Location::caller();
+			panic!(
+				"cannot clone logger with maximum log depth of {max_depth} at \"{file}\", line {line}",
+				max_depth = MAX_LOGGER_DEPTH,
+				file = loc.file(),
+				line = loc.line()
+			);
 		}
 
 		let mut clone = Self {
-			id: Self::next_uuid(),
 			enabled: self.enabled,
 			depth: self.depth + 1,
 			level: self.level,

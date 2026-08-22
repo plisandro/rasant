@@ -50,11 +50,9 @@ pub const ATTRIBUTE_KEY_TIME: &str = "time";
 /// Attribute key for numeric timestamps;
 pub const ATTRIBUTE_KEY_TIMESTAMP: &str = "timestamp";
 
-/// Attribute key for logger IDs on [crate::level::Trace][Trace] log updates.
-pub const ATTRIBUTE_KEY_TRACE_LOGGER_ID: &str = "logger_id";
-/// Attribute key for caller filename on [crate::level::Trace][Trace] log updates.
+/// Attribute key for caller filename traces on log updates.
 pub const ATTRIBUTE_KEY_TRACE_FILENAME: &str = "caller_filename";
-/// Attribute key for caller line on [crate::level::Trace][Trace] log updates.
+/// Attribute key for caller line traces on log updates.
 pub const ATTRIBUTE_KEY_TRACE_LINE: &str = "caller_line";
 
 /// Restricted attribute keys; these cannot be set by end users.

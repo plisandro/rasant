@@ -165,7 +165,7 @@ fn sync_trace() {
 	}
 
 	let got = mem_sink_output.as_string();
-	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false logger_id=100 caller_filename=\"src/some_file.rs\" caller_line=567\n\
+	let want = "2026-03-04 15:10:15.000 [TRA] added new log sink name=\"default log string\" total=1 async=false caller_filename=\"src/some_file.rs\" caller_line=567\n\
 	            2026-03-04 15:10:16.234 [INF] root test info\n\
 				2026-03-04 15:10:17.468 [WRN] root test warn\n\
 				2026-03-04 15:10:18.702 [DBG] root test debug\n\

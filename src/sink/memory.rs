@@ -21,7 +21,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
-use crate::constant::{ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, ATTRIBUTE_KEY_TRACE_LOGGER_ID};
+use crate::constant::{ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE};
 use crate::format;
 use crate::sink;
 
@@ -81,7 +81,6 @@ pub struct Memory {
 	out: Arc<Mutex<Vec<u8>>>,
 	frozen_now: Option<ntime::Timestamp>,
 	frozen_now_tick: Option<ntime::Duration>,
-	frozen_trace_logger_id: Option<u32>,
 	frozen_trace_filename: Option<&'static str>,
 	frozen_trace_line: Option<u64>,
 	mock_partial_update: sink::PartialLogUpdate,
@@ -104,7 +103,6 @@ impl Memory {
 				None
 			},
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
-			frozen_trace_logger_id: if conf.mock_trace { Some(100 as u32) } else { None },
 			frozen_trace_filename: if conf.mock_trace { Some("src/some_file.rs") } else { None },
 			frozen_trace_line: if conf.mock_trace { Some(567) } else { None },
 			mock_partial_update: sink::PartialLogUpdate::blank(),
@@ -124,7 +122,7 @@ impl Memory {
 
 	#[inline]
 	fn has_mocks(&self) -> bool {
-		self.frozen_now.is_some() || self.frozen_trace_logger_id.is_some() || self.frozen_trace_filename.is_some() || self.frozen_trace_line.is_some()
+		self.frozen_now.is_some() || self.frozen_trace_filename.is_some() || self.frozen_trace_line.is_some()
 	}
 }
 
@@ -144,12 +142,6 @@ impl sink::Sink for Memory {
 
 			if let Some(t) = self.frozen_now.as_mut() {
 				self.mock_partial_update.when = t.clone();
-			}
-			if let Some(id) = self.frozen_trace_logger_id {
-				if self.mock_attributes.has(ATTRIBUTE_KEY_TRACE_LOGGER_ID) {
-					self.mock_attributes.insert(ATTRIBUTE_KEY_TRACE_LOGGER_ID, attributes::Value::from(id));
-					self.frozen_trace_logger_id = Some(id + 1);
-				};
 			}
 			if let Some(filename) = self.frozen_trace_filename {
 				// mock trace filename
