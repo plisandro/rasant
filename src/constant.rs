@@ -63,7 +63,7 @@ pub const ATTRIBUTE_KEYS_RESTRICTED: [&str; 3] = [ATTRIBUTE_KEY_LEVEL, ATTRIBUTE
 pub const ATTRIBUTE_KEYS_PRIORITY: [&str; 2] = [ATTRIBUTE_KEY_MESSAGE, ATTRIBUTE_KEY_ERROR];
 
 /// Maximum allowed [`crate::logger::Logger`] depth.
-pub const MAX_LOGGER_DEPTH: u16 = 1024;
+pub const MAX_LOGGER_DEPTH: u16 = 4096;
 
 /// Default log separator for binary format outputs.
 pub const DEFAULT_LOG_DELIMITER_BINARY: &[u8] = "".as_bytes();
