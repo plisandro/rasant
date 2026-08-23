@@ -2,6 +2,23 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 1.2.0 (2026-08-23)
+
+Bugfixes and minor feature updates.
+
+  - Drop global logger IDs, as these imposed a hard limit on 2^32 `Logger` instances being
+    created/cloned within a process.
+  - `Panic` level updates include caller filename and line as attributes.
+  - Maximum logger depth is now 4096.
+  - Add `None` as a new `Scalar` type, and casting from `Optional<>` on all supported `From` types.
+  - Turn `rasant::logger::Logger::panic()` and `rasant::logger::Logger::panic_with()` into
+    `never`s, so these can be used as a replacement for `panic!()`.
+  - Make `rasant::sink::PartialLogUpdate` non-public so third-party sinks don't attempt to
+    access implementation details.
+  - Improve documentation, clean up diagrams.
+  - Customizable optional filename prefixes on `LogFile` sinks.
+  - `Scalar` casting support for `std::ffi::OsString`, `std::ffi::OsStr`, `std::path::Path` and `std::path::PathBuf`.
+
 ## Version 1.1.0 (2026-07-22)
 
 Bugfixes and minor feature updates.
