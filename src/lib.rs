@@ -251,6 +251,17 @@
 //!   - [`Value::List`] is an ordered set of [`Scalar`]s.
 //!   - [`Value::Map`] is an ordered set of key-value [`Scalar`]s.
 //!
+//! Commonly used types and structs are automatically converted to [scalar](Scalar)s
+//! (and [value](Value)s, by extension), so most users will never have to deal
+//! with instantiating attribute types.
+//!
+//! ### Third-Party [scalar](Scalar) definitions.
+//!
+//! If Rasant's built-in type casters don't cover the types you need, or you want
+//! to serialize complex structures into a single attribute, converters can be
+//! easily extended by implementing `From<your_type> for Scalar`. See
+//! `tests/` for examples.
+//!
 //! ### Scope
 //!
 //! Attributes can be set for [logger](Logger)s as a whole, affecting all log operations,

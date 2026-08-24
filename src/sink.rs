@@ -134,7 +134,7 @@ impl<'i> LogUpdate<'i> {
 		&self.partial.level
 	}
 
-	/// Returns the [`LogDepth`]for the [`LogUpdate`].
+	/// Returns the [`LogDepth`] for the [`LogUpdate`].
 	#[inline]
 	pub fn depth(&self) -> &'i LogDepth {
 		&self.partial.depth
