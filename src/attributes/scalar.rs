@@ -175,6 +175,13 @@ impl From<String> for Scalar {
 	}
 }
 
+impl From<&String> for Scalar {
+	fn from(s: &String) -> Self {
+		let escaped = encoding::str_needs_escaping(s.as_str());
+		Self::String(s.clone(), escaped)
+	}
+}
+
 impl From<&'static str> for Scalar {
 	fn from(s: &'static str) -> Self {
 		Self::StringSlice(s, encoding::str_needs_escaping(s))
@@ -404,6 +411,7 @@ mod tests {
 		assert_eq!(Scalar::from("lalala"), Scalar::StringSlice("lalala", false));
 		assert_eq!(Scalar::from("declaró\nen\tcontra"), Scalar::StringSlice("declaró\nen\tcontra", true));
 		assert_eq!(Scalar::from(String::from("lalala")), Scalar::String(String::from("lalala"), false));
+		assert_eq!(Scalar::from(&String::from("lololo")), Scalar::String(String::from("lololo"), false));
 		assert_eq!(Scalar::from(String::from("declaró\nen\tcontra")), Scalar::String(String::from("declaró\nen\tcontra"), true));
 	}
 
