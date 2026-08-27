@@ -68,6 +68,7 @@ impl MetadataImpl for Metadata {
 }
 
 /// A store for a ordered map of (key -> [`Value`])
+// TODO: Simplify this code once we no longer store ephemerals in Maps.
 #[derive(Debug, Clone)]
 pub struct Map {
 	/// A container for all strings in this map (keys and scalars)
@@ -552,6 +553,7 @@ impl<'i> Iterator for MapIter<'i> {
 	}
 }
 
+// TODO: delete me?
 impl fmt::Display for Map {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut first: bool = true;
@@ -563,6 +565,183 @@ impl fmt::Display for Map {
 				ephemeral = if meta.get(MetadataField::Ephemeral) { "*" } else { "" }
 			)?;
 			val.write_fmt(f, self)?;
+			first = false;
+		}
+
+		Ok(())
+	}
+}
+
+/// A combo of fixed attributes [Map] + ephemeral key/value attributes slices, processed as one.
+#[derive(Debug, Clone)]
+pub struct Set<'s> {
+	fixed: &'s Map,
+	ephemerals: &'s [&'s [(&'s str, Value<'s>)]],
+}
+
+impl<'i> From<(&'i Map, &'i [&'i [(&'i str, Value<'i>)]])> for Set<'i> {
+	fn from((fixed, ephemerals): (&'i Map, &'i [&'i [(&'i str, Value<'i>)]])) -> Self {
+		Self { fixed: fixed, ephemerals: ephemerals }
+	}
+}
+
+impl<'i> Set<'i> {
+	#[inline]
+	fn ephemeral_has(eph: &'i [(&'i str, Value<'i>)], key: &str) -> bool {
+		eph.iter().any(|&(k, _)| k == key)
+	}
+
+	fn ephemeral_get(eph: &'i [(&'i str, Value<'i>)], key: &str) -> Option<(Value<'i>, Metadata)> {
+		for &(k, ref v) in eph.iter().rev() {
+			if k == key {
+				let mut meta = Metadata::from_key(k);
+				meta.set(MetadataField::Ephemeral, true);
+				// TODO: fix me?
+				return Some((v.clone(), meta));
+			}
+		}
+
+		None
+	}
+
+	#[inline]
+	pub fn has(&'i self, key: &'i str) -> bool {
+		self.fixed.has(key) || self.ephemerals.iter().any(|eph| Self::ephemeral_has(eph, key))
+	}
+
+	#[inline]
+	// TODO: test me
+	fn is_empty(&self) -> bool {
+		self.fixed.is_empty() && self.ephemerals.iter().all(|eph| eph.len() == 0)
+	}
+
+	pub fn get(&'i self, key: &'i str) -> Option<(Value<'i>, Metadata)> {
+		// ephemeral arguments lists are transversed in reverse, so overlapping keys yield
+		// the latest value updated - behaving like Maps do.
+		for eph in self.ephemerals.iter().rev() {
+			if let Some((val, meta)) = Self::ephemeral_get(eph, key) {
+				return Some((val, meta));
+			}
+		}
+
+		self.fixed.get(key)
+	}
+
+	#[inline]
+	pub fn iter(&'i self) -> SetIter<'i> {
+		SetIter::new(self)
+	}
+
+	#[inline]
+	pub fn str_by_idx(&'i self, idx: usize) -> &'i str {
+		self.fixed.str_by_idx(idx)
+	}
+}
+
+/// A key/value/metadata iterator for attribute ['Set']s.
+pub struct SetIter<'s> {
+	set: &'s Set<'s>,
+	fixed_idx: usize,
+	ephemeral_slice_idx: usize,
+	ephemeral_idx: usize,
+	priority_idx: usize,
+}
+
+impl<'i> SetIter<'i> {
+	/// Intiializes an attribute map key/value iterator.
+	pub fn new(set: &'i Set<'i>) -> Self {
+		Self {
+			set: set,
+			fixed_idx: 0,
+			ephemeral_slice_idx: 0,
+			ephemeral_idx: 0,
+			priority_idx: 0,
+		}
+	}
+}
+
+impl<'i> Iterator for SetIter<'i> {
+	type Item = (&'i str, Value<'i>, Metadata);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		// loop over priority keys first...
+		while self.priority_idx < ATTRIBUTE_KEYS_PRIORITY.len() {
+			let key = ATTRIBUTE_KEYS_PRIORITY[self.priority_idx];
+			self.priority_idx += 1;
+
+			// ephemeral priority values override fixed ones
+			for eph in self.set.ephemerals.iter().rev() {
+				if let Some((val, meta)) = Set::ephemeral_get(eph, key) {
+					return Some((key, val, meta));
+				}
+			}
+			if let Some((val, meta)) = self.set.fixed.get(key) {
+				return Some((key, val, meta));
+			}
+		}
+
+		// TODO: simplify?
+
+		// ...fixed keys...
+		while let Some((key, meta)) = self.set.fixed.key_meta_by_idx(self.fixed_idx) {
+			if meta.get(MetadataField::Priority) {
+				self.fixed_idx += 1;
+				continue;
+			}
+
+			for eph in self.set.ephemerals.iter().rev() {
+				if let Some((val, meta)) = Set::ephemeral_get(eph, key) {
+					self.fixed_idx += 1;
+					return Some((key, val, meta));
+				}
+			}
+
+			let val = self.set.fixed.value_by_idx(self.fixed_idx);
+			self.fixed_idx += 1;
+			return Some((key, val, meta));
+		}
+
+		// ...then epehemerals.
+		// TODO: simplify me.
+		while self.ephemeral_slice_idx < self.set.ephemerals.len() {
+			let eph = self.set.ephemerals[self.set.ephemerals.len() - 1 - self.ephemeral_slice_idx];
+			let (key, ref val) = eph[self.ephemeral_idx];
+			self.ephemeral_idx += 1;
+			if self.ephemeral_idx >= eph.len() {
+				self.ephemeral_slice_idx += 1;
+				self.ephemeral_idx = 0;
+			}
+
+			if self.set.fixed.has(key) {
+				continue;
+			}
+
+			let mut meta = Metadata::from_key(key);
+			if meta.get(MetadataField::Priority) {
+				continue;
+			}
+
+			meta.set(MetadataField::Ephemeral, true);
+
+			// TODO: fix me?
+			return Some((key, val.clone(), meta));
+		}
+
+		None
+	}
+}
+
+impl<'i> fmt::Display for Set<'i> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut first: bool = true;
+		for (key, val, meta) in self.iter() {
+			write!(
+				f,
+				"{spacer}{ephemeral}{key}=",
+				spacer = if first { "" } else { " " },
+				ephemeral = if meta.get(MetadataField::Ephemeral) { "*" } else { "" }
+			)?;
+			val.write_fmt(f, self.fixed)?;
 			first = false;
 		}
 
@@ -867,11 +1046,179 @@ mod map {
 			got,
 			&[
 				("error", Value::from("an error"), 0b110),
-				("key_a", Value::from(123), 0),
-				("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]), 0),
-				("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]), 0),
-				("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")]), 0),
+				("key_a", Value::from(123), 0b0),
+				("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]), 0b0),
+				("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]), 0b0),
+				("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")]), 0b0),
 			]
 		);
+	}
+}
+
+#[cfg(test)]
+mod set {
+	use super::*;
+
+	#[test]
+	fn has() {
+		let mut map = Map::new();
+		map.insert("key_a", Value::from(123));
+		map.insert("key_b", Value::from(true));
+		map.insert("key_c", Value::from(456 as usize));
+		map.insert("key_d", Value::from(3.14159));
+
+		let ephemerals_1: [(&str, Value); 4] = [
+			("key_a", Value::from("overwrite!")),
+			("eph_key_a", Value::from(false)),
+			("error", Value::from("priority!")),
+			("eph_key_b", Value::from(2.7182818)),
+		];
+		let ephemerals_2: [(&str, Value); 3] = [
+			("key_a", Value::from("double overwrite!")),
+			("eph_key_a", Value::from("ephemeral overwrite!")),
+			("eph_key_c", Value::from(789)),
+		];
+		let ephemerals = [ephemerals_1.as_slice(), ephemerals_2.as_slice()];
+
+		let set = Set::from((&map, ephemerals.as_slice()));
+		assert_eq!(set.has("bad_key"), false);
+		assert_eq!(set.has("key_a"), true);
+		assert_eq!(set.has("key_b"), true);
+		assert_eq!(set.has("key_c"), true);
+		assert_eq!(set.has("key_d"), true);
+		assert_eq!(set.has("orerr"), false);
+		assert_eq!(set.has("error"), true);
+		assert_eq!(set.has("eph_key_a"), true);
+		assert_eq!(set.has("eph_key_b"), true);
+		assert_eq!(set.has("eph_key_c"), true);
+	}
+
+	#[test]
+	fn get() {
+		let mut map = Map::new();
+		map.insert("key_a", Value::from(123));
+		map.insert("key_b", Value::from(true));
+		map.insert("key_c", Value::from(456 as usize));
+		map.insert("key_d", Value::from(3.14159));
+
+		let ephemerals_1: [(&str, Value); 4] = [
+			("key_a", Value::from("overwrite!")),
+			("eph_key_a", Value::from(false)),
+			("error", Value::from("priority!")),
+			("eph_key_b", Value::from(2.7182818)),
+		];
+		let ephemerals_2: [(&str, Value); 3] = [
+			("key_a", Value::from("double overwrite!")),
+			("eph_key_a", Value::from("ephemeral overwrite!")),
+			("eph_key_c", Value::from(789)),
+		];
+		let ephemerals = [ephemerals_1.as_slice(), ephemerals_2.as_slice()];
+
+		let set = Set::from((&map, ephemerals.as_slice()));
+		assert_eq!(set.get("bad_key"), None);
+		assert_eq!(set.get("key_a"), Some((Value::from("double overwrite!"), 0b1000)));
+		assert_eq!(set.get("key_b"), Some((Value::from(true), 0b0)));
+		assert_eq!(set.get("key_c"), Some((Value::from(456 as usize), 0b0)));
+		assert_eq!(set.get("key_d"), Some((Value::from(3.14159), 0b0)));
+		assert_eq!(set.get("orerr"), None);
+		assert_eq!(set.get("error"), Some((Value::from("priority!"), 0b1110)));
+		assert_eq!(set.get("eph_key_a"), Some((Value::from("ephemeral overwrite!"), 0b1000)));
+		assert_eq!(set.get("eph_key_b"), Some((Value::from(2.7182818), 0b1000)));
+		assert_eq!(set.get("eph_key_c"), Some((Value::from(789), 0b1000)));
+	}
+
+	#[test]
+	fn iterator_no_ephemeral() {
+		let mut map = Map::new();
+		map.insert("key_a", Value::from(123));
+		map.insert("key_b", Value::from(true));
+		map.insert("error", Value::from("first error"));
+		map.insert("key_c", Value::from(456 as usize));
+		map.insert("key_d", Value::from(3.14159));
+
+		let want: &[(&str, Value, Metadata); 5] = &[
+			("error", Value::from("first error"), 0b110),
+			("key_a", Value::from(123), 0b0),
+			("key_b", Value::from(true), 0b0),
+			("key_c", Value::from(456 as usize), 0b0),
+			("key_d", Value::from(3.14159), 0b0),
+		];
+
+		let set = Set::from((&map, [].as_slice()));
+		let mut got: Vec<(&str, Value, Metadata)> = Vec::new();
+		for (key, val, meta) in set.iter() {
+			got.push((key, val, meta));
+		}
+		assert_eq!(got, want);
+	}
+
+	#[test]
+	fn iterator_single_ephemeral() {
+		let mut map = Map::new();
+		map.insert("key_a", Value::from(123));
+		map.insert("key_b", Value::from(true));
+		map.insert("key_c", Value::from(456 as usize));
+		map.insert("key_d", Value::from(3.14159));
+
+		let ephemerals_1: [(&str, Value); 4] = [
+			("key_a", Value::from("overwrite!")),
+			("eph_key_c", Value::from(false)),
+			("error", Value::from("priority!")),
+			("eph_key_d", Value::from(2.7182818)),
+		];
+		let ephemerals = [ephemerals_1.as_slice()];
+
+		let want: &[(&str, Value, Metadata); 7] = &[
+			("error", Value::from("priority!"), 0b1110),
+			("key_a", Value::from("overwrite!"), 0b1000),
+			("key_b", Value::from(true), 0b0),
+			("key_c", Value::from(456 as usize), 0b0),
+			("key_d", Value::from(3.14159), 0b00),
+			("eph_key_c", Value::from(false), 0b1000),
+			("eph_key_d", Value::from(2.7182818), 0b1000),
+		];
+
+		let set = Set::from((&map, ephemerals.as_slice()));
+		let mut got: Vec<(&str, Value, Metadata)> = Vec::new();
+		for (key, val, meta) in set.iter() {
+			got.push((key, val, meta));
+		}
+		assert_eq!(got, want);
+	}
+
+	#[test]
+	fn iterator_double_ephemeral() {
+		let mut map = Map::new();
+		map.insert("key_a", Value::from(123));
+		map.insert("key_b", Value::from(true));
+		map.insert("key_c", Value::from(456 as usize));
+		map.insert("key_d", Value::from(3.14159));
+
+		let ephemerals_1: [(&str, Value); 4] = [
+			("key_a", Value::from("overwrite!")),
+			("eph_key_c", Value::from(false)),
+			("error", Value::from("priority!")),
+			("eph_key_d", Value::from(2.7182818)),
+		];
+		let ephemerals_2: [(&str, Value); 2] = [("key_a", Value::from("double overwrite!")), ("eph_key_e", Value::from(789))];
+		let ephemerals = [ephemerals_1.as_slice(), ephemerals_2.as_slice()];
+
+		let want: &[(&str, Value, Metadata); 8] = &[
+			("error", Value::from("priority!"), 0b1110),
+			("key_a", Value::from("double overwrite!"), 0b1000),
+			("key_b", Value::from(true), 0b0),
+			("key_c", Value::from(456 as usize), 0b0),
+			("key_d", Value::from(3.14159), 0b00),
+			("eph_key_e", Value::from(789), 0b1000),
+			("eph_key_c", Value::from(false), 0b1000),
+			("eph_key_d", Value::from(2.7182818), 0b1000),
+		];
+
+		let set = Set::from((&map, ephemerals.as_slice()));
+		let mut got: Vec<(&str, Value, Metadata)> = Vec::new();
+		for (key, val, meta) in set.iter() {
+			got.push((key, val, meta));
+		}
+		assert_eq!(got, want);
 	}
 }

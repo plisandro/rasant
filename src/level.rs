@@ -1,4 +1,7 @@
 //! Logging levels module for Rasant.
+
+use std::fmt;
+
 use crate::console::Color;
 
 /// Log level definition.
@@ -115,12 +118,6 @@ impl Level {
 	}
 }
 
-impl ToString for Level {
-	fn to_string(&self) -> String {
-		self.as_str().into()
-	}
-}
-
 impl TryFrom<&str> for Level {
 	type Error = &'static str;
 
@@ -149,6 +146,11 @@ impl TryFrom<u8> for Level {
 	}
 }
 
+impl fmt::Display for Level {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{level}", level = self.as_str())
+	}
+}
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
