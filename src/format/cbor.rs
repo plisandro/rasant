@@ -433,8 +433,10 @@ mod tests {
 		let mut buffer = Vec::new();
 		let mut out = Vec::new();
 
-		// update #1
 		let mut fixed = Map::new();
+
+		// update #1
+		fixed.clear();
 		fixed.insert("an_int", Value::from(123 as i32));
 		fixed.insert("a_float", Value::from(-456.789));
 
@@ -449,7 +451,7 @@ mod tests {
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
 		// update #2
-		let mut fixed = Map::new();
+		fixed.clear();
 		fixed.insert("some_string", Value::from("hi there!"));
 		fixed.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 

@@ -3,9 +3,9 @@ use std::sync::Mutex;
 use std::sync::mpsc;
 use std::thread;
 
+use crate::Level;
 use crate::attributes;
 use crate::constant::{THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
-use crate::level;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::{AsyncSinkSender, SinkRef};
 
@@ -16,8 +16,8 @@ pub enum AsyncSinkOp {
 	// TODO: allow for multiple sinks in the same Log op
 	Log {
 		sink: SinkRef,
-		when: ntime::Timestamp,
-		level: level::Level,
+		when: Timestamp,
+		level: Level,
 		depth: LogDepth,
 		msg: String,
 		attrs: attributes::Map,

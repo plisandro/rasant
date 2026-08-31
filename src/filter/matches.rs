@@ -247,14 +247,14 @@ mod tests {
 	use super::*;
 	use ntime::Timestamp;
 
-	use crate::attributes::Value;
+	use crate::attributes::{Map, Value};
 	use crate::filter::Filter;
 	use crate::level::Level;
 
 	#[test]
 	fn message() {
 		fn run(mut filter: Message, want: bool) {
-			let fixed = attributes::Map::new();
+			let fixed = Map::new();
 			let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &fixed));
 			assert_eq!(filter.pass(&update), want);
 		}

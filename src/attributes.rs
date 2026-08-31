@@ -532,6 +532,15 @@ pub struct Set<'s> {
 	ephemerals: &'s [&'s [(&'s str, Value<'s>)]],
 }
 
+impl<'i> From<&'i Map> for Set<'i> {
+	fn from(fixed: &'i Map) -> Self {
+		Self {
+			fixed: fixed,
+			ephemerals: [].as_slice(),
+		}
+	}
+}
+
 impl<'i> From<(&'i Map, &'i [&'i [(&'i str, Value<'i>)]])> for Set<'i> {
 	fn from((fixed, ephemerals): (&'i Map, &'i [&'i [(&'i str, Value<'i>)]])) -> Self {
 		Self { fixed: fixed, ephemerals: ephemerals }
@@ -564,8 +573,23 @@ impl<'i> Set<'i> {
 
 	#[inline]
 	// TODO: test me
-	fn is_empty(&self) -> bool {
+	pub fn is_empty(&self) -> bool {
 		self.fixed.is_empty() && self.ephemerals.iter().all(|eph| eph.len() == 0)
+	}
+
+	// TODO: test me
+	pub fn len(&self) -> usize {
+		let mut len: usize = self.fixed.len();
+
+		for &eph in self.ephemerals {
+			for (key, _) in eph {
+				if !self.fixed.has(key) {
+					len += 1
+				}
+			}
+		}
+
+		len
 	}
 
 	pub fn get(&'i self, key: &'i str) -> Option<(Value<'i>, Metadata)> {
@@ -588,6 +612,19 @@ impl<'i> Set<'i> {
 	#[inline]
 	pub fn str_by_idx(&'i self, idx: usize) -> &'i str {
 		self.fixed.str_by_idx(idx)
+	}
+
+	/// Normalize an attribute [`Set`] into a single [`Map`].
+	pub fn as_map(&self) -> Map {
+		let mut map = self.fixed.clone();
+		for &eph in self.ephemerals {
+			for (key, val) in eph {
+				// TODO: fix me
+				map.insert_ephemeral(key, val.clone());
+			}
+		}
+
+		map
 	}
 }
 
@@ -665,26 +702,27 @@ impl<'i> Iterator for SetIter<'i> {
 		// TODO: simplify me.
 		while self.ephemeral_slice_idx < self.set.ephemerals.len() {
 			let eph = self.set.ephemerals[self.set.ephemerals.len() - 1 - self.ephemeral_slice_idx];
-			let (key, ref val) = eph[self.ephemeral_idx];
-			self.ephemeral_idx += 1;
-			if self.ephemeral_idx >= eph.len() {
-				self.ephemeral_slice_idx += 1;
-				self.ephemeral_idx = 0;
+			while self.ephemeral_idx < eph.len() {
+				let (key, ref val) = eph[self.ephemeral_idx];
+				self.ephemeral_idx += 1;
+
+				if self.set.fixed.has(key) {
+					continue;
+				}
+
+				let mut meta = Metadata::from_key(key);
+				if meta.get(MetadataField::Priority) {
+					continue;
+				}
+
+				meta.set(MetadataField::Ephemeral, true);
+
+				// TODO: fix me?
+				return Some((key, val.clone(), meta));
 			}
 
-			if self.set.fixed.has(key) {
-				continue;
-			}
-
-			let mut meta = Metadata::from_key(key);
-			if meta.get(MetadataField::Priority) {
-				continue;
-			}
-
-			meta.set(MetadataField::Ephemeral, true);
-
-			// TODO: fix me?
-			return Some((key, val.clone(), meta));
+			self.ephemeral_slice_idx += 1;
+			self.ephemeral_idx = 0;
 		}
 
 		None

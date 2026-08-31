@@ -72,8 +72,8 @@ mod tests {
 		] {
 			let (level, want): (Level, bool) = tc;
 			let fixed = attributes::Map::new();
-			let update = sink::LogUpdate::from((Timestamp::now(), level, 0, "this is a test log", &fixed));
 
+			let update = sink::LogUpdate::from((Timestamp::now(), level, 0, "this is a test log", &fixed));
 			assert_eq!(filter.pass(&update), want);
 		}
 	}

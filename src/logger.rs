@@ -23,7 +23,6 @@ pub struct Logger {
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	filters: Vec<FilterRef>,
-	common_attributes: attributes::Map,
 }
 
 impl<'i> Logger {
@@ -38,7 +37,6 @@ impl<'i> Logger {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			filters: Vec::new(),
-			common_attributes: attributes::Map::new(),
 		}
 	}
 
@@ -195,21 +193,18 @@ impl<'i> Logger {
 			return self;
 		}
 
-		self.common_attributes.copy_from(&self.attributes);
-		attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
-		attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
-
 		// add level-specific attributes, if necessary.
-		if level == Level::Trace {
-			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
-		}
-		if level == Level::Panic {
-			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
-		}
+		let ephemerals = [attrs_1.as_slice(), attrs_2.as_slice()];
+		let trace_attrs = [(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file())), (ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()))];
+		let trace_ephemerals = [attrs_1.as_slice(), attrs_2.as_slice(), trace_attrs.as_slice()];
+		let eph_slice = if level == Level::Trace || level == Level::Panic {
+			trace_ephemerals.as_slice()
+		} else {
+			ephemerals.as_slice()
+		};
 
-		let update = LogUpdate::from((Timestamp::now(), level, self.depth, msg, &self.common_attributes));
+		let when = Timestamp::now();
+		let update = LogUpdate::from((when, level, self.depth, msg, &self.attributes, eph_slice));
 
 		// apply filters, if any
 		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {
@@ -413,7 +408,6 @@ impl Clone for Logger {
 			attributes: self.attributes.clone(),
 			sinks: self.sinks.clone(),
 			filters: self.filters.clone(),
-			common_attributes: attributes::Map::new(),
 		};
 		clone.set_async(self.is_async());
 

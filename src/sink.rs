@@ -26,7 +26,7 @@ pub type LogDepth = u16;
 /// Encapsulates a full log update.
 #[derive(Clone, Debug)]
 pub struct LogUpdate<'s> {
-	/// [`Timestamp`][ntime::Timestamp] for the log update.
+	/// [Timestamp][`ntime::Timestamp`] for the log update.
 	when: ntime::Timestamp,
 	/// [`Level`][level::Level] for the log update.
 	level: level::Level,
@@ -35,46 +35,83 @@ pub struct LogUpdate<'s> {
 	/// Message for the log update.
 	msg: &'s str,
 	/// Attributes for the log update.
-	attrs: &'s attributes::Map,
+	attrs: attributes::Set<'s>,
 }
 
-/// TODO
-// Initializes a dummy [`LogUpdate`] from an attributes [`Map`][attributes::Map].
+/// Initializes a dummy [`LogUpdate`] from an attributes [`Map`][attributes::Map].
 impl<'i> From<&'i attributes::Map> for LogUpdate<'i> {
-	fn from(attrs: &'i attributes::Map) -> Self {
+	fn from(fixed: &'i attributes::Map) -> Self {
 		Self {
 			when: ntime::Timestamp::epoch(),
 			level: level::Level::Trace,
 			depth: 1,
 			msg: "no message",
-			attrs: attrs,
+			attrs: attributes::Set::from(fixed),
 		}
 	}
 }
 
-/// TODO
-// Initializes a [`LogUpdate`] from another [`LogUpdate`] and a new attributes [`Map`][attributes::Map].
+/// Initializes a [`LogUpdate`] from an attributes [`Map`][attributes::Map] and ephemeral attribute sets.
+impl<'i> From<(&'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])> for LogUpdate<'i> {
+	fn from((fixed, ephemerals): (&'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])) -> Self {
+		Self {
+			when: ntime::Timestamp::epoch(),
+			level: level::Level::Trace,
+			depth: 1,
+			msg: "no message",
+			attrs: attributes::Set::from((fixed, ephemerals)),
+		}
+	}
+}
+
+/// Initializes a [`LogUpdate`] from another [`LogUpdate`] and a new attributes [`Map`][attributes::Map].
 impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
-	fn from((other, attrs): (&'i LogUpdate, &'i attributes::Map)) -> Self {
+	fn from((other, fixed): (&'i LogUpdate, &'i attributes::Map)) -> Self {
 		Self {
 			when: other.when.clone(),
 			level: other.level.clone(),
 			depth: other.depth,
 			msg: other.msg,
-			attrs: attrs,
+			attrs: attributes::Set::from(fixed),
 		}
 	}
 }
 
-/// Initializes a new [`LogUpdate`].
+/// Initializes a [`LogUpdate`] from another [`LogUpdate`], an attributes [`Map`][attributes::Map] and ephemeral attribute sets.
+impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])> for LogUpdate<'i> {
+	fn from((other, fixed, ephemeral): (&'i LogUpdate, &'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])) -> Self {
+		Self {
+			when: other.when.clone(),
+			level: other.level.clone(),
+			depth: other.depth,
+			msg: other.msg,
+			attrs: attributes::Set::from((fixed, ephemeral)),
+		}
+	}
+}
+
+/// Initializes a [`LogUpdate`] for a given attribute [Set][attributes::Map].
 impl<'i> From<(ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)> for LogUpdate<'i> {
-	fn from((when, level, depth, msg, attrs): (ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
+	fn from((when, level, depth, msg, fixed): (ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
 		Self {
 			when: when,
 			level: level,
 			depth: depth,
 			msg: msg,
-			attrs: attrs,
+			attrs: attributes::Set::from(fixed),
+		}
+	}
+}
+
+/// Initializes a [`LogUpdate`] for a given attribute [Set][attributes::Map] + ephemeral attribute sets.
+impl<'i> From<(ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])> for LogUpdate<'i> {
+	fn from((when, level, depth, msg, fixed, ephemerals): (ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map, &'i [&'i [(&'i str, attributes::Value<'i>)]])) -> Self {
+		Self {
+			when: when,
+			level: level,
+			depth: depth,
+			msg: msg,
+			attrs: attributes::Set::from((fixed, ephemerals)),
 		}
 	}
 }
@@ -119,7 +156,7 @@ impl<'i> LogUpdate<'i> {
 	/// Returns an intialized [`Map`][attributes::Map] for all attributes in the [`LogUpdate`].
 	#[inline]
 	pub fn attributes_as_map(&self) -> attributes::Map {
-		self.attrs.clone()
+		self.attrs.as_map()
 	}
 
 	/// Returns wheter an attribute is present in the [`LogUpdate`].
@@ -128,7 +165,7 @@ impl<'i> LogUpdate<'i> {
 		self.attrs.has(key)
 	}
 
-	/// Returns an attribute [`Value`](attributes::Value) and [`Metadata`](attributes::Metadata) by key from the [`LogUpdate`].
+	/// Returns an attribute [`Value`][attributes::Value] and [`Metadata`][attributes::Metadata] by key from the [`LogUpdate`].
 	#[inline]
 	pub fn attribute_get(&'i self, key: &'i str) -> Option<(attributes::Value<'i>, attributes::Metadata)> {
 		self.attrs.get(key)
@@ -136,7 +173,7 @@ impl<'i> LogUpdate<'i> {
 
 	/// Returns an attribute key/[`Value`](attributes::Value)/[`Metadata`](attributes::Metadata) iterator for all attributes in the [`LogUpdate`].
 	#[inline]
-	pub fn attribute_iter(&'i self) -> attributes::MapIter<'i> {
+	pub fn attribute_iter(&'i self) -> attributes::SetIter<'i> {
 		self.attrs.iter()
 	}
 }
