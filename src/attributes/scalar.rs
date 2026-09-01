@@ -6,7 +6,6 @@ use std::path;
 use std::string;
 use std::thread;
 
-use crate::attributes::Map;
 use crate::encoding;
 use crate::level::Level;
 
@@ -39,6 +38,11 @@ pub enum Scalar {
 	Usize(usize),
 	/// A float, internally stored as a [`f64`].
 	Float(f64),
+}
+
+/// A trait for a container of indedex [&str]s, intended for use with [Scalar::StringIndex].
+pub trait StringIndexContainer<'t> {
+	fn str_by_idx(&'t self, idx: usize) -> &'t str;
 }
 
 /* ----------------------- Implementation ----------------------- */
@@ -82,13 +86,13 @@ impl fmt::Display for Scalar {
 
 impl<'i> Scalar {
 	/// Writes a raw string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_fmt_raw<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt_raw<W: fmt::Write, C: StringIndexContainer<'i>>(&self, out: &mut W, container: &'i C) -> fmt::Result {
 		match self {
 			Self::None => write!(out, "<none>"),
 			Self::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => write!(out, "{}", s),
 			Scalar::StringSlice(s, _) => write!(out, "{}", s),
-			Scalar::StringIndex(idx, _) => write!(out, "{}", attrs.str_by_idx(*idx)),
+			Scalar::StringIndex(idx, _) => write!(out, "{}", container.str_by_idx(*idx)),
 			Self::Int(i) => write!(out, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
@@ -112,7 +116,7 @@ impl<'i> Scalar {
 	}
 
 	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_fmt<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt<W: fmt::Write, C: StringIndexContainer<'i>>(&self, out: &mut W, container: &'i C) -> fmt::Result {
 		match self {
 			Scalar::String(s, escape) => match *escape {
 				false => write!(out, "\"{}\"", s),
@@ -123,23 +127,23 @@ impl<'i> Scalar {
 				true => write!(out, "\"{}\"", s.escape_default()),
 			},
 			Scalar::StringIndex(idx, escape) => match *escape {
-				false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
-				true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
+				false => write!(out, "\"{}\"", container.str_by_idx(*idx)),
+				true => write!(out, "\"{}\"", container.str_by_idx(*idx).escape_default()),
 			},
-			_ => self.write_fmt_raw(out, attrs),
+			_ => self.write_fmt_raw(out, container),
 		}
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_string(&self, out: &mut String, attrs: &Map) {
+	pub fn into_string<C: StringIndexContainer<'i>>(&self, out: &mut String, container: &'i C) {
 		out.clear();
-		self.write_fmt(out, attrs).expect("failed to serialize Scalar into_string()");
+		self.write_fmt(out, container).expect("failed to serialize Scalar into_string()");
 	}
 
 	/// Serializes a raw [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_raw_string(&self, out: &mut String, attrs: &Map) {
+	pub fn into_raw_string<C: StringIndexContainer<'i>>(&self, out: &mut String, container: &'i C) {
 		out.clear();
-		self.write_fmt_raw(out, attrs).expect("failed to serialize Scalar into_raw_string()");
+		self.write_fmt_raw(out, container).expect("failed to serialize Scalar into_raw_string()");
 	}
 
 	/// Creates an array of [`Scalar`]s from a suitable type.
@@ -403,6 +407,7 @@ impl<'i, T: ToScalar, const N: usize> ToScalarArray<'i, N> for &[T] {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::attributes::Map;
 
 	#[test]
 	fn from_string() {

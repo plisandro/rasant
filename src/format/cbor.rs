@@ -7,8 +7,7 @@ use ntime::Format;
 use ntime::Timestamp;
 use std::io;
 
-use crate::attributes::Map;
-use crate::attributes::{Scalar, Value};
+use crate::attributes::{Scalar, StringIndexContainer, Value};
 use crate::constant::ATTRIBUTE_KEY_MESSAGE;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
@@ -174,13 +173,13 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::None => write_null(out),
 		Scalar::Bool(b) => write_bool(out, *b),
 		Scalar::String(s, _) => write_string(out, s.as_str()),
 		Scalar::StringSlice(s, _) => write_string(out, s),
-		Scalar::StringIndex(i, _) => write_string(out, attrs.str_by_idx(*i)),
+		Scalar::StringIndex(i, _) => write_string(out, container.str_by_idx(*i)),
 		Scalar::Int(i) => write_i64(out, *i),
 		Scalar::LongInt(i) => write_i128(out, *i),
 		Scalar::Size(s) => write_i128(out, *s as i128),
@@ -194,22 +193,22 @@ pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::R
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
+pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, attrs, &s)?,
+		Value::Scalar(s) => write_scalar(out, container, &s)?,
 		Value::List(ss) => {
 			// major type 4 (array)
 			write_u64_with_major(out, ss.len() as u64, 4 << 5)?;
 			for i in 0..ss.len() {
-				write_scalar(out, attrs, &ss[i])?;
+				write_scalar(out, container, &ss[i])?;
 			}
 		}
 		Value::Map(keys, ss) => {
 			// major type 5 (map)
 			write_u64_with_major(out, ss.len() as u64, 5 << 5)?;
 			for i in 0..keys.len() {
-				write_scalar(out, attrs, &keys[i])?;
-				write_scalar(out, attrs, &ss[i])?;
+				write_scalar(out, container, &keys[i])?;
+				write_scalar(out, container, &ss[i])?;
 			}
 		}
 	}
@@ -246,6 +245,7 @@ mod tests {
 	use super::*;
 
 	use crate::Level;
+	use crate::attributes::Map;
 	use crate::sink::PartialLogUpdate;
 
 	#[test]

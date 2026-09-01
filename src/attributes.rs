@@ -6,7 +6,7 @@ use std::slice;
 
 use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEYS_PRIORITY, ATTRIBUTE_KEYS_RESTRICTED};
 
-pub use scalar::Scalar;
+pub use scalar::{Scalar, StringIndexContainer};
 pub use value::Value;
 
 /// Metadata flags for attributes.
@@ -455,8 +455,10 @@ impl Map {
 	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
 		self.set(key, &val, true);
 	}
+}
 
-	pub fn str_by_idx<'f>(&'f self, idx: usize) -> &'f str {
+impl<'i> StringIndexContainer<'i> for Map {
+	fn str_by_idx(&'i self, idx: usize) -> &'i str {
 		if idx >= self.string_pool.len() {
 			panic!("invalid pooled string #{idx} for Map");
 		}

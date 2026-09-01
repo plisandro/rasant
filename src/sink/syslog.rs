@@ -42,7 +42,7 @@
 //!   - [`SyslogFormat::RFC5424Full`] is identical to [`SyslogFormat::RFC5424`], but log
 //!     attributes are also serialized as text and appended to the log message.
 
-use crate::attributes::{Map, Scalar, Value};
+use crate::attributes::{Map, Scalar, StringIndexContainer, Value};
 #[cfg(unix)]
 use crate::constant::DEFAULT_LOCAL_SYSLOG_SOCKETS;
 use crate::constant::{HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
@@ -332,7 +332,7 @@ impl Syslog {
 	}
 
 	// Serializes a [Scalar] as text into the write buffer for RFC 5424 messages.
-	fn write_buf_scalar_5424(&mut self, attrs: &Map, s: &Scalar) -> io::Result<()> {
+	fn write_buf_scalar_5424<'f, C: StringIndexContainer<'f>>(&mut self, container: &'f C, s: &Scalar) -> io::Result<()> {
 		let out = &mut self.output_buf;
 		match s {
 			// None's are serialized as empty strings.
@@ -340,7 +340,7 @@ impl Syslog {
 			Scalar::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8Rfc5424ParamValue),
 			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8Rfc5424ParamValue),
-			Scalar::StringIndex(idx, _) => encoding::str_write(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8Rfc5424ParamValue),
+			Scalar::StringIndex(idx, _) => encoding::str_write(out, container.str_by_idx(*idx), &encoding::Mode::Utf8Rfc5424ParamValue),
 			Scalar::Int(i) => write!(out, "{}", i),
 			Scalar::LongInt(i) => write!(out, "{}", i),
 			Scalar::Size(s) => write!(out, "{}", s),
@@ -352,12 +352,12 @@ impl Syslog {
 	}
 
 	// Serializes a [Value] as text into the write buffer for RFC 5424 messages.
-	fn write_buf_value_5424(&mut self, attrs: &Map, v: &Value) -> io::Result<()> {
+	fn write_buf_value_5424<'f, C: StringIndexContainer<'f>>(&mut self, container: &'f C, v: &Value) -> io::Result<()> {
 		match v {
 			Value::Scalar(s) => {
 				// scalars are always encoded as strings: "scalar_value"
 				self.output_buf.write("\"".as_bytes())?;
-				self.write_buf_scalar_5424(attrs, s)?;
+				self.write_buf_scalar_5424(container, s)?;
 				self.output_buf.write("\"".as_bytes())?;
 			}
 			Value::List(ss) => {
@@ -369,7 +369,7 @@ impl Syslog {
 						self.output_buf.write(", ".as_bytes())?;
 					}
 					self.output_buf.write("\\\"".as_bytes())?;
-					self.write_buf_scalar_5424(attrs, &ss[i])?;
+					self.write_buf_scalar_5424(container, &ss[i])?;
 					self.output_buf.write("\\\"".as_bytes())?;
 				}
 				self.output_buf.write("\\]\"".as_bytes())?;
@@ -382,9 +382,9 @@ impl Syslog {
 						self.output_buf.write(", ".as_bytes())?;
 					}
 					self.output_buf.write("\\\"".as_bytes())?;
-					self.write_buf_scalar_5424(attrs, &mkeys[i])?;
+					self.write_buf_scalar_5424(container, &mkeys[i])?;
 					self.output_buf.write("\\\": \\\"".as_bytes())?;
-					self.write_buf_scalar_5424(attrs, &mvals[i])?;
+					self.write_buf_scalar_5424(container, &mvals[i])?;
 					self.output_buf.write("\\\"".as_bytes())?;
 				}
 				self.output_buf.write("}\"".as_bytes())?;

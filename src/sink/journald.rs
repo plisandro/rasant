@@ -19,7 +19,7 @@ use std::io;
 use std::io::Write;
 use std::os::unix::net::UnixDatagram;
 
-use crate::attributes::{Map, Scalar, Value};
+use crate::attributes::{Map, Scalar, StringIndexContainer, Value};
 use crate::constant::{DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
 use crate::encoding;
 use crate::sink;
@@ -90,14 +90,14 @@ impl Journald {
 	}
 
 	// serializes a [`Scalar`] as text into the write buffer.
-	fn write_buf_scalar(&mut self, attrs: &Map, s: &Scalar) -> io::Result<()> {
+	fn write_buf_scalar<'f, C: StringIndexContainer<'f>>(&mut self, container: &'f C, s: &Scalar) -> io::Result<()> {
 		let out = &mut self.output_buf;
 		match s {
 			Scalar::None => write!(out, "="),
 			Scalar::Bool(b) => write!(out, "={}", b),
 			Scalar::String(s, _) => encoding::str_write(out, s.as_str(), &encoding::Mode::Utf8JournalDataValue),
 			Scalar::StringSlice(s, _) => encoding::str_write(out, s, &encoding::Mode::Utf8JournalDataValue),
-			Scalar::StringIndex(idx, _) => encoding::str_write(out, attrs.str_by_idx(*idx), &encoding::Mode::Utf8JournalDataValue),
+			Scalar::StringIndex(idx, _) => encoding::str_write(out, container.str_by_idx(*idx), &encoding::Mode::Utf8JournalDataValue),
 			Scalar::Int(i) => write!(out, "={}", i),
 			Scalar::LongInt(i) => write!(out, "={}", i),
 			Scalar::Size(s) => write!(out, "={}", s),
@@ -109,18 +109,18 @@ impl Journald {
 	}
 
 	// serializes a [`Value`] as text into the write buffer.
-	fn write_buf_value(&mut self, attrs: &Map, key: &str, val: &Value) -> io::Result<()> {
+	fn write_buf_value<'f, C: StringIndexContainer<'f>>(&mut self, container: &'f C, key: &str, val: &Value) -> io::Result<()> {
 		match val {
 			Value::Scalar(s) => {
 				encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
-				self.write_buf_scalar(attrs, s)?;
+				self.write_buf_scalar(container, s)?;
 				self.output_buf.write("\n".as_bytes())?;
 			}
 			// lists are represented as a repeated set of keys
 			Value::List(ss) => {
 				for s in *ss {
 					encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
-					self.write_buf_scalar(attrs, s)?;
+					self.write_buf_scalar(container, s)?;
 					self.output_buf.write("\n".as_bytes())?;
 				}
 			}
