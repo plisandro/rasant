@@ -6,8 +6,7 @@
 use ntime::Format;
 use std::io;
 
-use crate::attributes::Map;
-use crate::attributes::{Scalar, Value};
+use crate::attributes::{Scalar, StringIndexContainer, Value};
 use crate::constant::{ATTRIBUTE_KEY_MESSAGE, DEFAULT_LOG_DELIMITER_STRING};
 use crate::encoding;
 use crate::format::{FormatterConfig, OutputFormat};
@@ -23,13 +22,13 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::None => write!(out, "null"),
 		Scalar::Bool(b) => write!(out, "{}", b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
-		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, attrs.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
+		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, container.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => write!(out, "{}", i),
 		Scalar::Size(s) => write!(out, "{}", s),
@@ -43,16 +42,16 @@ pub fn write_scalar<T: io::Write>(out: &mut T, attrs: &Map, s: &Scalar) -> io::R
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
+pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, attrs, &s),
+		Value::Scalar(s) => write_scalar(out, container, &s),
 		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
 				if i != 0 {
 					write!(out, ",")?;
 				}
-				write_scalar(out, attrs, &ss[i])?;
+				write_scalar(out, container, &ss[i])?;
 			}
 			write!(out, "]")
 		}
@@ -62,9 +61,9 @@ pub fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::R
 				if i != 0 {
 					write!(out, ",")?;
 				}
-				write_scalar(out, attrs, &keys[i])?;
+				write_scalar(out, container, &keys[i])?;
 				write!(out, ":")?;
-				write_scalar(out, attrs, &ss[i])?;
+				write_scalar(out, container, &ss[i])?;
 			}
 			write!(out, "}}")
 		}
@@ -111,7 +110,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 mod tests {
 	use super::*;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
 	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;

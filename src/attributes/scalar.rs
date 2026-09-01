@@ -41,6 +41,11 @@ pub enum Scalar {
 	Float(f64),
 }
 
+/// A trait for a container of indedex [&str]s, intended for use with [Scalar::StringIndex].
+pub trait StringIndexContainer<'t> {
+	fn str_by_idx(&'t self, idx: usize) -> &'t str;
+}
+
 /* ----------------------- Implementation ----------------------- */
 
 impl fmt::Display for Scalar {
@@ -82,13 +87,13 @@ impl fmt::Display for Scalar {
 
 impl<'i> Scalar {
 	/// Writes a raw string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_fmt_raw<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt_raw<W: fmt::Write, C: StringIndexContainer<'i>>(&self, out: &mut W, container: &'i C) -> fmt::Result {
 		match self {
 			Self::None => write!(out, "<none>"),
 			Self::Bool(b) => write!(out, "{}", b),
 			Scalar::String(s, _) => write!(out, "{}", s),
 			Scalar::StringSlice(s, _) => write!(out, "{}", s),
-			Scalar::StringIndex(idx, _) => write!(out, "{}", attrs.str_by_idx(*idx)),
+			Scalar::StringIndex(idx, _) => write!(out, "{}", container.str_by_idx(*idx)),
 			Self::Int(i) => write!(out, "{}", i),
 			Self::LongInt(i) => {
 				if *i < 1 {
@@ -112,7 +117,7 @@ impl<'i> Scalar {
 	}
 
 	/// Writes a string representation of a [`Scalar`] into an [`fmt::Write`].
-	pub fn write_fmt<T: fmt::Write>(&self, out: &mut T, attrs: &Map) -> fmt::Result {
+	pub fn write_fmt<W: fmt::Write, C: StringIndexContainer<'i>>(&self, out: &mut W, container: &'i C) -> fmt::Result {
 		match self {
 			Scalar::String(s, escape) => match *escape {
 				false => write!(out, "\"{}\"", s),
@@ -123,10 +128,10 @@ impl<'i> Scalar {
 				true => write!(out, "\"{}\"", s.escape_default()),
 			},
 			Scalar::StringIndex(idx, escape) => match *escape {
-				false => write!(out, "\"{}\"", attrs.str_by_idx(*idx)),
-				true => write!(out, "\"{}\"", attrs.str_by_idx(*idx).escape_default()),
+				false => write!(out, "\"{}\"", container.str_by_idx(*idx)),
+				true => write!(out, "\"{}\"", container.str_by_idx(*idx).escape_default()),
 			},
-			_ => self.write_fmt_raw(out, attrs),
+			_ => self.write_fmt_raw(out, container),
 		}
 	}
 
