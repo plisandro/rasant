@@ -219,7 +219,7 @@ pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, c
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Cbor`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// write output as a map (major type 5)
-	write_u64_with_major(out, (update.attributes().len() + 2) as u64, 5 << 5)?;
+	write_u64_with_major(out, (update.attributes_len() + 2) as u64, 5 << 5)?;
 
 	// time / timestamp
 	_ = write_string(out, time_key)?;
@@ -230,9 +230,9 @@ pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: 
 	_ = write_string(out, &update.message())?;
 
 	// attributess
-	for (key, val) in update.attributes().key_value_iter() {
+	for (key, val, _) in update.attribute_iter() {
 		_ = write_string(out, key)?;
-		write_value(out, update.attributes(), &val)?;
+		write_value(out, update, &val)?;
 	}
 
 	Ok(())
@@ -246,7 +246,6 @@ mod tests {
 
 	use crate::Level;
 	use crate::attributes::Map;
-	use crate::sink::PartialLogUpdate;
 
 	#[test]
 	fn serialize_scalar() {
@@ -304,8 +303,10 @@ mod tests {
 			let (s, want): (Scalar, &[u8]) = tc;
 
 			let mut out = Vec::new();
-			let attrs = Map::new();
-			assert!(write_scalar(&mut out, &attrs, &s).is_ok());
+			let fixed = Map::new();
+			let update = LogUpdate::from(&fixed);
+
+			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}
@@ -383,29 +384,30 @@ mod tests {
 			let (v, want): (Value, &[u8]) = tc;
 
 			let mut out = Vec::new();
-			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let fixed = Map::new();
+			let update = LogUpdate::from(&fixed);
+
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}
 
 	#[test]
 	fn serialize_single() {
-		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
-		attrs.insert("a_float", Value::from(-456.789));
-		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
-		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
+		let mut fixed = Map::new();
+		fixed.insert("an_int", Value::from(123 as i32));
+		fixed.insert("a_float", Value::from(-456.789));
+		fixed.insert("some_string", Value::from("hi there!"));
+		fixed.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		fixed.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let pupdate = PartialLogUpdate::new(
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			0,
-			"test CBOR update".into(),
-		);
-
-		let update = LogUpdate::from((&pupdate, &attrs));
+			"test CBOR update",
+			&fixed,
+		));
 
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
@@ -428,36 +430,37 @@ mod tests {
 	fn serialize_multi() {
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
-		let mut attrs = Map::new();
 		let mut buffer = Vec::new();
 		let mut out = Vec::new();
 
 		// update #1
-		let pupdate = PartialLogUpdate::new(
+		let mut fixed = Map::new();
+		fixed.insert("an_int", Value::from(123 as i32));
+		fixed.insert("a_float", Value::from(-456.789));
+
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			0,
-			"test CBOR update #1".into(),
-		);
-		attrs.clear();
-		attrs.insert("an_int", Value::from(123 as i32));
-		attrs.insert("a_float", Value::from(-456.789));
+			"test CBOR update #1",
+			&fixed,
+		));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
 		// update #2
-		let pupdate = PartialLogUpdate::new(
+		let mut fixed = Map::new();
+		fixed.insert("some_string", Value::from("hi there!"));
+		fixed.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp"),
 			Level::Info,
 			0,
-			"test CBOR update #2".into(),
-		);
-		attrs.clear();
-		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+			"test CBOR update #2",
+			&fixed,
+		));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
 		let want = [

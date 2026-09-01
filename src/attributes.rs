@@ -85,6 +85,7 @@ pub struct Map {
 }
 
 impl Map {
+	/// Initializes a new [`Map`]
 	pub fn new() -> Self {
 		Self {
 			string_pool: String::new(),
@@ -95,6 +96,7 @@ impl Map {
 		}
 	}
 
+	/// Clears all [`Map`] contents.
 	pub fn clear(&mut self) {
 		self.string_pool.clear();
 		self.string_idxs.clear();
@@ -103,6 +105,7 @@ impl Map {
 		self.scalar_idxs.clear();
 	}
 
+	/// Copies all contents from another [`Map`] into this one.
 	pub fn copy_from(&mut self, other: &Self) {
 		self.string_pool.clear();
 		self.string_idxs.clear();
@@ -120,11 +123,13 @@ impl Map {
 		}
 	}
 
+	/// Returns the number of attributes for the [`Map`].
 	pub fn len(&self) -> usize {
 		self.keys.len()
 	}
 
-	fn is_empty(&self) -> bool {
+	/// Evaluates whether the [`Map`] has no attributes defined.
+	pub fn is_empty(&self) -> bool {
 		self.keys.is_empty()
 	}
 
@@ -132,14 +137,7 @@ impl Map {
 		self.scalar_pool.len()
 	}
 
-	pub fn key_iter(&self) -> MapKeyIter<'_> {
-		MapKeyIter::new(self)
-	}
-
-	pub fn key_value_iter(&self) -> MapKeyValueIter<'_> {
-		MapKeyValueIter::new(self)
-	}
-
+	/// Returns an attribute (key, [`Value`], [`Metadata`]) iterator for all attributes in the [`Map`].
 	pub fn iter(&self) -> MapIter<'_> {
 		MapIter::new(self)
 	}
@@ -200,6 +198,7 @@ impl Map {
 		}
 	}
 
+	/// Evaluates whether a given attribute is present in the [`Map`].
 	pub fn has(&self, key: &str) -> bool {
 		self.idx_by_key(key).is_some()
 	}
@@ -362,6 +361,7 @@ impl Map {
 		}
 	}
 
+	/// Returns an attribute [`Value`] + [`Metadata`] in the [`Map`] for a given key.
 	pub fn get(&self, key: &str) -> Option<(Value<'_>, Metadata)> {
 		match self.idx_by_key(key) {
 			Some(i) => {
@@ -372,6 +372,7 @@ impl Map {
 		}
 	}
 
+	/// Returns an attribute [`Value`] in the [`Map`] for a given key.
 	pub fn get_value(&self, key: &str) -> Option<Value<'_>> {
 		match self.idx_by_key(key) {
 			Some(i) => Some(self.value_by_idx(i)),
@@ -441,18 +442,22 @@ impl Map {
 		}
 	}
 
+	/// Inserts a [`Value`] into the [`Map`], by reference.
 	pub fn insert_ref(&mut self, key: &str, val: &Value) {
 		self.set(key, val, false);
 	}
 
+	/// Inserts a [`Value`] into the [`Map`].
 	pub fn insert(&mut self, key: &str, val: Value) {
 		self.set(key, &val, false);
 	}
 
+	/// Inserts an ephemeral [`Value`] into the [`Map`], by reference.
 	pub fn insert_ref_ephemeral(&mut self, key: &str, val: &Value) {
 		self.set(key, val, true);
 	}
 
+	/// Inserts an ephemeral [`Value`] into the [`Map`].
 	pub fn insert_ephemeral(&mut self, key: &str, val: Value) {
 		self.set(key, &val, true);
 	}
@@ -466,60 +471,6 @@ impl<'i> StringIndexContainer<'i> for Map {
 
 		let (start, end) = self.string_idxs[idx];
 		&self.string_pool[start..end]
-	}
-}
-
-/// A key iterator for attribute maps.
-pub struct MapKeyIter<'s> {
-	map: &'s Map,
-	idx: usize,
-}
-
-impl<'i> MapKeyIter<'i> {
-	/// Intiializes an attribute map key iterator.
-	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
-	}
-}
-
-impl<'i> Iterator for MapKeyIter<'i> {
-	type Item = &'i str;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		let key = self.map.key_by_idx(self.idx);
-		self.idx += 1;
-
-		key
-	}
-}
-
-/// A {key, [`Value`]} iterator for attribute maps.
-pub struct MapKeyValueIter<'s> {
-	map: &'s Map,
-	idx: usize,
-}
-
-impl<'i> MapKeyValueIter<'i> {
-	/// Intiializes an attribute map {key, [`Value`]} iterator.
-	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
-	}
-}
-
-impl<'i> Iterator for MapKeyValueIter<'i> {
-	// {key: Value}
-	type Item = (&'i str, Value<'i>);
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self.map.key_by_idx(self.idx) {
-			None => None,
-			Some(key) => {
-				let val = self.map.value_by_idx(self.idx);
-				self.idx += 1;
-
-				Some((key, val))
-			}
-		}
 	}
 }
 
@@ -641,6 +592,7 @@ impl<'i> Set<'i> {
 }
 
 impl<'i> StringIndexContainer<'i> for Set<'i> {
+	#[inline]
 	fn str_by_idx(&'i self, idx: usize) -> &'i str {
 		self.fixed.str_by_idx(idx)
 	}
@@ -991,52 +943,7 @@ mod map {
 	}
 
 	#[test]
-	fn key_iterator() {
-		let mut attr = Map::new();
-
-		attr.insert("key_a", Value::from(123));
-		attr.insert("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]));
-		attr.insert("error", Value::from("first error"));
-		attr.insert("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]));
-		attr.insert("key_d", Value::from(3.14159));
-
-		let mut got_keys: Vec<&str> = Vec::new();
-		for key in attr.key_iter() {
-			got_keys.push(key);
-		}
-
-		assert_eq!(got_keys, &["error", "key_a", "key_b", "key_c", "key_d"]);
-	}
-
-	#[test]
-	fn key_value_iterator() {
-		let mut attr = Map::new();
-
-		attr.insert("key_a", Value::from(123));
-		attr.insert("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]));
-		attr.insert("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]));
-		attr.insert("error", Value::from("an error"));
-		attr.insert("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")]));
-
-		let mut got: Vec<(&str, Value)> = Vec::new();
-		for kvs in attr.key_value_iter() {
-			got.push((kvs.0, kvs.1));
-		}
-
-		assert_eq!(
-			got,
-			&[
-				("error", Value::from("an error")),
-				("key_a", Value::from(123)),
-				("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)])),
-				("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)])),
-				("key_d", Value::from(&[Scalar::from("new"), Scalar::from("key")])),
-			]
-		);
-	}
-
-	#[test]
-	fn full_iterator() {
+	fn iterator() {
 		let mut attr = Map::new();
 
 		attr.insert("key_a", Value::from(123));

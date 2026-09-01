@@ -13,7 +13,7 @@ use ntime::Format;
 use std::io;
 
 use crate::attributes::value::Value;
-use crate::attributes::{Map, MetadataField, MetadataImpl};
+use crate::attributes::{MetadataField, MetadataImpl};
 use crate::constant::{
 	DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_DEPTH_SEPARATOR_LENGTH, FORMAT_FULL_MAX_DEPTH,
 };
@@ -32,8 +32,8 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a [`Value`] for [`OutputFormat::ColorFull`] into a [`io::Write`].
-fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
-	compact::write_value(out, attrs, val)
+fn write_value<T: io::Write>(out: &mut T, update: &LogUpdate, val: &Value) -> io::Result<()> {
+	compact::write_value(out, update, val)
 }
 
 // Compute spacer length based on the [`LogDepth`] for a [`LogUpdate`].
@@ -81,10 +81,10 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 
 	// output fixed attributes on the first line, if any...
 	let mut wrote: bool = false;
-	for (key, val, meta) in update.attributes().iter() {
+	for (key, val, meta) in update.attribute_iter() {
 		if !meta.get(MetadataField::Ephemeral) {
 			write!(out, " {key}=")?;
-			write_value(out, update.attributes(), &val)?;
+			write_value(out, update, &val)?;
 			wrote = true;
 		}
 	}
@@ -95,10 +95,10 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 
 	// ...ephemeral attributes on a second line, if any...
 	wrote = false;
-	for (key, val, meta) in update.attributes().iter() {
+	for (key, val, meta) in update.attribute_iter() {
 		if meta.get(MetadataField::Ephemeral) {
 			write!(out, " {key}=")?;
-			write_value(out, update.attributes(), &val)?;
+			write_value(out, update, &val)?;
 			wrote = true;
 		}
 	}
@@ -119,9 +119,8 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 mod tests {
 	use super::*;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -151,49 +150,49 @@ mod tests {
 			let (v, want): (Value, &str) = tc;
 
 			let mut out = Vec::new();
-			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let fixed = Map::new();
+			let update = LogUpdate::from(&fixed);
+
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}
 
 	#[test]
 	fn serialize() {
-		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
-		attrs.insert_ephemeral("a_float", Value::from(-456.789));
-		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
-		attrs.insert("nothing", Value::from(None::<bool>));
+		let mut fixed = Map::new();
+		fixed.insert("an_int", Value::from(123 as i32));
+		fixed.insert_ephemeral("a_float", Value::from(-456.789));
+		fixed.insert("some_string", Value::from("hi there!"));
+		fixed.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		fixed.insert("nothing", Value::from(None::<bool>));
 
 		let ts = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
 
 		for tc in [
 			(
-				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
+				LogUpdate::from((ts.clone(), Level::Warning, 0, "test full, no depth", &fixed)),
 				"1776016599123000456 [WARNING] an_int=123 some_string=\"hi there!\" nothing=<none>
                               a_float=-456.789 a_set=[0x14da0eb6, true]
                               test full, no depth",
 			),
 			(
-				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
+				LogUpdate::from((ts.clone(), Level::Info, 3, "test full, half depth", &fixed)),
 				"1776016599123000456 [INFO   ]          an_int=123 some_string=\"hi there!\" nothing=<none>
                                        a_float=-456.789 a_set=[0x14da0eb6, true]
                                        test full, half depth",
 			),
 			(
-				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
+				LogUpdate::from((ts.clone(), Level::Panic, 7, "test full, over max depth", &fixed)),
 				"1776016599123000456 [PANIC  ]      ...       an_int=123 some_string=\"hi there!\" nothing=<none>
                                              a_float=-456.789 a_set=[0x14da0eb6, true]
                                              test full, over max depth",
 			),
 		] {
-			let (pupdate, want) = tc;
+			let (update, want) = tc;
 
 			let mut out = Vec::new();
 			let delimiter: Vec<u8> = [b'\n'].to_vec();
-
-			let update = LogUpdate::from((&pupdate, &attrs));
 			let time_format = &ntime::Format::TimestampNanoseconds;
 
 			assert!(write(&mut out, &delimiter, time_format, &update).is_ok());

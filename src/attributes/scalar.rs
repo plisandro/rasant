@@ -6,7 +6,6 @@ use std::path;
 use std::string;
 use std::thread;
 
-use crate::attributes::Map;
 use crate::encoding;
 use crate::level::Level;
 
@@ -136,15 +135,15 @@ impl<'i> Scalar {
 	}
 
 	/// Serializes a [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_string(&self, out: &mut String, attrs: &Map) {
+	pub fn into_string<C: StringIndexContainer<'i>>(&self, out: &mut String, container: &'i C) {
 		out.clear();
-		self.write_fmt(out, attrs).expect("failed to serialize Scalar into_string()");
+		self.write_fmt(out, container).expect("failed to serialize Scalar into_string()");
 	}
 
 	/// Serializes a raw [`Scalar`] into a pre-existing [`String`], whose contents are overwritten.
-	pub fn into_raw_string(&self, out: &mut String, attrs: &Map) {
+	pub fn into_raw_string<C: StringIndexContainer<'i>>(&self, out: &mut String, container: &'i C) {
 		out.clear();
-		self.write_fmt_raw(out, attrs).expect("failed to serialize Scalar into_raw_string()");
+		self.write_fmt_raw(out, container).expect("failed to serialize Scalar into_raw_string()");
 	}
 
 	/// Creates an array of [`Scalar`]s from a suitable type.
@@ -408,6 +407,7 @@ impl<'i, T: ToScalar, const N: usize> ToScalarArray<'i, N> for &[T] {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::attributes::Map;
 
 	#[test]
 	fn from_string() {

@@ -54,7 +54,6 @@ mod tests {
 
 	use crate::attributes;
 	use crate::filter::Filter;
-	use crate::sink::LogUpdate;
 
 	#[test]
 	fn level_in() {
@@ -72,9 +71,10 @@ mod tests {
 			(Level::Panic, true),
 		] {
 			let (level, want): (Level, bool) = tc;
-			let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), level, 0, "this is a test log".into());
+			let fixed = attributes::Map::new();
+			let update = sink::LogUpdate::from((Timestamp::now(), level, 0, "this is a test log", &fixed));
 
-			assert_eq!(filter.pass(&LogUpdate::from((&pupdate, &attributes::Map::new()))), want);
+			assert_eq!(filter.pass(&update), want);
 		}
 	}
 }

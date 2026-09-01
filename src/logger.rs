@@ -11,7 +11,7 @@ use crate::format;
 use crate::level::Level;
 use crate::queue;
 use crate::sink;
-use crate::sink::{LogDepth, LogUpdate, PartialLogUpdate};
+use crate::sink::{LogDepth, LogUpdate};
 use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
 
 /// Base logger structure for Rasant.
@@ -23,7 +23,6 @@ pub struct Logger {
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	filters: Vec<FilterRef>,
-	common_partial_update: PartialLogUpdate,
 	common_attributes: attributes::Map,
 }
 
@@ -39,7 +38,6 @@ impl<'i> Logger {
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			filters: Vec::new(),
-			common_partial_update: PartialLogUpdate::blank(),
 			common_attributes: attributes::Map::new(),
 		}
 	}
@@ -197,34 +195,21 @@ impl<'i> Logger {
 			return self;
 		}
 
-		let attrs = match attrs_1.is_empty() && attrs_2.is_empty() {
-			true => &mut self.attributes,
-			false => {
-				// straight up copying and extending ephemeral attributes is the most efficient
-				// way to deal with potential collisions. trust me, i've tried everything else.
-				self.common_attributes.copy_from(&self.attributes);
-				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
-				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
-
-				&mut self.common_attributes
-			}
-		};
+		self.common_attributes.copy_from(&self.attributes);
+		attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
+		attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 
 		// add level-specific attributes, if necessary.
 		if level == Level::Trace {
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
 		}
 		if level == Level::Panic {
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+			self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
 		}
 
-		self.common_partial_update.set_when_from(&Timestamp::now());
-		self.common_partial_update.set_level(level);
-		self.common_partial_update.set_depth(self.depth);
-		self.common_partial_update.set_msg(msg);
-		let update = LogUpdate::from((&self.common_partial_update, attrs as &attributes::Map));
+		let update = LogUpdate::from((Timestamp::now(), level, self.depth, msg, &self.common_attributes));
 
 		// apply filters, if any
 		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {
@@ -428,7 +413,6 @@ impl Clone for Logger {
 			attributes: self.attributes.clone(),
 			sinks: self.sinks.clone(),
 			filters: self.filters.clone(),
-			common_partial_update: PartialLogUpdate::blank(),
 			common_attributes: attributes::Map::new(),
 		};
 		clone.set_async(self.is_async());
@@ -584,11 +568,11 @@ mod formatting {
 				time_format: ntime::Format::UtcMillisDateTime,
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 [INF] root test info\n\
-				       2026-03-04 15:10:16.234 [WRN] root test warn\n\
+					   2026-03-04 15:10:16.234 [WRN] root test warn\n\
 					   2026-03-04 15:10:17.468 [INF] first test info number=1\n\
 					   2026-03-04 15:10:18.702 [WRN] first test warn number=1\n\
 					   2026-03-04 15:10:19.936 [DBG] first test debug number=1\n\
-					   2026-03-04 15:10:21.170 [ERR] something failed error=\"oh no\" number=1",
+					   2026-03-04 15:10:21.170 [ERR] something failed error=\"oh no\"",
 			},
 			TestCase {
 				name: "compact color, ANSI console",
@@ -596,11 +580,11 @@ mod formatting {
 				time_format: ntime::Format::UtcMillisDateTime,
 				colorterm: true,
 				want: "\u{1b}[37m2026-03-04 15:10:15.000 \u{1b}[32mINF \u{1b}[97mroot test info\u{1b}[0m\n\
-				       \u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWRN \u{1b}[97mroot test warn\u{1b}[0m\n\
-				       \u{1b}[37m2026-03-04 15:10:17.468 \u{1b}[32mINF \u{1b}[97mfirst test info \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
-				       \u{1b}[37m2026-03-04 15:10:18.702 \u{1b}[33mWRN \u{1b}[97mfirst test warn \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
-				       \u{1b}[37m2026-03-04 15:10:19.936 \u{1b}[94mDBG \u{1b}[37mfirst test debug \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
-				       \u{1b}[37m2026-03-04 15:10:21.170 \u{1b}[31mERR \u{1b}[97msomething failed \u{1b}[36merror=\u{1b}[91m\"oh no\" \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m",
+					   \u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWRN \u{1b}[97mroot test warn\u{1b}[0m\n\
+					   \u{1b}[37m2026-03-04 15:10:17.468 \u{1b}[32mINF \u{1b}[97mfirst test info \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
+					   \u{1b}[37m2026-03-04 15:10:18.702 \u{1b}[33mWRN \u{1b}[97mfirst test warn \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
+					   \u{1b}[37m2026-03-04 15:10:19.936 \u{1b}[94mDBG \u{1b}[37mfirst test debug \u{1b}[96mnumber=\u{1b}[37m1\u{1b}[0m\n\
+					   \u{1b}[37m2026-03-04 15:10:21.170 \u{1b}[31mERR \u{1b}[97msomething failed \u{1b}[36merror=\u{1b}[91m\"oh no\"\u{1b}[0m",
 			},
 			TestCase {
 				name: "compact color, non-ANSI console",
@@ -608,11 +592,11 @@ mod formatting {
 				time_format: ntime::Format::UtcMillisDateTime,
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 INF root test info\n\
-				       2026-03-04 15:10:16.234 WRN root test warn\n\
+					   2026-03-04 15:10:16.234 WRN root test warn\n\
 					   2026-03-04 15:10:17.468 INF first test info number=1\n\
 					   2026-03-04 15:10:18.702 WRN first test warn number=1\n\
 					   2026-03-04 15:10:19.936 DBG first test debug number=1\n\
-					   2026-03-04 15:10:21.170 ERR something failed error=\"oh no\" number=1",
+					   2026-03-04 15:10:21.170 ERR something failed error=\"oh no\"",
 			},
 			TestCase {
 				name: "full color, ANSI console",
@@ -621,14 +605,13 @@ mod formatting {
 				colorterm: true,
 				want: "\u{1b}[37m2026-03-04 15:10:15.000 \u{1b}[32mINFO    \u{1b}[97mroot test info\u{1b}[0m
 \u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWARNING \u{1b}[97mroot test warn\u{1b}[0m
-\u{1b}[37m2026-03-04 15:10:17.468 \u{1b}[32mINFO    \u{1b}[96mnumber=\u{1b}[37m1
-                                \u{1b}[97mfirst test info\u{1b}[0m
-\u{1b}[37m2026-03-04 15:10:18.702 \u{1b}[33mWARNING \u{1b}[96mnumber=\u{1b}[37m1
-                                \u{1b}[97mfirst test warn\u{1b}[0m
-\u{1b}[37m2026-03-04 15:10:19.936 \u{1b}[94mDEBUG   \u{1b}[96mnumber=\u{1b}[37m1
-                                \u{1b}[37mfirst test debug\u{1b}[0m
-\u{1b}[37m2026-03-04 15:10:21.170 \u{1b}[31mERROR   \u{1b}[96mnumber=\u{1b}[37m1
-                                \u{1b}[36merror=\u{1b}[91m\"oh no\"
+\u{1b}[37m2026-03-04 15:10:17.468 \u{1b}[32mINFO       \u{1b}[96mnumber=\u{1b}[37m1
+                                   \u{1b}[97mfirst test info\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:18.702 \u{1b}[33mWARNING    \u{1b}[96mnumber=\u{1b}[37m1
+                                   \u{1b}[97mfirst test warn\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:19.936 \u{1b}[94mDEBUG      \u{1b}[96mnumber=\u{1b}[37m1
+                                   \u{1b}[37mfirst test debug\u{1b}[0m
+\u{1b}[37m2026-03-04 15:10:21.170 \u{1b}[31mERROR   \u{1b}[36merror=\u{1b}[91m\"oh no\"
                                 \u{1b}[97msomething failed\u{1b}[0m",
 			},
 			TestCase {
@@ -638,14 +621,13 @@ mod formatting {
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 INFO    root test info
 2026-03-04 15:10:16.234 WARNING root test warn
-2026-03-04 15:10:17.468 INFO    number=1
-                                first test info
-2026-03-04 15:10:18.702 WARNING number=1
-                                first test warn
-2026-03-04 15:10:19.936 DEBUG   number=1
-                                first test debug
-2026-03-04 15:10:21.170 ERROR   number=1
-                                error=\"oh no\"
+2026-03-04 15:10:17.468 INFO       number=1
+                                   first test info
+2026-03-04 15:10:18.702 WARNING    number=1
+                                   first test warn
+2026-03-04 15:10:19.936 DEBUG      number=1
+                                   first test debug
+2026-03-04 15:10:21.170 ERROR   error=\"oh no\"
                                 something failed",
 			},
 		];
@@ -674,11 +656,9 @@ mod formatting {
 
 				let mut nlog = log.clone();
 				nlog.set_level(Level::Debug).set("number", 1);
-				nlog.info("first test info")
-					.warn("first test warn")
-					.debug("first test debug")
-					.trace("trace log to be ignored")
-					.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
+				nlog.info("first test info").warn("first test warn").debug("first test debug").trace("trace log to be ignored");
+
+				log.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
 				got = mem_sink_output.as_string();
 				console::colorterm_unforce();

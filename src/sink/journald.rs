@@ -19,10 +19,10 @@ use std::io;
 use std::io::Write;
 use std::os::unix::net::UnixDatagram;
 
-use crate::attributes::{Map, Scalar, StringIndexContainer, Value};
+use crate::attributes::{Scalar, StringIndexContainer, Value};
 use crate::constant::{DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
 use crate::encoding;
-use crate::sink;
+use crate::sink::{self, LogUpdate};
 
 /// Defines how journald messages are formatted.
 #[derive(Debug, PartialEq)]
@@ -137,18 +137,18 @@ impl Journald {
 	}
 
 	// Serializes all attributes as journald fields into the write buffer.
-	fn write_buf_attribute_fields(&mut self, attrs: &Map) -> io::Result<()> {
-		for (key, val) in attrs.key_value_iter() {
-			self.write_buf_value(attrs, key, &val)?;
+	fn write_buf_attribute_fields(&mut self, update: &LogUpdate) -> io::Result<()> {
+		for (key, val, _) in update.attribute_iter() {
+			self.write_buf_value(update, key, &val)?;
 		}
 
 		Ok(())
 	}
 
 	// Serializes all attributes as plaintext into the write buffer.
-	fn write_buf_attributes_text(&mut self, attrs: &Map) -> io::Result<()> {
+	fn write_buf_attributes_text(&mut self, update: &LogUpdate) -> io::Result<()> {
 		// TODO: handle escaping?
-		for (key, val) in attrs.key_value_iter() {
+		for (key, val, _) in update.attribute_iter() {
 			write!(&mut self.output_buf, " {key}={val}")?;
 		}
 
@@ -186,7 +186,7 @@ MESSAGE\n",
 		let msg_start = self.output_buf.len();
 		self.output_buf.write(update.message().as_bytes())?;
 		if self.message_format == MessageFormat::WithAttributes {
-			self.write_buf_attributes_text(update.attributes())?;
+			self.write_buf_attributes_text(update)?;
 		}
 
 		// the final LF doesn't count against the message size
@@ -194,7 +194,7 @@ MESSAGE\n",
 		self.output_buf.write(&[b'\n'])?;
 		self.output_buf.splice(msg_start..msg_start, (msg_len as u64).to_le_bytes());
 
-		self.write_buf_attribute_fields(update.attributes())?;
+		self.write_buf_attribute_fields(update)?;
 
 		match &self.datagram {
 			Some(dg) => _ = dg.send(self.output_buf.as_slice())?,
@@ -227,9 +227,8 @@ mod tests {
 
 	use ntime::Timestamp;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::PartialLogUpdate;
 	use crate::sink::{LogUpdate, Sink};
 
 	#[test]
@@ -265,25 +264,24 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 		for tc in [(MessageFormat::Raw, want_raw), (MessageFormat::WithAttributes, want_with_attrs)] {
 			let (message_format, want) = tc;
 
-			let pupdate = PartialLogUpdate::new(
-				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-				Level::Warning,
-				1,
-				"test Syslog message update".into(),
-			);
-
-			let mut attrs = Map::new();
-			attrs.insert("an_int", Value::from(123 as i32));
-			attrs.insert("a_float", Value::from(-456.789));
-			attrs.insert("some_string", Value::from("hi there! ❤"));
-			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
-			attrs.insert("nothing", Value::from(None::<bool>));
-			attrs.insert(
+			let mut fixed = Map::new();
+			fixed.insert("an_int", Value::from(123 as i32));
+			fixed.insert("a_float", Value::from(-456.789));
+			fixed.insert("some_string", Value::from("hi there! ❤"));
+			fixed.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+			fixed.insert("nothing", Value::from(None::<bool>));
+			fixed.insert(
 				"a_map",
 				Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee 💔")])),
 			);
 
-			let update = LogUpdate::from((&pupdate, &attrs));
+			let update = LogUpdate::from((
+				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
+				Level::Warning,
+				1,
+				"test Syslog message update".into(),
+				&fixed,
+			));
 
 			let mut sink = Journald::black_hole(JournaldConfig {
 				message_format: message_format,

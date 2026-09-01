@@ -95,9 +95,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	}
 
 	// append fields
-	for (key, val) in update.attributes().key_value_iter() {
+	for (key, val, _) in update.attribute_iter() {
 		write!(out, ",\"{key}\":")?;
-		write_value(out, update.attributes(), &val)?;
+		write_value(out, update, &val)?;
 	}
 	write!(out, "}}")?;
 
@@ -112,7 +112,6 @@ mod tests {
 
 	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -178,22 +177,22 @@ mod tests {
 
 	#[test]
 	fn serialize() {
-		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
-		attrs.insert("a_float", Value::from(-456.789));
-		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("nothing", Value::from(None::<f64>));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
-		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
+		let mut fixed = Map::new();
+		fixed.insert("an_int", Value::from(123 as i32));
+		fixed.insert("a_float", Value::from(-456.789));
+		fixed.insert("some_string", Value::from("hi there!"));
+		fixed.insert("nothing", Value::from(None::<f64>));
+		fixed.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		fixed.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let pupdate = PartialLogUpdate::new(
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			3,
 			"test JSON update ❤️".into(),
-		);
+			&fixed,
+		));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
 

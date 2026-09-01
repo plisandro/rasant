@@ -230,14 +230,12 @@ mod random {
 	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
-	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = Random::with_seed(RandomConfig { probability: 0.33 }, 27182818);
-		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
-		let update = LogUpdate::from((&pupdate, &args));
+		let fixed = attributes::Map::new();
+		let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &fixed));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
@@ -259,14 +257,12 @@ mod step {
 	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
-	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = Step::new(StepConfig { step: 3 });
-		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
-		let update = LogUpdate::from((&pupdate, &args));
+		let fixed = attributes::Map::new();
+		let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &fixed));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..15 {
@@ -288,14 +284,12 @@ mod random_step {
 	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
-	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
 		let mut filter = RandomStep::with_seed(RandomStepConfig { step: 7 }, 27182818);
-		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
-		let update = LogUpdate::from((&pupdate, &args));
+		let fixed = attributes::Map::new();
+		let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &fixed));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
@@ -317,13 +311,11 @@ mod burst {
 	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
-	use crate::sink::LogUpdate;
 
 	#[test]
 	fn filtering() {
-		let args = attributes::Map::new();
-		let pupdate = sink::PartialLogUpdate::new(Timestamp::now(), Level::Info, 0, "this is a test log".into());
-		let update = LogUpdate::from((&pupdate, &args));
+		let fixed = attributes::Map::new();
+		let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &fixed));
 
 		let mut filter = Burst::new(BurstConfig {
 			period: Duration::from_millis(50),

@@ -20,7 +20,7 @@ impl sink::Sink for DummySink {
 		let mut out = SINK_OUTPUT.lock().unwrap();
 
 		write!(out, "level: {:?}, msg: {}, attrs:", update.level(), update.message())?;
-		for (key, value, meta) in update.attributes().iter() {
+		for (key, value, meta) in update.attribute_iter() {
 			write!(out, " <{key}{eph} -> {value}>", eph = if meta.get(AttributeMetadataField::Ephemeral) { " (ephemeral)" } else { "" })?;
 		}
 		out.push('\n' as u8);
