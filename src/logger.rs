@@ -195,7 +195,8 @@ impl<'i> Logger {
 			return self;
 		}
 
-		let attrs = match attrs_1.is_empty() && attrs_2.is_empty() {
+		// do we need to expand attributes?
+		let attrs = match attrs_1.is_empty() && attrs_2.is_empty() && level != Level::Trace && level != Level::Panic {
 			true => &mut self.attributes,
 			false => {
 				// straight up copying and extending ephemeral attributes is the most efficient
@@ -204,20 +205,18 @@ impl<'i> Logger {
 				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
 
+				if level == Level::Trace {
+					self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+					self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+				}
+				if level == Level::Panic {
+					self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
+					self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
+				}
+
 				&mut self.common_attributes
 			}
 		};
-
-		// add level-specific attributes, if necessary.
-		// TODO: FIX ME!
-		if level == Level::Trace {
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
-		}
-		if level == Level::Panic {
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
-			attrs.insert_ephemeral(ATTRIBUTE_KEY_TRACE_LINE, Value::from(loc.line()));
-		}
 
 		let update = LogUpdate::from((Timestamp::now(), level, self.depth, msg, attrs as &attributes::Map));
 
@@ -549,6 +548,38 @@ mod attribute_handling {
 		log.set("casted_value_scalar", Value::from("hello!"));
 		log.set("value_list", &[Scalar::from(12345 as u32), Scalar::from("hello!")]);
 		log.set("value_map", (&[Scalar::from("key_a"), Scalar::from("key_b")], &[Scalar::from(12345 as u32), Scalar::from("hello!")]));
+	}
+
+	#[test]
+	fn trace_attributes() {
+		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
+			mock_time: true,
+			mock_trace: true,
+			formatter_cfg: format::FormatterConfig {
+				time_format: ntime::Format::UtcMillisDateTime,
+				delimiter: vec![b'\n'],
+				..format::FormatterConfig::default()
+			},
+			..sink::memory::MemoryConfig::default()
+		});
+
+		let mem_sink_output = mem_sink.output();
+
+		let got: String;
+		{
+			let mut log = Logger::new();
+			log.add_sink(mem_sink).set_level(Level::Trace);
+			log.set("lalala", 123);
+
+			log.info("root test info").trace("root test trace").debug("root test debug");
+
+			got = mem_sink_output.as_string();
+		}
+
+		let want = "2026-03-04 15:10:15.000 [INF] root test info lalala=123
+2026-03-04 15:10:16.234 [TRA] root test trace lalala=123 caller_filename=\"src/some_file.rs\" caller_line=567
+2026-03-04 15:10:17.468 [DBG] root test debug lalala=123";
+		assert_eq!(got, want);
 	}
 }
 
