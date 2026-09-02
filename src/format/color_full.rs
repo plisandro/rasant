@@ -14,7 +14,7 @@ use std::io;
 
 use crate::AttributeMetadata;
 use crate::attributes::value::Value;
-use crate::attributes::{Map, MetadataField, MetadataImpl};
+use crate::attributes::{MetadataField, MetadataImpl};
 use crate::console::Color;
 use crate::constant::{
 	DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_DEPTH_SEPARATOR_LENGTH, FORMAT_FULL_MAX_DEPTH,
@@ -35,19 +35,19 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a [`Value`] for [`OutputFormat::ColorFull`] into a [`io::Write`].
-fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
-	compact::write_value(out, attrs, val)
+fn write_value<T: io::Write>(out: &mut T, update: &LogUpdate, val: &Value) -> io::Result<()> {
+	compact::write_value(out, update, val)
 }
 
 // Serializes a key:[`Value`] attribute for [`OutputFormat::ColorFull] into a [`io::Write`].
-fn write_attribute<T: io::Write>(out: &mut T, attrs: &Map, key: &str, val: &Value, meta: AttributeMetadata) -> io::Result<()> {
+fn write_attribute<T: io::Write>(out: &mut T, update: &LogUpdate, key: &str, val: &Value, meta: AttributeMetadata) -> io::Result<()> {
 	write!(
 		out,
 		" {key_color}{key}={val_color}",
 		key_color = color_compact::key_color(meta).to_escape_str(),
 		val_color = color_compact::val_color(meta).to_escape_str(),
 	)?;
-	write_value(out, attrs, val)?;
+	write_value(out, update, val)?;
 
 	Ok(())
 }
@@ -104,9 +104,9 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 
 	// output fixed attributes on the first line, if any...
 	let mut wrote: bool = false;
-	for (key, val, meta) in update.attributes().iter() {
+	for (key, val, meta) in update.attribute_full_iter() {
 		if !meta.get(MetadataField::Ephemeral) {
-			write_attribute(out, update.attributes(), key, &val, meta)?;
+			write_attribute(out, update, key, &val, meta)?;
 			wrote = true
 		}
 	}
@@ -117,9 +117,9 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 
 	// ...ephemeral attributes on a second line, if any...
 	wrote = false;
-	for (key, val, meta) in update.attributes().iter() {
+	for (key, val, meta) in update.attribute_full_iter() {
 		if meta.get(MetadataField::Ephemeral) {
-			write_attribute(out, update.attributes(), key, &val, meta)?;
+			write_attribute(out, update, key, &val, meta)?;
 			wrote = true;
 		}
 	}
@@ -146,10 +146,9 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 mod tests {
 	use super::*;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::console;
 	use crate::level::Level;
-	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -179,7 +178,9 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let update = LogUpdate::from(&attrs);
+
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}
@@ -198,42 +199,42 @@ mod tests {
 		for tc in [
 			(
 				false,
-				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
+				LogUpdate::from((ts.clone(), Level::Warning, 0, "test full, no depth", &attrs)),
 				"1776016599123000456 WARNING an_int=123 some_string=\"hi there!\" nothing=<none>
                             a_float=-456.789 a_set=[0x14da0eb6, true]
                             test full, no depth",
 			),
 			(
 				true,
-				PartialLogUpdate::new(ts.clone(), Level::Warning, 0, String::from("test full, no depth")),
+				LogUpdate::from((ts.clone(), Level::Warning, 0, "test full, no depth", &attrs)),
 				"\u{1b}[37m1776016599123000456 \u{1b}[33mWARNING \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                             \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                             \u{1b}[97mtest full, no depth\u{1b}[0m",
 			),
 			(
 				false,
-				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
+				LogUpdate::from((ts.clone(), Level::Info, 3, "test full, half depth", &attrs)),
 				"1776016599123000456 INFO             an_int=123 some_string=\"hi there!\" nothing=<none>
                                      a_float=-456.789 a_set=[0x14da0eb6, true]
                                      test full, half depth",
 			),
 			(
 				true,
-				PartialLogUpdate::new(ts.clone(), Level::Info, 3, String::from("test full, half depth")),
+				LogUpdate::from((ts.clone(), Level::Info, 3, "test full, half depth", &attrs)),
 				"\u{1b}[37m1776016599123000456 \u{1b}[32mINFO             \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                                      \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                                      \u{1b}[97mtest full, half depth\u{1b}[0m",
 			),
 			(
 				false,
-				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
+				LogUpdate::from((ts.clone(), Level::Panic, 7, "test full, over max depth", &attrs)),
 				"1776016599123000456 PANIC        ...       an_int=123 some_string=\"hi there!\" nothing=<none>
                                            a_float=-456.789 a_set=[0x14da0eb6, true]
                                            test full, over max depth",
 			),
 			(
 				true,
-				PartialLogUpdate::new(ts.clone(), Level::Panic, 7, String::from("test full, over max depth")),
+				LogUpdate::from((ts.clone(), Level::Panic, 7, "test full, over max depth", &attrs)),
 				"\u{1b}[37m1776016599123000456 \u{1b}[35mPANIC        \u{1b}[90m...       \u{1b}[96man_int=\u{1b}[37m123 \u{1b}[96msome_string=\u{1b}[37m\"hi there!\" \u{1b}[96mnothing=\u{1b}[37m<none>
                                            \u{1b}[36ma_float=\u{1b}[37m-456.789 \u{1b}[36ma_set=\u{1b}[37m[0x14da0eb6, true]
                                            \u{1b}[97mtest full, over max depth\u{1b}[0m",

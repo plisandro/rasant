@@ -21,13 +21,13 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::None => write!(out, "<none>"),
 		Scalar::Bool(b) => write!(out, "{}", b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
-		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, container.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
+		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, update.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => {
 			if *i < 1 {
@@ -51,16 +51,16 @@ pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, 
 }
 
 /// Serializes a [`Value`]s for [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, val: &Value) -> io::Result<()> {
+pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, container, &s),
+		Value::Scalar(s) => write_scalar(out, update, &s),
 		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
 				if i != 0 {
 					write!(out, ", ")?;
 				}
-				write_scalar(out, container, &ss[i])?;
+				write_scalar(out, update, &ss[i])?;
 			}
 			write!(out, "]")
 		}
@@ -70,9 +70,9 @@ pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, c
 				if i != 0 {
 					write!(out, ", ")?;
 				}
-				write_scalar(out, container, &keys[i])?;
+				write_scalar(out, update, &keys[i])?;
 				write!(out, ": ")?;
-				write_scalar(out, container, &ss[i])?;
+				write_scalar(out, update, &ss[i])?;
 			}
 			write!(out, "}}")
 		}
@@ -86,9 +86,9 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	write!(out, " [{level}] {msg}", level = update.level().as_short_str(), msg = update.message())?;
 
 	// append fields
-	for (key, val) in update.attributes().key_value_iter() {
+	for (key, val) in update.attribute_iter() {
 		write!(out, " {key}=")?;
-		write_value(out, update.attributes(), &val)?;
+		write_value(out, update, &val)?;
 	}
 
 	Ok(())
@@ -102,7 +102,6 @@ mod tests {
 
 	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -125,7 +124,9 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_scalar(&mut out, &attrs, &s).is_ok());
+			let update = LogUpdate::from(&attrs);
+
+			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 		}
 	}
@@ -159,7 +160,9 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let update = LogUpdate::from(&attrs);
+
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}
@@ -174,12 +177,13 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let pupdate = PartialLogUpdate::new(
+		let pupdate = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			2,
-			"test compact update ❤️".into(),
-		);
+			"test compact update ❤️",
+			&attrs,
+		));
 
 		let update = LogUpdate::from((&pupdate, &attrs));
 		let time_format = &ntime::Format::TimestampNanoseconds;

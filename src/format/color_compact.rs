@@ -7,7 +7,7 @@ use ntime::Format;
 use std::io;
 
 use crate::attributes::value::Value;
-use crate::attributes::{Map, Metadata, MetadataField, MetadataImpl};
+use crate::attributes::{Metadata, MetadataField, MetadataImpl};
 use crate::console::Color;
 use crate::constant::DEFAULT_LOG_DELIMITER_STRING;
 use crate::format::compact;
@@ -25,8 +25,8 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-fn write_value<T: io::Write>(out: &mut T, attrs: &Map, val: &Value) -> io::Result<()> {
-	compact::write_value(out, attrs, val)
+fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
+	compact::write_value(out, update, val)
 }
 
 // Computes the message color escape string for an [`LogUpdate`]s.
@@ -72,7 +72,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 	)?;
 
 	// append fields
-	for (key, val, meta) in update.attributes().iter() {
+	for (key, val, meta) in update.attribute_full_iter() {
 		write!(
 			out,
 			" {key_color}{key}={val_color}",
@@ -80,7 +80,7 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 			// error attributes are highlighted in red
 			val_color = val_color(meta).to_escape_str(),
 		)?;
-		write_value(out, update.attributes(), &val)?;
+		write_value(out, update, &val)?;
 	}
 
 	write!(out, "{color_close}", color_close = Color::Default.to_escape_str())?;
@@ -94,9 +94,8 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate
 mod tests {
 	use super::*;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::console;
-	use crate::sink::PartialLogUpdate;
 	use ntime::Timestamp;
 
 	#[test]
@@ -127,7 +126,8 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let update = LogUpdate::from(&attrs);
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
 	}
@@ -141,13 +141,13 @@ mod tests {
 		attrs.insert("nothing", Value::from(None::<u32>));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let pupdate = PartialLogUpdate::new(
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			1,
-			"test compact update".into(),
-		);
-		let update = LogUpdate::from((&pupdate, &attrs));
+			"test compact update",
+			&attrs,
+		));
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		for tc in [

@@ -42,7 +42,7 @@
 //!   - [`SyslogFormat::RFC5424Full`] is identical to [`SyslogFormat::RFC5424`], but log
 //!     attributes are also serialized as text and appended to the log message.
 
-use crate::attributes::{Map, Scalar, StringIndexContainer, Value};
+use crate::attributes::{Scalar, StringIndexContainer, Value};
 #[cfg(unix)]
 use crate::constant::DEFAULT_LOCAL_SYSLOG_SOCKETS;
 use crate::constant::{HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
@@ -395,19 +395,19 @@ impl Syslog {
 	}
 
 	// Serializes all attributes into the write buffer for RFC 5424 messages.
-	fn write_buf_attributes_5424(&mut self, attrs: &Map) -> io::Result<()> {
-		if attrs.len() == 0 {
+	fn write_buf_attributes_5424(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
+		if update.no_attributes() {
 			self.output_buf.write("-".as_bytes())?;
 			return Ok(());
 		}
 
 		// "[rasant@0 error=\"timeout reading from socket\" items=1120213 done=3493 extra=\"\\[1, 2, 3, 4, 5\\]\" more_extra=\"{{\\\"lala\\\": 1, \\\"lele\\\": 2}}\"]"
 		let mut i: usize = 0;
-		for (key, val) in attrs.key_value_iter() {
+		for (key, val) in update.attribute_iter() {
 			write!(&mut self.output_buf, "[rasant@{i} ")?;
 			encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8)?;
 			self.output_buf.write("=".as_bytes())?;
-			self.write_buf_value_5424(attrs, &val)?;
+			self.write_buf_value_5424(update, &val)?;
 			self.output_buf.write("]".as_bytes())?;
 			i += 1
 		}
@@ -418,9 +418,9 @@ impl Syslog {
 	// Serializes all attributes as text into the write buffer.
 	// These are rendered in plaintext, as part of the message, as older syslog versions
 	// have no support for structured data.
-	fn write_buf_attributes_text(&mut self, attrs: &Map) -> io::Result<()> {
+	fn write_buf_attributes_text(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		// TODO: handle escaping?
-		for (key, val) in attrs.key_value_iter() {
+		for (key, val) in update.attribute_iter() {
 			write!(&mut self.output_buf, " {key}={val}")?;
 		}
 
@@ -446,11 +446,11 @@ impl sink::Sink for Syslog {
 					process_name = self.process_name,
 					process_id = self.process_id
 				)?;
-				self.write_buf_attributes_5424(update.attributes())?;
+				self.write_buf_attributes_5424(update)?;
 				self.output_buf.write(&[b' '])?;
 				encoding::str_write(&mut self.output_buf, update.message(), &encoding::Mode::Utf8Bom)?;
 				if self.format == SyslogFormat::RFC5424Full {
-					self.write_buf_attributes_text(update.attributes())?;
+					self.write_buf_attributes_text(update)?;
 				}
 			}
 			SyslogFormat::RFC3164 => {
@@ -463,7 +463,7 @@ impl sink::Sink for Syslog {
 					process_id = self.process_id,
 					message = update.message(),
 				)?;
-				self.write_buf_attributes_text(update.attributes())?;
+				self.write_buf_attributes_text(update)?;
 			}
 		}
 
@@ -511,9 +511,9 @@ mod tests {
 	use ntime::Timestamp;
 	use std::str;
 
-	use crate::attributes::{Scalar, Value};
+	use crate::attributes::{Map, Scalar, Value};
 	use crate::level::Level;
-	use crate::sink::{LogUpdate, PartialLogUpdate, Sink};
+	use crate::sink::{LogUpdate, Sink};
 
 	#[test]
 	fn output_format() {
@@ -536,13 +536,6 @@ mod tests {
 		] {
 			let (format, want) = tc;
 
-			let pupdate = PartialLogUpdate::new(
-				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-				Level::Warning,
-				0,
-				"test Syslog message update ❤️".into(),
-			);
-
 			let mut attrs = Map::new();
 			attrs.insert("an_int", Value::from(123 as i32));
 			attrs.insert("a_float", Value::from(-456.789));
@@ -551,7 +544,13 @@ mod tests {
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-			let update = LogUpdate::from((&pupdate, &attrs));
+			let update = LogUpdate::from((
+				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
+				Level::Warning,
+				0,
+				"test Syslog message update ❤️",
+				&attrs,
+			));
 
 			let mut sink = Syslog::new(SyslogConfig {
 				server: SyslogSocket::BlackHole(),

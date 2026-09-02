@@ -83,7 +83,6 @@ pub struct Memory {
 	frozen_now_tick: Option<ntime::Duration>,
 	frozen_trace_filename: Option<&'static str>,
 	frozen_trace_line: Option<u64>,
-	mock_partial_update: sink::PartialLogUpdate,
 	mock_attributes: attributes::Map,
 }
 
@@ -105,7 +104,6 @@ impl Memory {
 			frozen_now_tick: if conf.mock_time { Some(ntime::Duration::from_millis(1234)) } else { None },
 			frozen_trace_filename: if conf.mock_trace { Some("src/some_file.rs") } else { None },
 			frozen_trace_line: if conf.mock_trace { Some(567) } else { None },
-			mock_partial_update: sink::PartialLogUpdate::blank(),
 			mock_attributes: attributes::Map::new(),
 		}
 	}
@@ -136,13 +134,13 @@ impl sink::Sink for Memory {
 
 		let entry = if self.has_mocks() {
 			// apply mocks
-			let (pupdate, uattrs) = update.parts();
-			self.mock_partial_update.copy_from(pupdate);
-			self.mock_attributes.copy_from(uattrs);
+			update.copy_attributes_into(&mut self.mock_attributes);
 
-			if let Some(t) = self.frozen_now.as_mut() {
-				self.mock_partial_update.when = t.clone();
-			}
+			let when = match &mut self.frozen_now {
+				Some(t) => t.clone(),
+				None => update.when().clone(),
+			};
+
 			if let Some(filename) = self.frozen_trace_filename {
 				// mock trace filename
 				if self.mock_attributes.has(ATTRIBUTE_KEY_TRACE_FILENAME) {
@@ -157,7 +155,7 @@ impl sink::Sink for Memory {
 				};
 			}
 
-			self.formatter.as_bytes(&sink::LogUpdate::from((&self.mock_partial_update, &self.mock_attributes)))
+			self.formatter.as_bytes(&sink::LogUpdate::from((when, update.level, update.depth, update.msg, &self.mock_attributes)))
 		} else {
 			self.formatter.as_bytes(update)
 		};

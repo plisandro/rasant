@@ -23,133 +23,138 @@ use crate::level;
 /// [`Logger`][crate::logger::Logger] depth - i.e. how many parent instances it has.
 pub type LogDepth = u16;
 
-/// Details for a log update, _execept attributes_. This struct is later
-/// encapsulaed by [`LogUpdate`], allowing to handle attributes as references
-/// whenever possible, and avoiding expensive copies while remaining
-/// [`Sync`]-compatible.
+/// Encapsulates a full log update.
 #[derive(Clone, Debug)]
-pub struct PartialLogUpdate {
+pub struct LogUpdate<'s> {
 	/// [Timestamp][`ntime::Timestamp`] for the log update.
 	when: ntime::Timestamp,
-	/// [Level][`level::Level`] for the log update.
+	/// [`Level`][level::Level] for the log update.
 	level: level::Level,
 	/// Number of parent instances for the [`Logger`][crate::logger::Logger] generating this log update.
 	depth: LogDepth,
 	/// Message for the log update.
-	msg: String,
-}
-
-impl PartialLogUpdate {
-	/// Initializes a blank placeholder [`PartialLogUpdate`].
-	pub fn blank() -> Self {
-		Self {
-			when: ntime::Timestamp::epoch(),
-			level: level::Level::Panic,
-			depth: 0,
-			msg: String::from(""),
-		}
-	}
-
-	/// Initializes a [`PartialLogUpdate`] for a given [Timestamp][`ntime::Timestamp`], log level, depth and log meessage.
-	pub fn new(now: ntime::Timestamp, level: level::Level, depth: LogDepth, msg: String) -> Self {
-		Self {
-			when: now,
-			level: level,
-			depth: depth,
-			msg: msg,
-		}
-	}
-
-	/// Updates a [`PartialLogUpdate`] with the contents of another [`PartialLogUpdate`].
-	#[inline]
-	pub fn copy_from(&mut self, other: &Self) {
-		self.when.copy_from(&other.when);
-		self.level = other.level;
-		self.msg.clear();
-		self.msg.insert_str(0, other.msg.as_str());
-	}
-
-	/// Updates the time for a [`PartialLogUpdate`].
-	#[inline]
-	pub fn set_when(&mut self, when: ntime::Timestamp) {
-		self.when = when;
-	}
-
-	/// Updates the time for a [`PartialLogUpdate`] from a [Timestamp][`ntime::Timestamp`] reference.
-	#[inline]
-	pub fn set_when_from(&mut self, when: &ntime::Timestamp) {
-		self.when.copy_from(when);
-	}
-
-	/// Updates the level for a [`PartialLogUpdate`].
-	#[inline]
-	pub fn set_level(&mut self, level: level::Level) {
-		self.level = level;
-	}
-
-	/// Updates the log depth for a [`PartialLogUpdate`].
-	#[inline]
-	pub fn set_depth(&mut self, depth: LogDepth) {
-		self.depth = depth;
-	}
-
-	/// Updates the message string for a [`PartialLogUpdate`].
-	#[inline]
-	pub fn set_msg(&mut self, msg: &str) {
-		self.msg.clear();
-		self.msg.insert_str(0, msg);
-	}
-}
-
-/// Encapsulates a full log update.
-#[derive(Clone, Debug)]
-pub struct LogUpdate<'s> {
-	partial: &'s PartialLogUpdate,
+	msg: &'s str,
+	/// Attributes for the log update.
 	attrs: &'s attributes::Map,
 }
 
-impl<'i> From<(&'i PartialLogUpdate, &'i attributes::Map)> for LogUpdate<'i> {
-	fn from((partial, attrs): (&'i PartialLogUpdate, &'i attributes::Map)) -> Self {
-		Self { partial: partial, attrs: attrs }
+/// Initializes a dummy [`LogUpdate`] from an attributes [`Map`][attributes::Map].
+impl<'i> From<&'i attributes::Map> for LogUpdate<'i> {
+	fn from(attrs: &'i attributes::Map) -> Self {
+		Self {
+			when: ntime::Timestamp::epoch(),
+			level: level::Level::Trace,
+			depth: 1,
+			msg: "no message",
+			attrs: attrs,
+		}
+	}
+}
+
+/// Initializes a [`LogUpdate`] from another [`LogUpdate`] and a new attributes [`Map`][attributes::Map].
+impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
+	fn from((other, attrs): (&'i LogUpdate, &'i attributes::Map)) -> Self {
+		Self {
+			when: other.when.clone(),
+			level: other.level.clone(),
+			depth: other.depth,
+			msg: other.msg,
+			attrs: attrs,
+		}
+	}
+}
+
+/// Initializes a [`LogUpdate`] from a full set of details.
+impl<'i> From<(ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)> for LogUpdate<'i> {
+	fn from((when, level, depth, msg, attrs): (ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
+		Self {
+			when: when,
+			level: level,
+			depth: depth,
+			msg: msg,
+			attrs: attrs,
+		}
 	}
 }
 
 impl<'i> LogUpdate<'i> {
-	/// Returns references for the underlying [`PartialLogUpdate`] + attributes map of a [`LogUpdate`].
-	// TODO: make me private?
-	#[inline]
-	pub fn parts(&self) -> (&'i PartialLogUpdate, &'i attributes::Map) {
-		(self.partial, self.attrs)
-	}
-
 	/// Returns the [`Timestamp`][ntime::Timestamp] for the [`LogUpdate`].
 	#[inline]
-	pub fn when(&self) -> &'i ntime::Timestamp {
-		&self.partial.when
+	pub fn when(&'i self) -> &'i ntime::Timestamp {
+		&self.when
 	}
 
 	/// Returns the [`Level`][level::Level] for the [`LogUpdate`].
 	#[inline]
-	pub fn level(&self) -> &'i level::Level {
-		&self.partial.level
+	pub fn level(&'i self) -> &'i level::Level {
+		&self.level
 	}
 
 	/// Returns the [`LogDepth`] for the [`LogUpdate`].
 	#[inline]
-	pub fn depth(&self) -> &'i LogDepth {
-		&self.partial.depth
+	pub fn depth(&'i self) -> &'i LogDepth {
+		&self.depth
 	}
 
 	/// Returns the log message for the [`LogUpdate`].
 	#[inline]
-	pub fn message(&self) -> &'i str {
-		self.partial.msg.as_str()
+	pub fn message(&'i self) -> &'i str {
+		self.msg
 	}
 
-	/// Returns an attributes map reference for the [`LogUpdate`].
+	/// Evaluates whether the [`LogUpdate`] has any attributes defined.
 	#[inline]
-	pub fn attributes(&self) -> &'i attributes::Map {
-		self.attrs
+	pub fn no_attributes(&self) -> bool {
+		self.attrs.is_empty()
+	}
+
+	/// Returns the number of attributes defined for the [`LogUpdate`].
+	#[inline]
+	pub fn attributes_len(&self) -> usize {
+		self.attrs.len()
+	}
+
+	/// Returns wheter an attribute is present in the [`LogUpdate`].
+	#[inline]
+	pub fn attribute_has(&self, key: &str) -> bool {
+		self.attrs.has(key)
+	}
+
+	/// Returns an attribute [`Value`][attributes::Value] and [`Metadata`][attributes::Metadata] by key from the [`LogUpdate`].
+	#[inline]
+	pub fn attribute_get(&'i self, key: &'i str) -> Option<(attributes::Value<'i>, attributes::Metadata)> {
+		self.attrs.get(key)
+	}
+
+	/// Returns an attribute {key, [`Value`](attributes::Value)} iterator for all attributes in the [`LogUpdate`].
+	#[inline]
+	pub fn attribute_iter(&'i self) -> attributes::MapIter<'i> {
+		self.attrs.iter()
+	}
+
+	/// Returns an attribute key iterator for all attributes in the [`LogUpdate`].
+	#[inline]
+	pub fn attribute_key_iter(&'i self) -> attributes::MapKeyIter<'i> {
+		self.attrs.iter_key()
+	}
+
+	/// Returns an {attribute key, [`Value`](attributes::Value), [`Metadata`](attributes::Metadata)} iterator for all attributes in the [`LogUpdate`].
+	#[inline]
+	pub fn attribute_full_iter(&'i self) -> attributes::MapFullIter<'i> {
+		self.attrs.iter_full()
+	}
+
+	/// Copies all [`LogUpdate`] attributes into a [`Map`][attributes::Map] instance.
+	#[inline]
+	pub fn copy_attributes_into(&'i self, attrs: &'i mut attributes::Map) {
+		attrs.copy_from(self.attrs);
+	}
+}
+
+impl<'i> attributes::StringIndexContainer<'i> for LogUpdate<'i> {
+	#[inline]
+	fn str_by_idx(&'i self, idx: usize) -> &'i str {
+		self.attrs.str_by_idx(idx)
 	}
 }
 

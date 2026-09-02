@@ -378,7 +378,7 @@ pub mod filter;
 pub mod sink;
 pub use attributes::scalar::Scalar;
 pub use attributes::value::Value;
-pub use attributes::{MapIter as AttributesIter, MapKeyIter as AttributesKeyIter, MapKeyValueIter as AttributesKeyValueIter};
+pub use attributes::{Map, MapFullIter as AttributeFullIter};
 pub use attributes::{Metadata as AttributeMetadata, MetadataField as AttributeMetadataField, MetadataImpl as AttributeMetadataImpl};
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;

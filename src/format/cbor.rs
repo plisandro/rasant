@@ -173,13 +173,13 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::None => write_null(out),
 		Scalar::Bool(b) => write_bool(out, *b),
 		Scalar::String(s, _) => write_string(out, s.as_str()),
 		Scalar::StringSlice(s, _) => write_string(out, s),
-		Scalar::StringIndex(i, _) => write_string(out, container.str_by_idx(*i)),
+		Scalar::StringIndex(i, _) => write_string(out, update.str_by_idx(*i)),
 		Scalar::Int(i) => write_i64(out, *i),
 		Scalar::LongInt(i) => write_i128(out, *i),
 		Scalar::Size(s) => write_i128(out, *s as i128),
@@ -193,22 +193,22 @@ pub fn write_scalar<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, 
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, container: &'f C, val: &Value) -> io::Result<()> {
+pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, container, &s)?,
+		Value::Scalar(s) => write_scalar(out, update, &s)?,
 		Value::List(ss) => {
 			// major type 4 (array)
 			write_u64_with_major(out, ss.len() as u64, 4 << 5)?;
 			for i in 0..ss.len() {
-				write_scalar(out, container, &ss[i])?;
+				write_scalar(out, update, &ss[i])?;
 			}
 		}
 		Value::Map(keys, ss) => {
 			// major type 5 (map)
 			write_u64_with_major(out, ss.len() as u64, 5 << 5)?;
 			for i in 0..keys.len() {
-				write_scalar(out, container, &keys[i])?;
-				write_scalar(out, container, &ss[i])?;
+				write_scalar(out, update, &keys[i])?;
+				write_scalar(out, update, &ss[i])?;
 			}
 		}
 	}
@@ -219,7 +219,7 @@ pub fn write_value<'f, W: io::Write, C: StringIndexContainer<'f>>(out: &mut W, c
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Cbor`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// write output as a map (major type 5)
-	write_u64_with_major(out, (update.attributes().len() + 2) as u64, 5 << 5)?;
+	write_u64_with_major(out, (update.attributes_len() + 2) as u64, 5 << 5)?;
 
 	// time / timestamp
 	_ = write_string(out, time_key)?;
@@ -230,9 +230,9 @@ pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: 
 	_ = write_string(out, &update.message())?;
 
 	// attributess
-	for (key, val) in update.attributes().key_value_iter() {
+	for (key, val) in update.attribute_iter() {
 		_ = write_string(out, key)?;
-		write_value(out, update.attributes(), &val)?;
+		write_value(out, update, &val)?;
 	}
 
 	Ok(())
@@ -246,7 +246,6 @@ mod tests {
 
 	use crate::Level;
 	use crate::attributes::Map;
-	use crate::sink::PartialLogUpdate;
 
 	#[test]
 	fn serialize_scalar() {
@@ -305,7 +304,9 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_scalar(&mut out, &attrs, &s).is_ok());
+			let update = LogUpdate::from(&attrs);
+
+			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}
@@ -384,7 +385,9 @@ mod tests {
 
 			let mut out = Vec::new();
 			let attrs = Map::new();
-			assert!(write_value(&mut out, &attrs, &v).is_ok());
+			let update = LogUpdate::from(&attrs);
+
+			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}
@@ -398,14 +401,13 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let pupdate = PartialLogUpdate::new(
+		let update = LogUpdate::from((
 			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
 			Level::Warning,
 			0,
-			"test CBOR update".into(),
-		);
-
-		let update = LogUpdate::from((&pupdate, &attrs));
+			"test CBOR update",
+			&attrs,
+		));
 
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
@@ -433,31 +435,33 @@ mod tests {
 		let mut out = Vec::new();
 
 		// update #1
-		let pupdate = PartialLogUpdate::new(
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			0,
-			"test CBOR update #1".into(),
-		);
 		attrs.clear();
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert("a_float", Value::from(-456.789));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
+		let update = LogUpdate::from((
+			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
+			Level::Warning,
+			0,
+			"test CBOR update #1",
+			&attrs,
+		));
+
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
 		// update #2
-		let pupdate = PartialLogUpdate::new(
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp"),
-			Level::Info,
-			0,
-			"test CBOR update #2".into(),
-		);
 		attrs.clear();
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
+		let update = LogUpdate::from((
+			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp"),
+			Level::Info,
+			0,
+			"test CBOR update #2",
+			&attrs,
+		));
+
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
 		let want = [
