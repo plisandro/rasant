@@ -134,10 +134,11 @@ mod tests {
 			(Scalar::from(5678901.2345), "5.6789012345e6"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
@@ -169,10 +170,11 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
@@ -189,13 +191,8 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let update = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			3,
-			"test JSON update ❤️",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Warning, 3, "test JSON update ❤️", &attrs));
 
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;

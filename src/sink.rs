@@ -14,7 +14,7 @@ pub mod stderr;
 pub mod stdout;
 pub mod syslog;
 
-use ntime;
+use ntime::Timestamp;
 use std::io as std_io;
 
 use crate::attributes;
@@ -26,8 +26,8 @@ pub type LogDepth = u16;
 /// Encapsulates a full log update.
 #[derive(Clone, Debug)]
 pub struct LogUpdate<'s> {
-	/// [Timestamp][`ntime::Timestamp`] for the log update.
-	when: ntime::Timestamp,
+	/// [Timestamp][`Timestamp`] for the log update.
+	when: &'s Timestamp,
 	/// [`Level`][level::Level] for the log update.
 	level: level::Level,
 	/// Number of parent instances for the [`Logger`][crate::logger::Logger] generating this log update.
@@ -38,11 +38,11 @@ pub struct LogUpdate<'s> {
 	attrs: &'s attributes::Map,
 }
 
-/// Initializes a dummy [`LogUpdate`] from an attributes [`Map`][attributes::Map].
-impl<'i> From<&'i attributes::Map> for LogUpdate<'i> {
-	fn from(attrs: &'i attributes::Map) -> Self {
+/// Initializes a dummy [`LogUpdate`] from a [`Timestamp`] and attributes [`Map`][attributes::Map].
+impl<'i> From<(&'i Timestamp, &'i attributes::Map)> for LogUpdate<'i> {
+	fn from((when, attrs): (&'i Timestamp, &'i attributes::Map)) -> Self {
 		Self {
-			when: ntime::Timestamp::epoch(),
+			when: when,
 			level: level::Level::Trace,
 			depth: 1,
 			msg: "no message",
@@ -55,7 +55,7 @@ impl<'i> From<&'i attributes::Map> for LogUpdate<'i> {
 impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
 	fn from((other, attrs): (&'i LogUpdate, &'i attributes::Map)) -> Self {
 		Self {
-			when: other.when.clone(),
+			when: other.when,
 			level: other.level.clone(),
 			depth: other.depth,
 			msg: other.msg,
@@ -65,8 +65,8 @@ impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
 }
 
 /// Initializes a [`LogUpdate`] from a full set of details.
-impl<'i> From<(ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)> for LogUpdate<'i> {
-	fn from((when, level, depth, msg, attrs): (ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
+impl<'i> From<(&'i Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)> for LogUpdate<'i> {
+	fn from((when, level, depth, msg, attrs): (&'i Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
 		Self {
 			when: when,
 			level: level,
@@ -78,10 +78,10 @@ impl<'i> From<(ntime::Timestamp, level::Level, LogDepth, &'i str, &'i attributes
 }
 
 impl<'i> LogUpdate<'i> {
-	/// Returns the [`Timestamp`][ntime::Timestamp] for the [`LogUpdate`].
+	/// Returns the [`Timestamp`] for the [`LogUpdate`].
 	#[inline]
-	pub fn when(&'i self) -> &'i ntime::Timestamp {
-		&self.when
+	pub fn when(&'i self) -> &'i Timestamp {
+		self.when
 	}
 
 	/// Returns the [`Level`][level::Level] for the [`LogUpdate`].

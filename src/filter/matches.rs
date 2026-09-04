@@ -254,8 +254,10 @@ mod tests {
 	#[test]
 	fn message() {
 		fn run(mut filter: Message, want: bool) {
+			let when = Timestamp::now();
 			let attrs = attributes::Map::new();
-			let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &attrs));
+			let update = sink::LogUpdate::from((&when, Level::Info, 0, "this is a test log", &attrs));
+
 			assert_eq!(filter.pass(&update), want);
 		}
 
@@ -454,11 +456,13 @@ mod tests {
 	#[test]
 	fn attribute_keys_single() {
 		fn run(mut filter: AttributeKey, want: bool) {
+			let when = Timestamp::now();
 			let mut attrs = attributes::Map::new();
 			attrs.insert("a_string", Value::from("hello there!"));
 			attrs.insert("an_int", Value::from(12345));
 			attrs.insert("a_float", Value::from(6789.0123 as f32));
-			let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "unused update :(", &attrs));
+
+			let update = sink::LogUpdate::from((&when, Level::Info, 0, "unused update :(", &attrs));
 
 			assert_eq!(filter.pass(&update), want);
 		}
@@ -567,11 +571,13 @@ mod tests {
 	#[test]
 	fn attribute_values() {
 		fn run(mut filter: AttributeValue, want: bool) {
+			let when = Timestamp::now();
 			let mut attrs = attributes::Map::new();
 			attrs.insert("a_string", Value::from("hello there!"));
 			attrs.insert("an_int", Value::from(12345));
 			attrs.insert("a_float", Value::from(6789.0123 as f32));
-			let update = sink::LogUpdate::from((Timestamp::now(), Level::Info, 0, "unused update :(", &attrs));
+
+			let update = sink::LogUpdate::from((&when, Level::Info, 0, "unused update :(", &attrs));
 
 			assert_eq!(filter.pass(&update), want);
 		}

@@ -121,10 +121,11 @@ mod tests {
 			(Scalar::from(-1.2345), "-1.2345"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
@@ -157,10 +158,11 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
@@ -177,18 +179,12 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let pupdate = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			2,
-			"test compact update ❤️",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Warning, 2, "test compact update ❤️", &attrs));
 
-		let update = LogUpdate::from((&pupdate, &attrs));
 		let time_format = &ntime::Format::TimestampNanoseconds;
-
 		let want = "1776016599123000456 [WRN] test compact update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}";
+
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

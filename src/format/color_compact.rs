@@ -123,10 +123,12 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
+
 			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
 		}
@@ -141,13 +143,8 @@ mod tests {
 		attrs.insert("nothing", Value::from(None::<u32>));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let update = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			1,
-			"test compact update",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Warning, 1, "test compact update", &attrs));
 		let time_format = &ntime::Format::TimestampNanoseconds;
 
 		for tc in [

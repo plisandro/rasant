@@ -544,13 +544,8 @@ mod tests {
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-			let update = LogUpdate::from((
-				Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-				Level::Warning,
-				0,
-				"test Syslog message update ❤️",
-				&attrs,
-			));
+			let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+			let update = LogUpdate::from((&when, Level::Warning, 0, "test Syslog message update ❤️", &attrs));
 
 			let mut sink = Syslog::new(SyslogConfig {
 				server: SyslogSocket::BlackHole(),

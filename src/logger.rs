@@ -218,7 +218,8 @@ impl<'i> Logger {
 			}
 		};
 
-		let update = LogUpdate::from((Timestamp::now(), level, self.depth, msg, attrs as &attributes::Map));
+		let when = Timestamp::now();
+		let update = LogUpdate::from((&when, level, self.depth, msg, attrs as &attributes::Map));
 
 		// apply filters, if any
 		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {

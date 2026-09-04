@@ -155,7 +155,7 @@ impl sink::Sink for Memory {
 				};
 			}
 
-			self.formatter.as_bytes(&sink::LogUpdate::from((when, update.level, update.depth, update.msg, &self.mock_attributes)))
+			self.formatter.as_bytes(&sink::LogUpdate::from((&when, update.level, update.depth, update.msg, &self.mock_attributes)))
 		} else {
 			self.formatter.as_bytes(update)
 		};

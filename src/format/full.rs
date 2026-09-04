@@ -148,10 +148,11 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), want);
@@ -167,23 +168,22 @@ mod tests {
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("nothing", Value::from(None::<bool>));
 
-		let ts = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
-
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
 		for tc in [
 			(
-				LogUpdate::from((ts.clone(), Level::Warning, 0, "test full, no depth", &attrs)),
+				LogUpdate::from((&when, Level::Warning, 0, "test full, no depth", &attrs)),
 				"1776016599123000456 [WARNING] an_int=123 some_string=\"hi there!\" nothing=<none>
                               a_float=-456.789 a_set=[0x14da0eb6, true]
                               test full, no depth",
 			),
 			(
-				LogUpdate::from((ts.clone(), Level::Info, 3, "test full, half depth", &attrs)),
+				LogUpdate::from((&when, Level::Info, 3, "test full, half depth", &attrs)),
 				"1776016599123000456 [INFO   ]          an_int=123 some_string=\"hi there!\" nothing=<none>
                                        a_float=-456.789 a_set=[0x14da0eb6, true]
                                        test full, half depth",
 			),
 			(
-				LogUpdate::from((ts.clone(), Level::Panic, 7, "test full, over max depth", &attrs)),
+				LogUpdate::from((&when, Level::Panic, 7, "test full, over max depth", &attrs)),
 				"1776016599123000456 [PANIC  ]      ...       an_int=123 some_string=\"hi there!\" nothing=<none>
                                              a_float=-456.789 a_set=[0x14da0eb6, true]
                                              test full, over max depth",

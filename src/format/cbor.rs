@@ -301,10 +301,11 @@ mod tests {
 			(Scalar::from(3.1415926535897), [0xfb, 0x40, 0x09, 0x21, 0xfb, 0x54, 0x44, 0x2c, 0x46].as_slice()),
 		] {
 			let (s, want): (Scalar, &[u8]) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
 			assert_eq!(out.as_slice(), want);
@@ -382,10 +383,11 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &[u8]) = tc;
-
 			let mut out = Vec::new();
+
+			let when = Timestamp::now();
 			let attrs = Map::new();
-			let update = LogUpdate::from(&attrs);
+			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
 			assert_eq!(out.as_slice(), want);
@@ -401,13 +403,8 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let update = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			0,
-			"test CBOR update",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update", &attrs));
 
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::TimestampNanoseconds;
@@ -439,13 +436,8 @@ mod tests {
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert("a_float", Value::from(-456.789));
 
-		let update = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp"),
-			Level::Warning,
-			0,
-			"test CBOR update #1",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update #1", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 
@@ -454,13 +446,8 @@ mod tests {
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let update = LogUpdate::from((
-			Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp"),
-			Level::Info,
-			0,
-			"test CBOR update #2",
-			&attrs,
-		));
+		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp");
+		let update = LogUpdate::from((&when, Level::Info, 0, "test CBOR update #2", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
 

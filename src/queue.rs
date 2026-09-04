@@ -40,7 +40,7 @@ impl AsyncSinkHandler {
 			while let Ok(cmd) = rx.recv() {
 				match cmd {
 					AsyncSinkOp::Log { sink, when, level, depth, msg, attrs } => {
-						let update = LogUpdate::from((when, level, depth, msg.as_str(), &attrs));
+						let update = LogUpdate::from((&when, level, depth, msg.as_str(), &attrs));
 						match sink.lock() {
 							Ok(mut s) => match s.log(&update) {
 								Ok(_) => (),

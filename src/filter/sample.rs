@@ -235,8 +235,10 @@ mod random {
 	#[test]
 	fn filtering() {
 		let mut filter = Random::with_seed(RandomConfig { probability: 0.33 }, 27182818);
+
+		let when = Timestamp::now();
 		let attrs = attributes::Map::new();
-		let update = LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &attrs));
+		let update = LogUpdate::from((&when, Level::Info, 0, "this is a test log", &attrs));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
@@ -263,8 +265,10 @@ mod step {
 	#[test]
 	fn filtering() {
 		let mut filter = Step::new(StepConfig { step: 3 });
+
+		let when = Timestamp::now();
 		let attrs = attributes::Map::new();
-		let update = LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &attrs));
+		let update = LogUpdate::from((&when, Level::Info, 0, "this is a test log", &attrs));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..15 {
@@ -291,8 +295,10 @@ mod random_step {
 	#[test]
 	fn filtering() {
 		let mut filter = RandomStep::with_seed(RandomStepConfig { step: 7 }, 27182818);
+
+		let when = Timestamp::now();
 		let attrs = attributes::Map::new();
-		let update = LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &attrs));
+		let update = LogUpdate::from((&when, Level::Info, 0, "this is a test log", &attrs));
 
 		let mut got: Vec<usize> = Vec::new();
 		for i in 0..50 {
@@ -318,8 +324,9 @@ mod burst {
 
 	#[test]
 	fn filtering() {
+		let when = Timestamp::now();
 		let attrs = attributes::Map::new();
-		let update = LogUpdate::from((Timestamp::now(), Level::Info, 0, "this is a test log", &attrs));
+		let update = LogUpdate::from((&when, Level::Info, 0, "this is a test log", &attrs));
 
 		let mut filter = Burst::new(BurstConfig {
 			period: Duration::from_millis(50),
