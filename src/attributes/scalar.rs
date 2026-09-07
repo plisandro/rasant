@@ -240,39 +240,75 @@ impl From<&Level> for Scalar {
 	}
 }
 
+impl From<net::Ipv4Addr> for Scalar {
+	fn from(a: net::Ipv4Addr) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
 impl From<&net::Ipv4Addr> for Scalar {
-	fn from(s: &net::Ipv4Addr) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::Ipv4Addr) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
+impl From<net::Ipv6Addr> for Scalar {
+	fn from(a: net::Ipv6Addr) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
 impl From<&net::Ipv6Addr> for Scalar {
-	fn from(s: &net::Ipv6Addr) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::Ipv6Addr) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
+impl From<net::IpAddr> for Scalar {
+	fn from(a: net::IpAddr) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
 impl From<&net::IpAddr> for Scalar {
-	fn from(s: &net::IpAddr) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::IpAddr) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
+impl From<net::SocketAddrV4> for Scalar {
+	fn from(a: net::SocketAddrV4) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
 impl From<&net::SocketAddrV4> for Scalar {
-	fn from(s: &net::SocketAddrV4) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::SocketAddrV4) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
+impl From<net::SocketAddrV6> for Scalar {
+	fn from(a: net::SocketAddrV6) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
 impl From<&net::SocketAddrV6> for Scalar {
-	fn from(s: &net::SocketAddrV6) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::SocketAddrV6) -> Self {
+		Scalar::from(a.to_string())
+	}
+}
+
+impl From<net::SocketAddr> for Scalar {
+	fn from(a: net::SocketAddr) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
 impl From<&net::SocketAddr> for Scalar {
-	fn from(s: &net::SocketAddr) -> Self {
-		Scalar::from(s.to_string())
+	fn from(a: &net::SocketAddr) -> Self {
+		Scalar::from(a.to_string())
 	}
 }
 
@@ -477,6 +513,8 @@ mod tests {
 		assert_eq!(Scalar::from(None::<&net::IpAddr>), Scalar::None);
 		assert_eq!(Scalar::from(&net::IpAddr::V4(ip4)), Scalar::String(String::from("12.34.56.78"), false));
 		assert_eq!(Scalar::from(&net::IpAddr::V6(ip6)), Scalar::String(String::from("1020:3040:5060:7080:90a0:b0c0:d0e0:f00d"), false));
+		assert_eq!(Scalar::from(ip4), Scalar::String(String::from("12.34.56.78"), false));
+		assert_eq!(Scalar::from(ip6), Scalar::String(String::from("1020:3040:5060:7080:90a0:b0c0:d0e0:f00d"), false));
 
 		let addr4 = net::SocketAddrV4::new(net::Ipv4Addr::new(12, 34, 56, 78), 7777);
 		let addr6 = net::SocketAddrV6::new(net::Ipv6Addr::new(0x1020, 0x3040, 0x5060, 0x7080, 0x90A0, 0xB0C0, 0xD0E0, 0xF00D), 8888, 1, 2);
@@ -491,6 +529,8 @@ mod tests {
 			Scalar::from(&net::SocketAddr::V6(addr6)),
 			Scalar::String(String::from("[1020:3040:5060:7080:90a0:b0c0:d0e0:f00d%2]:8888"), false)
 		);
+		assert_eq!(Scalar::from(addr4), Scalar::String(String::from("12.34.56.78:7777"), false));
+		assert_eq!(Scalar::from(addr6), Scalar::String(String::from("[1020:3040:5060:7080:90a0:b0c0:d0e0:f00d%2]:8888"), false));
 	}
 
 	#[test]
