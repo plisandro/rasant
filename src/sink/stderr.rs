@@ -34,6 +34,7 @@ pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 		formatter_cfg: conf.formatter_cfg,
 		buffered: conf.buffered,
 		flush_on_write: conf.flush_on_write,
+		delimiter_after_write: true,
 		out: Some(io::stderr()),
 		..IOConfig::default()
 	})

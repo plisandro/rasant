@@ -19,8 +19,10 @@ pub struct IOConfig<T: io::Write + Send> {
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
 	pub flush_on_write: bool,
-	/// Whether to insert a [formatted delimiter][`format::FormatterConfig::delimiter`] before the first log entry.
+	/// Whether to insert a [delimiter][`format::FormatterConfig::delimiter`] before the first log entry.
 	pub initial_delimiter: bool,
+	/// Whether to insert a [delimiter][`format::FormatterConfig::delimiter`] before, or after, after every log write.
+	pub delimiter_after_write: bool,
 	/// [`io::Write`]r for this sink.
 	pub out: Option<T>,
 }
@@ -33,6 +35,7 @@ impl<W: io::Write + Send> Default for IOConfig<W> {
 			buffered: true,
 			flush_on_write: false,
 			initial_delimiter: false,
+			delimiter_after_write: false,
 			out: None,
 		}
 	}
@@ -45,6 +48,7 @@ pub struct IO<'s> {
 	written_to: bool,
 	flush_on_write: bool,
 	initial_delimiter: bool,
+	delimiter_after_write: bool,
 	out: Box<dyn io::Write + Send + 's>,
 }
 
@@ -62,6 +66,7 @@ impl<'i> IO<'i> {
 			formatter: format::Formatter::new(conf.formatter_cfg),
 			written_to: false,
 			initial_delimiter: conf.initial_delimiter,
+			delimiter_after_write: conf.delimiter_after_write,
 			flush_on_write: conf.flush_on_write,
 			out: out,
 		}
@@ -74,11 +79,14 @@ impl<'i> sink::Sink for IO<'i> {
 	}
 
 	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
-		if self.written_to || (!self.written_to && self.initial_delimiter) {
+		if (!self.written_to && self.initial_delimiter) || !self.delimiter_after_write {
 			self.formatter.write_delimiter(&mut self.out)?;
 		}
 
 		self.formatter.write(&mut self.out, update)?;
+		if self.delimiter_after_write {
+			self.formatter.write_delimiter(&mut self.out)?;
+		}
 		self.written_to = true;
 
 		match self.flush_on_write {
