@@ -167,6 +167,18 @@ where
 	}
 }
 
+impl<T: Clone + Into<Scalar>> From<&Option<T>> for Scalar
+where
+	Scalar: From<T>,
+{
+	fn from(ot: &Option<T>) -> Self {
+		match ot {
+			None => Self::None,
+			Some(t) => Self::from(t.clone()),
+		}
+	}
+}
+
 // Rust basic data types
 macro_rules! cast_type_to_scalar {
 	($source_type: ty, $target_scalar: expr) => {
@@ -502,6 +514,14 @@ mod tests {
 		assert_eq!(Scalar::from(None::<char>), Scalar::None);
 		assert_eq!(Scalar::from('💯'), Scalar::String(String::from("💯"), true));
 		assert_eq!(Scalar::from(&'💯'), Scalar::String(String::from("💯"), true));
+	}
+
+	#[test]
+	fn from_option() {
+		assert_eq!(Scalar::from(None::<bool>), Scalar::None);
+		assert_eq!(Scalar::from(&None::<u32>), Scalar::None);
+		assert_eq!(Scalar::from(Some(String::from("abcd 1234"))), Scalar::String(String::from("abcd 1234"), false));
+		assert_eq!(Scalar::from(&Some(true)), Scalar::Bool(true));
 	}
 
 	#[test]
