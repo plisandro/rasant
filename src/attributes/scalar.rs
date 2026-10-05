@@ -154,6 +154,7 @@ impl<'i> Scalar {
 
 /* ----------------------- Casting ----------------------- */
 
+// Support Option<type> for all castable types.
 impl<T: Into<Scalar>> From<Option<T>> for Scalar
 where
 	Scalar: From<T>,
@@ -166,12 +167,43 @@ where
 	}
 }
 
-impl From<bool> for Scalar {
-	fn from(b: bool) -> Self {
-		Self::Bool(b)
-	}
+// Rust basic data types
+macro_rules! cast_type_to_scalar {
+	($source_type: ty, $target_scalar: expr) => {
+		// <type> to Scalar
+		impl From<$source_type> for Scalar {
+			fn from(x: $source_type) -> Self {
+				$target_scalar(x.into())
+			}
+		}
+
+		// &<type> to Scalar
+		impl From<&$source_type> for Scalar {
+			fn from(x: &$source_type) -> Self {
+				$target_scalar((*x).into())
+			}
+		}
+	};
 }
 
+cast_type_to_scalar!(bool, Self::Bool);
+cast_type_to_scalar!(i8, Self::Int);
+cast_type_to_scalar!(i16, Self::Int);
+cast_type_to_scalar!(i32, Self::Int);
+cast_type_to_scalar!(i64, Self::Int);
+cast_type_to_scalar!(i128, Self::LongInt);
+cast_type_to_scalar!(isize, Self::Size);
+cast_type_to_scalar!(u8, Self::Uint);
+cast_type_to_scalar!(u16, Self::Uint);
+cast_type_to_scalar!(u32, Self::Uint);
+cast_type_to_scalar!(u64, Self::Uint);
+cast_type_to_scalar!(u128, Self::LongUint);
+cast_type_to_scalar!(usize, Self::Usize);
+cast_type_to_scalar!(f32, Self::Float);
+cast_type_to_scalar!(f64, Self::Float);
+// TODO: add casting support for char
+
+// Complex data types
 impl From<String> for Scalar {
 	fn from(s: String) -> Self {
 		let escaped = encoding::str_needs_escaping(s.as_str());
@@ -336,73 +368,6 @@ impl From<&path::Path> for Scalar {
 	}
 }
 
-macro_rules! cast_signed_to_scalar {
-	($t: ty) => {
-		impl From<$t> for Scalar {
-			fn from(x: $t) -> Self {
-				Self::Int(x as i64)
-			}
-		}
-	};
-}
-
-cast_signed_to_scalar!(i8);
-cast_signed_to_scalar!(i16);
-cast_signed_to_scalar!(i32);
-cast_signed_to_scalar!(i64);
-
-impl From<i128> for Scalar {
-	fn from(x: i128) -> Self {
-		Self::LongInt(x)
-	}
-}
-
-impl From<isize> for Scalar {
-	fn from(x: isize) -> Self {
-		Self::Size(x)
-	}
-}
-
-macro_rules! cast_unsigned_to_scalar {
-	($t: ty) => {
-		impl From<$t> for Scalar {
-			fn from(x: $t) -> Self {
-				Self::Uint(x as u64)
-			}
-		}
-	};
-}
-
-cast_unsigned_to_scalar!(u8);
-cast_unsigned_to_scalar!(u16);
-cast_unsigned_to_scalar!(u32);
-cast_unsigned_to_scalar!(u64);
-
-impl From<u128> for Scalar {
-	fn from(x: u128) -> Self {
-		Self::LongUint(x)
-	}
-}
-
-impl From<usize> for Scalar {
-	fn from(x: usize) -> Self {
-		Self::Usize(x)
-	}
-}
-
-macro_rules! cast_float_to_scalar {
-	($t: ty) => {
-		impl From<$t> for Scalar {
-			fn from(x: $t) -> Self {
-				Self::Float(x as f64)
-			}
-		}
-	};
-}
-
-cast_float_to_scalar!(f32);
-cast_float_to_scalar!(f64);
-
 /* ----------------------- Scalar slice helper implementation ----------------------- */
 
 /// Trait for known types/structs which can be casted into an array of [`Scalar`].
@@ -460,35 +425,50 @@ mod tests {
 	fn from_base_type() {
 		assert_eq!(Scalar::from(None::<bool>), Scalar::None);
 		assert_eq!(Scalar::from(true), Scalar::Bool(true));
+		assert_eq!(Scalar::from(&true), Scalar::Bool(true));
 		assert_eq!(Scalar::from(None::<i8>), Scalar::None);
 		assert_eq!(Scalar::from(-12 as i8), Scalar::Int(-12));
+		assert_eq!(Scalar::from(&(-12 as i8)), Scalar::Int(-12));
 		assert_eq!(Scalar::from(None::<i16>), Scalar::None);
 		assert_eq!(Scalar::from(345 as i16), Scalar::Int(345));
+		assert_eq!(Scalar::from(&(345 as i16)), Scalar::Int(345));
 		assert_eq!(Scalar::from(None::<i32>), Scalar::None);
 		assert_eq!(Scalar::from(-678 as i32), Scalar::Int(-678));
+		assert_eq!(Scalar::from(&(-678 as i32)), Scalar::Int(-678));
 		assert_eq!(Scalar::from(None::<i64>), Scalar::None);
 		assert_eq!(Scalar::from(9012 as i64), Scalar::Int(9012));
+		assert_eq!(Scalar::from(&(9012 as i64)), Scalar::Int(9012));
 		assert_eq!(Scalar::from(None::<i128>), Scalar::None);
 		assert_eq!(Scalar::from(-3456 as i128), Scalar::LongInt(-3456));
+		assert_eq!(Scalar::from(&(-3456 as i128)), Scalar::LongInt(-3456));
 		assert_eq!(Scalar::from(None::<isize>), Scalar::None);
 		assert_eq!(Scalar::from(7890 as isize), Scalar::Size(7890));
+		assert_eq!(Scalar::from(&(7890 as isize)), Scalar::Size(7890));
 		assert_eq!(Scalar::from(None::<u8>), Scalar::None);
 		assert_eq!(Scalar::from(12 as u8), Scalar::Uint(12));
+		assert_eq!(Scalar::from(&(12 as u8)), Scalar::Uint(12));
 		assert_eq!(Scalar::from(None::<u16>), Scalar::None);
 		assert_eq!(Scalar::from(345 as u16), Scalar::Uint(345));
+		assert_eq!(Scalar::from(&(345 as u16)), Scalar::Uint(345));
 		assert_eq!(Scalar::from(None::<u32>), Scalar::None);
 		assert_eq!(Scalar::from(678 as u32), Scalar::Uint(678));
+		assert_eq!(Scalar::from(&(678 as u32)), Scalar::Uint(678));
 		assert_eq!(Scalar::from(None::<u64>), Scalar::None);
 		assert_eq!(Scalar::from(9012 as u64), Scalar::Uint(9012));
+		assert_eq!(Scalar::from(&(9012 as u64)), Scalar::Uint(9012));
 		assert_eq!(Scalar::from(None::<u128>), Scalar::None);
 		assert_eq!(Scalar::from(3456 as u128), Scalar::LongUint(3456));
+		assert_eq!(Scalar::from(&(3456 as u128)), Scalar::LongUint(3456));
 		assert_eq!(Scalar::from(None::<usize>), Scalar::None);
 		assert_eq!(Scalar::from(7890 as usize), Scalar::Usize(7890));
+		assert_eq!(Scalar::from(&(7890 as usize)), Scalar::Usize(7890));
 		assert_eq!(Scalar::from(None::<f32>), Scalar::None);
 		// yaay precision!
 		assert_eq!(Scalar::from(-123.456 as f32), Scalar::Float(-123.45600128173828));
+		assert_eq!(Scalar::from(&(-123.456 as f32)), Scalar::Float(-123.45600128173828));
 		assert_eq!(Scalar::from(None::<f64>), Scalar::None);
 		assert_eq!(Scalar::from(789.012 as f64), Scalar::Float(789.012));
+		assert_eq!(Scalar::from(&(789.012 as f64)), Scalar::Float(789.012));
 	}
 
 	#[test]
