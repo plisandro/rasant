@@ -102,6 +102,12 @@ impl<'i> LogUpdate<'i> {
 		self.msg
 	}
 
+	/// Retuns an attributes [`Map`](attributes::Map) copy for the [`LogUpdate`].
+	#[inline]
+	pub fn attributes(&self) -> attributes::Map {
+		self.attrs.clone()
+	}
+
 	/// Evaluates whether the [`LogUpdate`] has any attributes defined.
 	#[inline]
 	pub fn no_attributes(&self) -> bool {
