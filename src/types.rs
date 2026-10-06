@@ -13,6 +13,7 @@ pub type FilterRef = Arc<Mutex<Box<dyn Filter + Send>>>;
 /// An Arc'ed & Mutex'ed reference to a shared log [`Sink`].
 pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 
+// TODO: remove me
 /// A sender channel for [`AsyncSinkOp`] async log operations.
 pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 

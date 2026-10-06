@@ -12,14 +12,14 @@ use crate::level::Level;
 use crate::queue;
 use crate::sink;
 use crate::sink::{LogDepth, LogUpdate};
-use crate::types::{AsyncSinkSender, FilterRef, SinkRef};
+use crate::types::{FilterRef, SinkRef};
 
 /// Base logger structure for Rasant.
 pub struct Logger {
 	enabled: bool,
 	depth: LogDepth,
 	level: Level,
-	async_sink_sender: Option<AsyncSinkSender>,
+	is_async: bool,
 	attributes: attributes::Map,
 	sinks: Vec<SinkRef>,
 	filters: Vec<FilterRef>,
@@ -34,7 +34,7 @@ impl<'i> Logger {
 			enabled: true,
 			depth: 0,
 			level: Level::Warning,
-			async_sink_sender: None,
+			is_async: false,
 			attributes: attributes::Map::new(),
 			sinks: Vec::new(),
 			filters: Vec::new(),
@@ -92,7 +92,7 @@ impl<'i> Logger {
 
 	/// Evaluates whether this [`Logger`] is in async mode or not.
 	pub fn is_async(&self) -> bool {
-		self.async_sink_sender.is_some()
+		self.is_async
 	}
 
 	/// Enables/disables async mode for this [`Logger`].
@@ -101,7 +101,7 @@ impl<'i> Logger {
 	/// write to the [`sink`]s associated to the [`Logger`] by a separate worker thread.
 	/// Log updates for a given [`Logger`] are guaranteed to write in order.
 	pub fn set_async(&mut self, async_writes: bool) -> &mut Self {
-		if async_writes == self.is_async() {
+		if async_writes == self.is_async {
 			// nothing to do
 			return self;
 		}
@@ -109,13 +109,13 @@ impl<'i> Logger {
 		match async_writes {
 			true => {
 				queue::inc_refcount();
-				self.async_sink_sender = Some(queue::get_sender());
+				self.is_async = true;
 			}
 			false => {
 				// order here is important! decrementing the async refcount before closing the
 				// sender channel will deadlock active AsyncSinkHandler instances.
-				self.async_sink_sender = None;
 				queue::dec_refcount();
+				self.is_async = false;
 			}
 		};
 
@@ -231,12 +231,12 @@ impl<'i> Logger {
 		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update)) } else { None };
 
 		for asink in self.sinks.iter() {
-			let res = match self.async_sink_sender {
-				Some(ref tx) => {
-					queue::log(&tx, &asink, &update);
+			let res = match self.is_async {
+				true => {
+					queue::log(&asink, &update);
 					Ok(())
 				}
-				None => asink.lock().unwrap().log(&update),
+				false => asink.lock().unwrap().log(&update),
 			};
 			if let Err(e) = res {
 				panic!(
@@ -380,12 +380,12 @@ impl<'i> Logger {
 		for asink in self.sinks.iter() {
 			// TODO: fix logging.
 			//let name = asink.lock().unwrap().as_mut().name();
-			let res = match self.async_sink_sender {
-				Some(ref tx) => {
-					queue::flush(&tx, &asink);
+			let res = match self.is_async {
+				true => {
+					queue::flush(&asink);
 					Ok(())
 				}
-				None => asink.lock().unwrap().flush(),
+				false => asink.lock().unwrap().flush(),
 			};
 			if let Err(e) = res {
 				let loc = panic::Location::caller();
@@ -418,8 +418,8 @@ impl Clone for Logger {
 			enabled: self.enabled,
 			depth: self.depth + 1,
 			level: self.level,
-			// async state is modified via set_async()
-			async_sink_sender: None,
+			// async state is later modified via set_async()
+			is_async: false,
 			attributes: self.attributes.clone(),
 			sinks: self.sinks.clone(),
 			filters: self.filters.clone(),
