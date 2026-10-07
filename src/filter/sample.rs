@@ -6,7 +6,6 @@
 use ntime;
 use ntime::{Duration, Timestamp};
 use std::string;
-use std::u64;
 
 use crate::filter::Filter;
 use crate::sink;
