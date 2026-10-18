@@ -41,20 +41,6 @@ impl Default for AsyncSinkOp {
 	}
 }
 
-impl<'i> From<(SinkRef, &'i LogUpdate<'i>)> for AsyncSinkOp {
-	fn from((sink, update): (SinkRef, &'i LogUpdate)) -> Self {
-		AsyncSinkOp {
-			sink: Some(sink.clone()),
-			flush: false,
-			when: update.when().clone(),
-			level: update.level().clone(),
-			depth: update.depth().clone(),
-			msg: String::from(update.message()),
-			attrs: update.attributes(),
-		}
-	}
-}
-
 impl<'i> AsyncSinkOp {
 	pub fn reset(&mut self) {
 		self.sink = None;
@@ -119,12 +105,22 @@ impl AsyncQueue {
 	}
 
 	#[inline]
-	pub fn done(&self) -> bool {
+	pub fn is_empty(&self) -> bool {
+		return self.size == 0;
+	}
+
+	#[inline]
+	pub fn is_closed(&self) -> bool {
+		return self.closed;
+	}
+
+	#[inline]
+	pub fn is_done(&self) -> bool {
 		return self.closed && self.size == 0;
 	}
 
 	#[inline]
-	pub fn ready(&self) -> bool {
+	pub fn is_ready(&self) -> bool {
 		return self.closed || self.size != 0;
 	}
 
@@ -182,7 +178,7 @@ impl AsyncQueue {
 		entry.set_log_update(sink, update);
 	}
 
-	fn pop_front<'f>(&'f mut self) -> Option<&'f mut AsyncSinkOp> {
+	pub fn pop_front<'f>(&'f mut self) -> Option<&'f mut AsyncSinkOp> {
 		if self.size == 0 {
 			return None;
 		}
@@ -197,17 +193,6 @@ impl AsyncQueue {
 				Some(entry)
 			}
 		}
-	}
-
-	pub fn pop_front_and_swap<'f>(&'f mut self, target_op: &'f mut AsyncSinkOp) -> Option<&'f AsyncSinkOp> {
-		let pool_op = match self.pop_front() {
-			Some(op) => op,
-			None => return None,
-		};
-
-		mem::swap(target_op, pool_op);
-		pool_op.reset();
-		Some(target_op)
 	}
 }
 
@@ -225,43 +210,49 @@ impl AsyncHandler {
 		let queue_ref = queue.clone();
 
 		let actuator = thread::spawn(move || {
-			let mut op = AsyncSinkOp::default();
+			let mut op_queue = AsyncQueue::new();
 			loop {
 				{
-					let mut queue = queue_cvar_ref.wait_while(queue_ref.lock().unwrap(), |q| !q.ready()).unwrap();
-					if queue.done() {
+					let mut queue = queue_cvar_ref.wait_while(queue_ref.lock().unwrap(), |q| !q.is_ready()).unwrap();
+					if queue.is_done() {
 						break;
 					}
+					if queue.is_empty() {
+						continue;
+					}
 
-					match queue.pop_front_and_swap(&mut op) {
-						Some(_) => (),
-						None => continue,
-					};
+					mem::swap(&mut *queue, &mut op_queue);
+					if op_queue.is_closed() {
+						// ensure the closed state is retained after buffer swaps
+						queue.close();
+					}
 				}
 
-				if let Some(sink) = op.get_flush() {
-					match sink.lock() {
-						Ok(mut s) => match s.flush() {
-							Ok(_) => (),
-							Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
-						},
-						Err(e) => panic!("failed to acquire lock on sink: {e}"),
-					};
-					continue;
-				}
+				while let Some(op) = op_queue.pop_front() {
+					if let Some(sink) = op.get_flush() {
+						match sink.lock() {
+							Ok(mut s) => match s.flush() {
+								Ok(_) => (),
+								Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
+							},
+							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						};
+						continue;
+					}
 
-				if let Some((sink, update)) = op.get_log_update() {
-					match sink.lock() {
-						Ok(mut s) => match s.log(&update) {
-							Ok(_) => (),
-							Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
-						},
-						Err(e) => panic!("failed to acquire lock on sink: {e}"),
-					};
-					continue;
-				}
+					if let Some((sink, update)) = op.get_log_update() {
+						match sink.lock() {
+							Ok(mut s) => match s.log(&update) {
+								Ok(_) => (),
+								Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
+							},
+							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						};
+						continue;
+					}
 
-				panic!("invalid async operation");
+					panic!("invalid async operation");
+				}
 			}
 		});
 
@@ -291,7 +282,7 @@ impl AsyncHandler {
 		// potential sink write issues from locking shutdown requester forever.
 		let start = Timestamp::now();
 		loop {
-			if self.queue.lock().unwrap().done() {
+			if self.queue.lock().unwrap().is_done() {
 				break;
 			}
 
