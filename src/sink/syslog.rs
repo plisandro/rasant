@@ -45,7 +45,7 @@
 use crate::attributes::{Scalar, StringIndexContainer, Value};
 #[cfg(unix)]
 use crate::constant::DEFAULT_LOCAL_SYSLOG_SOCKETS;
-use crate::constant::{HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
+use crate::constant::{DEFAULT_CAPACITY, HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
 use crate::{encoding, sink};
 use ntime;
 use std::io;
@@ -219,6 +219,7 @@ impl Syslog {
 		let process_name = PROCESS_NAME.clone();
 		let process_id = *PROCESS_ID;
 		let facility_mask = (conf.facility as u16) << 3;
+		let output_buf: Vec<u8> = Vec::with_capacity(DEFAULT_CAPACITY);
 
 		match conf.server {
 			#[cfg(unix)]
@@ -241,7 +242,7 @@ impl Syslog {
 						facility_mask: facility_mask,
 						writer: SyslogWriter::Datagram(dg),
 						format: conf.format,
-						output_buf: Vec::new(),
+						output_buf: output_buf,
 					},
 				}
 			}
@@ -258,7 +259,7 @@ impl Syslog {
 						facility_mask: facility_mask,
 						writer: SyslogWriter::Datagram(dg),
 						format: conf.format,
-						output_buf: Vec::new(),
+						output_buf: output_buf,
 					},
 				}
 			}
@@ -277,7 +278,7 @@ impl Syslog {
 					facility_mask: facility_mask,
 					writer: SyslogWriter::UDP(sock, addr),
 					format: conf.format,
-					output_buf: Vec::new(),
+					output_buf: output_buf,
 				}
 			}
 			SyslogSocket::TCP(addr) => {
@@ -296,7 +297,7 @@ impl Syslog {
 					facility_mask: facility_mask,
 					writer: SyslogWriter::TCPFramed(BufWriter::new(stream)),
 					format: conf.format,
-					output_buf: Vec::new(),
+					output_buf: output_buf,
 				}
 			}
 			SyslogSocket::TCPTransparent(addr) => {
@@ -315,7 +316,7 @@ impl Syslog {
 					facility_mask: facility_mask,
 					writer: SyslogWriter::TCPTransparent(BufWriter::new(stream)),
 					format: conf.format,
-					output_buf: Vec::new(),
+					output_buf: output_buf,
 				}
 			}
 			SyslogSocket::BlackHole() => Self {
@@ -326,7 +327,7 @@ impl Syslog {
 				facility_mask: facility_mask,
 				writer: SyslogWriter::BlackHole(),
 				format: conf.format,
-				output_buf: Vec::new(),
+				output_buf: output_buf,
 			},
 		}
 	}

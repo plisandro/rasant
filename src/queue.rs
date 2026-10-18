@@ -4,7 +4,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
 use crate::attributes;
-use crate::constant::{THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
+use crate::constant::{DEFAULT_CAPACITY, THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
 use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::SinkRef;
@@ -83,7 +83,7 @@ impl<'i> AsyncSinkOp {
 	}
 }
 
-// Async operations queue, implemented as a FIFO ring buffer with reusable update data structs.
+// Async operations queue, implemented as a FIFO ring buffer with reusable data structs.
 pub struct AsyncQueue {
 	pool: Vec<AsyncSinkOp>,
 	closed: bool,
@@ -94,9 +94,13 @@ pub struct AsyncQueue {
 
 impl AsyncQueue {
 	pub fn new() -> Self {
+		let mut pool: Vec<AsyncSinkOp> = Vec::with_capacity(DEFAULT_CAPACITY);
+		for _ in 0..DEFAULT_CAPACITY {
+			pool.push(AsyncSinkOp::default());
+		}
+
 		AsyncQueue {
-			// TODO: preallocate some capacity for the queue?
-			pool: Vec::new(),
+			pool: pool,
 			closed: false,
 			head_idx: 0,
 			tail_idx: 0,
