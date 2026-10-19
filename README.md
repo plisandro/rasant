@@ -2,9 +2,7 @@
 
 <p>
     <picture>
-      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/plisandro/rasant/master/assets/rasant_title_light_horizontal.png" width="350px">
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/plisandro/rasant/master/assets/rasant_title_dark_horizontal.png" width="350px">
-      <img src="https://raw.githubusercontent.com/plisandro/rasant/master/assets/rasant_title_light_horizontal.png" width="350px" />
+      <img src="https://raw.githubusercontent.com/plisandro/rasant/master/assets/rasant_title_horizontal.svg" width="400px" />
     </picture>
     <br>
 </p>
