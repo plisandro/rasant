@@ -83,12 +83,10 @@ impl<'i> AsyncSinkOp {
 	}
 }
 
-// Async operations queue, implemented as a FIFO ring buffer with reusable data structs.
+// Async operations queue, implemented as a vector of reusable data structs.
 pub struct AsyncQueue {
 	pool: Vec<AsyncSinkOp>,
 	closed: bool,
-	head_idx: usize,
-	tail_idx: usize,
 	size: usize,
 }
 
@@ -99,13 +97,7 @@ impl AsyncQueue {
 			pool.push(AsyncSinkOp::default());
 		}
 
-		AsyncQueue {
-			pool: pool,
-			closed: false,
-			head_idx: 0,
-			tail_idx: 0,
-			size: 0,
-		}
+		AsyncQueue { pool: pool, closed: false, size: 0 }
 	}
 
 	#[inline]
@@ -142,32 +134,29 @@ impl AsyncQueue {
 		self.closed = true;
 	}
 
+	pub fn clear(&mut self) {
+		self.size = 0
+	}
+
 	fn push_back<'f>(&'f mut self) -> &'f mut AsyncSinkOp {
 		if self.closed {
 			panic!("tried to push on a closed AsyncQueue with {len}/{capacity} elements", len = self.len(), capacity = self.capacity());
 		}
 
-		let mut capacity = self.capacity();
-
-		if self.size >= capacity {
+		if self.size >= self.capacity() {
 			// no more pool space, extend it.
-			let entry = self.pool.insert_mut(self.tail_idx, AsyncSinkOp::default());
-			capacity += 1;
-
+			let entry = self.pool.push_mut(AsyncSinkOp::default());
 			self.size += 1;
-			self.head_idx = (self.head_idx + 1) % capacity;
-			self.tail_idx = self.head_idx;
 
 			return entry;
 		}
 
 		// reuse an existing queue slot
-		let entry = match self.pool.get_mut(self.tail_idx) {
+		self.size += 1;
+		let entry = match self.pool.get_mut(self.size - 1) {
 			None => panic!("failed to push into async log queue"),
 			Some(e) => e,
 		};
-		self.size += 1;
-		self.tail_idx = (self.tail_idx + 1) % capacity;
 
 		entry
 	}
@@ -182,21 +171,8 @@ impl AsyncQueue {
 		entry.set_log_update(sink, update);
 	}
 
-	pub fn pop_front<'f>(&'f mut self) -> Option<&'f mut AsyncSinkOp> {
-		if self.size == 0 {
-			return None;
-		}
-
-		let capacity = self.capacity();
-		match self.pool.get_mut(self.head_idx) {
-			None => None,
-			Some(entry) => {
-				self.size -= 1;
-				self.head_idx = (self.head_idx + 1) % capacity;
-
-				Some(entry)
-			}
-		}
+	pub fn as_slice<'f>(&'f mut self) -> &'f [AsyncSinkOp] {
+		&self.pool[0..self.size]
 	}
 }
 
@@ -232,7 +208,7 @@ impl AsyncHandler {
 					}
 				}
 
-				while let Some(op) = op_queue.pop_front() {
+				for op in op_queue.as_slice() {
 					if let Some(sink) = op.get_flush() {
 						match sink.lock() {
 							Ok(mut s) => match s.flush() {
@@ -257,6 +233,7 @@ impl AsyncHandler {
 
 					panic!("invalid async operation");
 				}
+				op_queue.clear();
 			}
 		});
 
@@ -282,11 +259,11 @@ impl AsyncHandler {
 		self.queue.lock().unwrap().close();
 		self.queue_cvar.notify_all();
 
-		// we busy wait for the async queue to flush completely, with a timeout. this prevents
-		// potential sink write issues from locking shutdown requester forever.
+		// we busy wait for the async queue actuator to complete, with a timeout. this prevents
+		// potential sink write issues from locking shutdown requesters forever.
 		let start = Timestamp::now();
 		loop {
-			if self.queue.lock().unwrap().is_done() {
+			if self.actuator.is_finished() {
 				break;
 			}
 
