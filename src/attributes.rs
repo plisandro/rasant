@@ -4,7 +4,7 @@ pub mod value;
 use std::fmt;
 use std::slice;
 
-use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEYS_PRIORITY, ATTRIBUTE_KEYS_RESTRICTED, DEFAULT_CAPACITY};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEYS_PRIORITY, ATTRIBUTE_KEYS_RESTRICTED, CAPACITY_DEFAULT};
 
 pub use scalar::{Scalar, StringIndexContainer};
 pub use value::Value;
@@ -87,11 +87,11 @@ impl Map {
 	/// Initializes a new empty [`Map`].
 	pub fn new() -> Self {
 		Self {
-			string_pool: String::with_capacity(DEFAULT_CAPACITY),
-			string_idxs: Vec::with_capacity(DEFAULT_CAPACITY),
-			keys: Vec::with_capacity(DEFAULT_CAPACITY),
-			scalar_pool: Vec::with_capacity(DEFAULT_CAPACITY),
-			scalar_idxs: Vec::with_capacity(DEFAULT_CAPACITY),
+			string_pool: String::with_capacity(CAPACITY_DEFAULT),
+			string_idxs: Vec::with_capacity(CAPACITY_DEFAULT),
+			keys: Vec::with_capacity(CAPACITY_DEFAULT),
+			scalar_pool: Vec::with_capacity(CAPACITY_DEFAULT),
+			scalar_idxs: Vec::with_capacity(CAPACITY_DEFAULT),
 		}
 	}
 

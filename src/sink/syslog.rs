@@ -45,7 +45,7 @@
 use crate::attributes::{Scalar, StringIndexContainer, Value};
 #[cfg(unix)]
 use crate::constant::DEFAULT_LOCAL_SYSLOG_SOCKETS;
-use crate::constant::{DEFAULT_CAPACITY, HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
+use crate::constant::{CAPACITY_DEFAULT, HOSTNAME, NETWORK_TIMEOUT, PROCESS_ID, PROCESS_NAME};
 use crate::{encoding, sink};
 use ntime;
 use std::io;
@@ -219,7 +219,7 @@ impl Syslog {
 		let process_name = PROCESS_NAME.clone();
 		let process_id = *PROCESS_ID;
 		let facility_mask = (conf.facility as u16) << 3;
-		let output_buf: Vec<u8> = Vec::with_capacity(DEFAULT_CAPACITY);
+		let output_buf: Vec<u8> = Vec::with_capacity(CAPACITY_DEFAULT);
 
 		match conf.server {
 			#[cfg(unix)]

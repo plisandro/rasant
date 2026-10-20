@@ -7,7 +7,7 @@ use crate::c_bindings;
 use crate::sink::LogDepth;
 
 /// Ennvironment variable to detect the presence of ANSI color-capable terminals.
-pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
+pub const ENV_VAR_COLORTERM: &str = "COLORTERM";
 
 /// Process ID running this module.
 pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
@@ -35,10 +35,12 @@ pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get
 });
 
 // Default capacity for all heap storage structures.
-pub static DEFAULT_CAPACITY: usize = 32;
+pub const CAPACITY_DEFAULT: usize = 32;
+// Total capacity for the async log. This is static, and will never resize.
+pub const CAPACITY_ASYNC_QUEUE: usize = 1024;
 
 /// UTF-8 byte-order-mark
-pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
+pub const UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 /// Maximum size of a UTF-8 encoded char, in bytes.
 pub const UTF_8_CHAR_MAX_SIZE: usize = 4;
 

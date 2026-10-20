@@ -20,7 +20,7 @@ use std::io::Write;
 use std::os::unix::net::UnixDatagram;
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
-use crate::constant::{DEFAULT_CAPACITY, DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
+use crate::constant::{CAPACITY_DEFAULT, DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
 use crate::encoding;
 use crate::sink;
 
@@ -73,7 +73,7 @@ impl Journald {
 			message_format: conf.message_format,
 			datagram: None,
 			process_id: *PROCESS_ID,
-			output_buf: Vec::with_capacity(DEFAULT_CAPACITY),
+			output_buf: Vec::with_capacity(CAPACITY_DEFAULT),
 		}
 	}
 

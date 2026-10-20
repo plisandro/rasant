@@ -1,4 +1,5 @@
 use ntime::Timestamp;
+use std::ops;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -13,6 +14,31 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 
 /// A escape function converting [`chars`] into [`u8`]s.
 pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
+
+/// A container for data structures aligned to the CPU's cache line size,
+/// guaranteeing no cache trashing on concurrently accesed items
+/// The current value should be good for all modern platforms, including ARM Cortex.
+///
+/// TODO: Move the (minimum) size of the CPU's cache line into a
+/// HARDWARE_DESTRUCTIVE_INTERFERENCE_SIZE const, a-la-C++.
+#[repr(align(128))]
+pub struct CachePadded<T> {
+	value: T,
+}
+
+impl<T> CachePadded<T> {
+	pub fn new(v: T) -> Self {
+		CachePadded { value: v }
+	}
+}
+
+impl<T> ops::Deref for CachePadded<T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		&self.value
+	}
+}
 
 /// Rand is a 64-bit PRNG, implementing the Xorshift algorithm (https://en.wikipedia.org/wiki/Xorshift),
 /// with a period of 2^64−1.

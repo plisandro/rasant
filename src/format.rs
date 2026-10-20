@@ -9,7 +9,7 @@ mod json;
 use std::io;
 
 use crate::TimeFormat;
-use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP, DEFAULT_CAPACITY};
+use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP, CAPACITY_DEFAULT};
 use crate::sink::LogUpdate;
 
 /// Supported log output format for all [`sink`][crate::sink]s.
@@ -174,7 +174,7 @@ impl Formatter {
 			},
 			time_format: conf.time_format,
 			delimiter: conf.delimiter,
-			work_buffer: Vec::with_capacity(DEFAULT_CAPACITY),
+			work_buffer: Vec::with_capacity(CAPACITY_DEFAULT),
 		}
 	}
 
@@ -192,7 +192,7 @@ impl Formatter {
 
 	/// Serializes a formatted [`LogUpdate`] into a [`u8`] [`Vec`]
 	pub fn as_bytes(&mut self, update: &LogUpdate) -> Vec<u8> {
-		let mut out: Vec<u8> = Vec::with_capacity(DEFAULT_CAPACITY);
+		let mut out: Vec<u8> = Vec::with_capacity(CAPACITY_DEFAULT);
 
 		match self.write(&mut out, update) {
 			Ok(_) => out,

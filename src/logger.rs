@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::Value;
-use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, DEFAULT_CAPACITY, MAX_LOGGER_DEPTH};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, CAPACITY_DEFAULT, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
 use crate::level::Level;
@@ -36,8 +36,8 @@ impl<'i> Logger {
 			level: Level::Warning,
 			is_async: false,
 			attributes: attributes::Map::new(),
-			sinks: Vec::with_capacity(DEFAULT_CAPACITY),
-			filters: Vec::with_capacity(DEFAULT_CAPACITY),
+			sinks: Vec::with_capacity(CAPACITY_DEFAULT),
+			filters: Vec::with_capacity(CAPACITY_DEFAULT),
 			common_attributes: attributes::Map::new(),
 		}
 	}
@@ -106,14 +106,14 @@ impl<'i> Logger {
 			return self;
 		}
 
+		// order of operations is important here! async writes should only be enabled
+		// while this Logger is accounted for in the queue's refcount.
 		match async_writes {
 			true => {
 				queue::inc_refcount();
 				self.is_async = true;
 			}
 			false => {
-				// order here is important! decrementing the async refcount before closing the
-				// sender channel will deadlock active AsyncSinkHandler instances.
 				self.is_async = false;
 				queue::dec_refcount();
 			}
@@ -122,7 +122,7 @@ impl<'i> Logger {
 		if self.has_sinks() {
 			self.trace_with(
 				if async_writes { "enabled async log updates" } else { "disabled async log updates" },
-				[("total_async_loggers", Value::from(queue::refcount()))],
+				[("total_async_loggers", Value::from(queue::refcount() as u64))],
 			);
 		}
 
