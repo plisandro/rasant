@@ -1,6 +1,6 @@
 use ntime::{Timestamp, sleep};
-use std::mem;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 
 use crate::attributes;
@@ -9,10 +9,10 @@ use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::SinkRef;
 
-static GLOBAL_ASYNC_HANDLER: Mutex<Option<AsyncHandler>> = Mutex::new(None);
-static GLOBAL_ASYNC_HANDLER_REFCOUNT: Mutex<u64> = Mutex::new(0);
+static ASYNC_QUEUE_CAPACITY: usize = 4 * DEFAULT_CAPACITY;
+static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHandler::new());
 
-// Encapsulates all supported asynchronous operations so they can be reused without heap reallocs.
+// Encapsulates all supported asynchronous operations, so they can be reused without heap reallocs.
 pub struct AsyncSinkOp {
 	sink: Option<SinkRef>,
 
@@ -47,7 +47,11 @@ impl<'i> AsyncSinkOp {
 		}
 	}
 
-	pub fn reset(&mut self) {
+	pub fn is_set(&mut self) -> bool {
+		self.sink.is_some()
+	}
+
+	pub fn unset(&mut self) {
 		self.sink = None;
 	}
 
@@ -88,46 +92,34 @@ impl<'i> AsyncSinkOp {
 	}
 }
 
-// Async operations queue, implemented as a vector of reusable data structs.
+// Lockless, thread-safe async operations ring buffer queue, implemented as an array of reusable data structs.
 pub struct AsyncQueue {
-	pool: Vec<AsyncSinkOp>,
-	closed: bool,
-	size: usize,
+	// mutex-ed async op slots are overkill, as the way AsyncQueue works guarantees no slot
+	// will ever be concurrently read nor written. Mutex'es however cleanly enable mutable slots
+	// within non-mutable methods - without the need of UnsafeCell and the likes.
+	pool: [Mutex<AsyncSinkOp>; ASYNC_QUEUE_CAPACITY],
+	// use only head and tail indeces for the queue; this enables fully concurrent read/writes
+	// without additional atomics, but caps the max queue size at (capacity - 1).
+	head_idx: AtomicUsize,
+	tail_idx: AtomicUsize,
 }
 
 impl AsyncQueue {
 	pub fn new() -> Self {
-		let mut pool: Vec<AsyncSinkOp> = Vec::with_capacity(DEFAULT_CAPACITY);
-		for _ in 0..DEFAULT_CAPACITY {
-			pool.push(AsyncSinkOp::default());
+		let mut pool_vec: Vec<Mutex<AsyncSinkOp>> = Vec::with_capacity(ASYNC_QUEUE_CAPACITY);
+		for _ in 0..ASYNC_QUEUE_CAPACITY {
+			pool_vec.push(Mutex::new(AsyncSinkOp::new()));
 		}
+		let pool: [Mutex<AsyncSinkOp>; ASYNC_QUEUE_CAPACITY] = match pool_vec.try_into() {
+			Ok(a) => a,
+			Err(_) => panic!("failed to initialize AsyncQueue pool array"),
+		};
 
-		AsyncQueue { pool: pool, closed: false, size: 0 }
-	}
-
-	#[inline]
-	pub fn is_empty(&self) -> bool {
-		return self.size == 0;
-	}
-
-	#[inline]
-	pub fn is_closed(&self) -> bool {
-		return self.closed;
-	}
-
-	#[inline]
-	pub fn is_done(&self) -> bool {
-		return self.closed && self.size == 0;
-	}
-
-	#[inline]
-	pub fn is_ready(&self) -> bool {
-		return self.closed || self.size != 0;
-	}
-
-	#[inline]
-	pub fn len(&self) -> usize {
-		self.size
+		AsyncQueue {
+			pool: pool,
+			head_idx: AtomicUsize::new(0),
+			tail_idx: AtomicUsize::new(0),
+		}
 	}
 
 	#[inline]
@@ -135,85 +127,157 @@ impl AsyncQueue {
 		self.pool.len()
 	}
 
-	pub fn close(&mut self) {
-		self.closed = true;
+	#[inline]
+	pub fn is_empty(&self) -> bool {
+		let head_idx = self.head_idx.load(Ordering::Relaxed);
+		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
+
+		head_idx == tail_idx
 	}
 
-	pub fn clear(&mut self) {
-		self.size = 0
+	#[inline]
+	pub fn is_full(&self) -> bool {
+		let head_idx = self.head_idx.load(Ordering::Relaxed);
+		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
+
+		tail_idx == (head_idx + 1) % self.capacity()
 	}
 
-	fn push_back<'f>(&'f mut self) -> &'f mut AsyncSinkOp {
-		if self.closed {
-			panic!("tried to push on a closed AsyncQueue with {len}/{capacity} elements", len = self.len(), capacity = self.capacity());
+	#[inline]
+	pub fn len(&self) -> usize {
+		let head_idx = self.head_idx.load(Ordering::Relaxed);
+		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
+
+		// TODO: fix me
+		match tail_idx >= head_idx {
+			true => tail_idx - head_idx,
+			false => self.capacity() - head_idx - tail_idx,
+		}
+	}
+
+	fn push_back<'f>(&'f self) -> Option<&'f Mutex<AsyncSinkOp>> {
+		let mut pre_tail_idx: usize;
+
+		loop {
+			pre_tail_idx = self.tail_idx.load(Ordering::SeqCst);
+			let tail_idx = (pre_tail_idx + 1) % self.capacity();
+			if tail_idx == self.head_idx.load(Ordering::SeqCst) {
+				// queue is full
+				return None;
+			}
+
+			match self.tail_idx.compare_exchange(pre_tail_idx, tail_idx, Ordering::SeqCst, Ordering::Relaxed) {
+				Ok(_) => break,
+				Err(_) => continue,
+			};
 		}
 
-		if self.size >= self.capacity() {
-			// no more pool space, extend it.
-			let entry = self.pool.push_mut(AsyncSinkOp::default());
-			self.size += 1;
+		Some(&self.pool[pre_tail_idx])
+	}
 
-			return entry;
+	pub fn push_back_flush<'f>(&'f self, sink: &SinkRef) -> bool {
+		match &mut self.push_back() {
+			None => false,
+			Some(op) => {
+				op.lock().unwrap().set_flush(sink);
+				true
+			}
 		}
-
-		// reuse an existing queue slot
-		self.size += 1;
-		let entry = match self.pool.get_mut(self.size - 1) {
-			None => panic!("failed to push into async log queue"),
-			Some(e) => e,
-		};
-
-		entry
 	}
 
-	pub fn push_back_flush<'f>(&'f mut self, sink: &SinkRef) {
-		let entry: &mut AsyncSinkOp = self.push_back();
-		entry.set_flush(sink);
+	pub fn push_back_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) -> bool {
+		match self.push_back() {
+			None => false,
+			Some(op) => {
+				op.lock().unwrap().set_log_update(sink, update);
+				true
+			}
+		}
 	}
 
-	pub fn push_back_log_update<'f>(&'f mut self, sink: &SinkRef, update: &LogUpdate) {
-		let entry: &mut AsyncSinkOp = self.push_back();
-		entry.set_log_update(sink, update);
+	pub fn get_front<'f>(&'f self) -> Option<&'f Mutex<AsyncSinkOp>> {
+		match self.is_empty() {
+			true => None,
+			false => {
+				let head_idx = self.head_idx.load(Ordering::Relaxed);
+				Some(&self.pool[head_idx])
+			}
+		}
 	}
 
-	pub fn as_slice<'f>(&'f mut self) -> &'f [AsyncSinkOp] {
-		&self.pool[0..self.size]
+	pub fn pop_front(&self) {
+		loop {
+			let pre_head_idx = self.head_idx.load(Ordering::SeqCst);
+			if pre_head_idx == self.tail_idx.load(Ordering::SeqCst) {
+				// queue is empty
+				return;
+			}
+			let head_idx = (pre_head_idx + 1) % self.capacity();
+
+			match self.head_idx.compare_exchange(pre_head_idx, head_idx, Ordering::SeqCst, Ordering::Relaxed) {
+				Ok(_) => break,
+				Err(_) => continue,
+			};
+		}
 	}
 }
 
 struct AsyncHandler {
-	queue: Arc<Mutex<AsyncQueue>>,
-	queue_cvar: Arc<Condvar>,
-	actuator: thread::JoinHandle<()>,
+	queue: Arc<AsyncQueue>,
+	actuator: Mutex<Option<thread::JoinHandle<()>>>,
+	closed: Arc<AtomicBool>,
+	refcount: AtomicUsize,
 }
 
 impl AsyncHandler {
 	fn new() -> Self {
-		let queue_cvar = Arc::new(Condvar::new());
-		let queue_cvar_ref = queue_cvar.clone();
-		let queue = Arc::new(Mutex::new(AsyncQueue::new()));
-		let queue_ref = queue.clone();
+		Self {
+			queue: Arc::new(AsyncQueue::new()),
+			actuator: Mutex::new(None),
+			closed: Arc::new(AtomicBool::new(false)),
+			refcount: AtomicUsize::new(0),
+		}
+	}
 
+	fn closed(&self) -> bool {
+		self.closed.load(Ordering::Relaxed)
+	}
+
+	fn start_actuator(&self) {
+		let mut actuator_lock = self.actuator.lock().unwrap();
+		if actuator_lock.is_some() {
+			return;
+		}
+
+		self.closed.store(false, Ordering::SeqCst);
+
+		let queue_ref = self.queue.clone();
+		let closed_ref = self.closed.clone();
 		let actuator = thread::spawn(move || {
-			let mut op_queue = AsyncQueue::new();
 			loop {
-				{
-					let mut queue = queue_cvar_ref.wait_while(queue_ref.lock().unwrap(), |q| !q.is_ready()).unwrap();
-					if queue.is_done() {
+				// wait for log ops to be queued...
+				if queue_ref.is_empty() {
+					if closed_ref.load(Ordering::Relaxed) {
 						break;
 					}
-					if queue.is_empty() {
+					thread::yield_now();
+					continue;
+				}
+
+				// ...then process them.
+				loop {
+					let op_locked = match queue_ref.get_front() {
+						None => break,
+						Some(ol) => ol,
+					};
+					let mut op = op_locked.lock().unwrap();
+
+					// account for the possible race conditions of an op read happening after it's
+					// assigned a pool slot, bue before that slot is actually written to.
+					if !op.is_set() {
 						continue;
 					}
 
-					mem::swap(&mut *queue, &mut op_queue);
-					if op_queue.is_closed() {
-						// ensure the closed state is retained after buffer swaps
-						queue.close();
-					}
-				}
-
-				for op in op_queue.as_slice() {
 					if let Some(sink) = op.get_flush() {
 						match sink.lock() {
 							Ok(mut s) => match s.flush() {
@@ -222,10 +286,7 @@ impl AsyncHandler {
 							},
 							Err(e) => panic!("failed to acquire lock on sink: {e}"),
 						};
-						continue;
-					}
-
-					if let Some((sink, update)) = op.get_log_update() {
+					} else if let Some((sink, update)) = op.get_log_update() {
 						match sink.lock() {
 							Ok(mut s) => match s.log(&update) {
 								Ok(_) => (),
@@ -233,57 +294,108 @@ impl AsyncHandler {
 							},
 							Err(e) => panic!("failed to acquire lock on sink: {e}"),
 						};
-						continue;
+					} else {
+						panic!("invalid async operation");
 					}
 
-					panic!("invalid async operation");
+					op.unset();
+					queue_ref.pop_front();
 				}
-				op_queue.clear();
 			}
 		});
 
-		Self {
-			queue: queue,
-			queue_cvar: queue_cvar,
-			actuator: actuator,
-		}
+		*actuator_lock = Some(actuator);
 	}
 
-	fn log(&mut self, sink: &SinkRef, update: &LogUpdate) {
-		self.queue.lock().unwrap().push_back_log_update(sink, update);
-		self.queue_cvar.notify_one();
-	}
+	fn stop_actuator(&self) {
+		let mut actuator_lock = self.actuator.lock().unwrap();
+		let actuator = match &*actuator_lock {
+			Some(a) => a,
+			None => return,
+		};
 
-	fn flush(&mut self, sink: &SinkRef) {
-		self.queue.lock().unwrap().push_back_flush(sink);
-		self.queue_cvar.notify_one();
-	}
+		// close this handler...
+		self.closed.store(true, Ordering::SeqCst);
 
-	fn shutdown(&mut self) {
-		// close the main async queue sender and wait for the handler thread to die
-		self.queue.lock().unwrap().close();
-		self.queue_cvar.notify_all();
-
-		// we busy wait for the async queue actuator to complete, with a timeout. this prevents
-		// potential sink write issues from locking shutdown requesters forever.
+		// ...and busy wait for the async queue actuator to complete, with a timeout. this
+		// prevents potential sink write issues from locking shutdown requesters forever.
 		let start = Timestamp::now();
 		loop {
-			if self.actuator.is_finished() {
+			if actuator.is_finished() {
 				break;
 			}
 
 			if Timestamp::now().diff_as_duration(&start) > THREAD_FINALIZE_TIMEOUT {
-				let queue_lock = self.queue.lock().unwrap();
 				panic!(
 					"failed to shut down AsyncHandler queue after {wait:?} with {queue_len}/{queue_capacity} ops left",
 					wait = THREAD_FINALIZE_TIMEOUT,
-					queue_len = queue_lock.len(),
-					queue_capacity = queue_lock.capacity(),
+					queue_len = self.queue.len(),
+					queue_capacity = self.queue.capacity(),
 				);
 			}
 			sleep(THREAD_FINALIZE_SPINLOCK_WAIT);
 			thread::yield_now();
 		}
+
+		*actuator_lock = None;
+	}
+
+	pub fn refcount(&self) -> usize {
+		self.refcount.load(Ordering::Relaxed)
+	}
+
+	pub fn inc_refcount(&self) {
+		loop {
+			let rc = self.refcount.load(Ordering::Acquire);
+
+			let new_rc = rc + 1;
+			if self.refcount.compare_exchange(rc, new_rc, Ordering::Release, Ordering::Relaxed).is_ok() {
+				if rc == 0 {
+					self.start_actuator();
+				}
+				break;
+			}
+		}
+	}
+
+	pub fn dec_refcount(&self) {
+		loop {
+			let rc = self.refcount.load(Ordering::Acquire);
+			if rc == 0 {
+				return;
+			}
+
+			let new_rc = rc - 1;
+			if self.refcount.compare_exchange(rc, new_rc, Ordering::Release, Ordering::Relaxed).is_ok() {
+				if rc == 1 {
+					self.stop_actuator();
+				}
+				break;
+			}
+		}
+	}
+
+	#[inline]
+	fn panic_if_closed(&self) {
+		if !self.closed() {
+			return;
+		}
+
+		panic!(
+			"attempted to push into closed AsyncHandler with {len}/{capacity} elements",
+			len = self.queue.len(),
+			capacity = self.queue.capacity()
+		);
+	}
+
+	fn log(&self, sink: &SinkRef, update: &LogUpdate) {
+		self.panic_if_closed();
+		while !self.queue.push_back_log_update(sink, update) {}
+	}
+
+	fn flush(&self, sink: &SinkRef) {
+		self.panic_if_closed();
+		while !self.queue.push_back_flush(sink) {}
 	}
 }
 
@@ -295,48 +407,31 @@ impl Default for AsyncHandler {
 
 impl Drop for AsyncHandler {
 	fn drop(&mut self) {
-		self.shutdown()
+		self.stop_actuator()
 	}
 }
 
-fn drop() {
-	*(GLOBAL_ASYNC_HANDLER.lock().unwrap()) = None;
-}
-
 /// Returns the number of active loggers referencing the global async handler.
-pub fn refcount() -> u64 {
-	*(GLOBAL_ASYNC_HANDLER_REFCOUNT.lock().unwrap())
+pub fn refcount() -> usize {
+	(*GLOBAL_ASYNC_HANDLER).refcount()
 }
 
 /// Increments the count of active loggers referencing the global async handler.
 pub fn inc_refcount() {
-	*(GLOBAL_ASYNC_HANDLER_REFCOUNT.lock().unwrap()) += 1;
+	(*GLOBAL_ASYNC_HANDLER).inc_refcount()
 }
 
 /// Decrements the count of active loggers referencing the global async handler.
 pub fn dec_refcount() {
-	let no_loggers: bool;
-	{
-		let mut count = GLOBAL_ASYNC_HANDLER_REFCOUNT.lock().unwrap();
-		if *count == 0 {
-			panic!("async loggers count decremented below zero");
-		}
-		*count -= 1;
-		no_loggers = *count == 0;
-	}
-
-	if no_loggers {
-		// force handler shutdown once no loggers are referencing the async queue
-		drop();
-	}
+	(*GLOBAL_ASYNC_HANDLER).dec_refcount()
 }
 
 /// Queues a log operation for the async handler.
 pub fn log(sink: &SinkRef, update: &LogUpdate) {
-	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().log(sink, update)
+	(*GLOBAL_ASYNC_HANDLER).log(sink, update)
 }
 
 /// Queues a sink flush operation for the async handler.
 pub fn flush(sink: &SinkRef) {
-	GLOBAL_ASYNC_HANDLER.lock().unwrap().get_or_insert_default().flush(sink)
+	(*GLOBAL_ASYNC_HANDLER).flush(sink)
 }

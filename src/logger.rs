@@ -106,14 +106,14 @@ impl<'i> Logger {
 			return self;
 		}
 
+		// order of operations is important here! async writes should only be enabled
+		// while this Logger is accounted for in the queue's refcount.
 		match async_writes {
 			true => {
 				queue::inc_refcount();
 				self.is_async = true;
 			}
 			false => {
-				// order here is important! decrementing the async refcount before closing the
-				// sender channel will deadlock active AsyncSinkHandler instances.
 				self.is_async = false;
 				queue::dec_refcount();
 			}
@@ -122,7 +122,7 @@ impl<'i> Logger {
 		if self.has_sinks() {
 			self.trace_with(
 				if async_writes { "enabled async log updates" } else { "disabled async log updates" },
-				[("total_async_loggers", Value::from(queue::refcount()))],
+				[("total_async_loggers", Value::from(queue::refcount() as u64))],
 			);
 		}
 
