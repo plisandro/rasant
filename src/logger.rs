@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::Value;
-use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, MAX_LOGGER_DEPTH};
+use crate::constant::{ATTRIBUTE_KEY_ERROR, ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, DEFAULT_CAPACITY, MAX_LOGGER_DEPTH};
 use crate::filter;
 use crate::format;
 use crate::level::Level;
@@ -36,8 +36,8 @@ impl<'i> Logger {
 			level: Level::Warning,
 			async_sink_sender: None,
 			attributes: attributes::Map::new(),
-			sinks: Vec::new(),
-			filters: Vec::new(),
+			sinks: Vec::with_capacity(DEFAULT_CAPACITY),
+			filters: Vec::with_capacity(DEFAULT_CAPACITY),
 			common_attributes: attributes::Map::new(),
 		}
 	}

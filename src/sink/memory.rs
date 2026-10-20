@@ -21,7 +21,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
-use crate::constant::{ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE};
+use crate::constant::{ATTRIBUTE_KEY_TRACE_FILENAME, ATTRIBUTE_KEY_TRACE_LINE, DEFAULT_CAPACITY};
 use crate::format;
 use crate::sink;
 
@@ -94,7 +94,7 @@ impl Memory {
 		Self {
 			name: format!("{} log string", conf.type_str),
 			formatter: formatter,
-			out: Arc::new(Mutex::new(Vec::new())),
+			out: Arc::new(Mutex::new(Vec::with_capacity(DEFAULT_CAPACITY))),
 			frozen_now: if conf.mock_time {
 				// 2026-03-04 15:10:15 GMT
 				Some(ntime::Timestamp::from_secs(1772637015))

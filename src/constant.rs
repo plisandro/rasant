@@ -34,6 +34,9 @@ pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get
 	None => String::from("localhost"),
 });
 
+// Default capacity for all heap storage structures.
+pub static DEFAULT_CAPACITY: usize = 32;
+
 /// UTF-8 byte-order-mark
 pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 /// Maximum size of a UTF-8 encoded char, in bytes.
