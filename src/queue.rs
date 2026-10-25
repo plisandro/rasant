@@ -1,4 +1,5 @@
 use ntime::{Timestamp, sleep};
+use std::cell::UnsafeCell;
 use std::hint;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -14,7 +15,10 @@ static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHand
 
 // Encapsulates all supported asynchronous operations, so they can be reused without heap reallocs.
 pub struct AsyncSinkOp {
+	// Target sink for this operation.
 	sink: Option<SinkRef>,
+	// Whether the operation is fully initialized and ready for a get().
+	ready: AtomicBool,
 
 	// Whether the operation is a log sink flush.
 	flush: bool,
@@ -38,6 +42,7 @@ impl<'i> AsyncSinkOp {
 	pub fn new() -> Self {
 		Self {
 			sink: None,
+			ready: AtomicBool::new(false),
 			flush: false,
 			when: Timestamp::epoch(),
 			level: Level::Info,
@@ -48,11 +53,12 @@ impl<'i> AsyncSinkOp {
 	}
 
 	pub fn is_set(&mut self) -> bool {
-		self.sink.is_some()
+		self.ready.load(Ordering::Acquire)
 	}
 
 	pub fn unset(&mut self) {
 		self.sink = None;
+		self.ready.store(false, Ordering::Release);
 	}
 
 	pub fn get_flush(&self) -> Option<SinkRef> {
@@ -76,8 +82,10 @@ impl<'i> AsyncSinkOp {
 	}
 
 	pub fn set_flush(&mut self, sink: &SinkRef) {
-		self.sink = Some(sink.clone());
 		self.flush = true;
+		self.sink = Some(sink.clone());
+
+		self.ready.store(true, Ordering::Release);
 	}
 
 	pub fn set_log_update(&mut self, sink: &SinkRef, update: &'i LogUpdate<'i>) {
@@ -89,26 +97,29 @@ impl<'i> AsyncSinkOp {
 		self.msg.clear();
 		self.msg.push_str(update.message());
 		update.copy_attributes_into(&mut self.attrs);
+
+		self.ready.store(true, Ordering::Release);
 	}
 }
 
-// Lockless, thread-safe async operations ring buffer queue, implemented as an array of reusable data structs.
+// Lockless, thread-safe async operations ring buffer MPSC queue, implemented as an array of reusable data structs.
 pub struct AsyncQueue {
-	// mutex-ed async op slots are overkill, as the way AsyncQueue works guarantees no slot
-	// will ever be concurrently read nor written. Mutex'es however cleanly enable mutable slots
-	// within non-mutable methods - without the need of UnsafeCell and the likes.
-	pool: [Mutex<AsyncSinkOp>; CAPACITY_ASYNC_QUEUE],
+	pool: [UnsafeCell<AsyncSinkOp>; CAPACITY_ASYNC_QUEUE],
 	head_idx: CachePadded<AtomicUsize>,
 	tail_idx: CachePadded<AtomicUsize>,
 }
 
+// SAFETY: AsyncQueue will never try to push/pop to the same UnsafeCell-ed pool slots
+// concurrently, so it is safe to share between threads.
+unsafe impl Sync for AsyncQueue {}
+
 impl AsyncQueue {
 	pub fn new() -> Self {
-		let mut pool_vec: Vec<Mutex<AsyncSinkOp>> = Vec::with_capacity(CAPACITY_ASYNC_QUEUE);
+		let mut pool_vec: Vec<UnsafeCell<AsyncSinkOp>> = Vec::with_capacity(CAPACITY_ASYNC_QUEUE);
 		for _ in 0..CAPACITY_ASYNC_QUEUE {
-			pool_vec.push(Mutex::new(AsyncSinkOp::new()));
+			pool_vec.push(UnsafeCell::new(AsyncSinkOp::new()));
 		}
-		let pool: [Mutex<AsyncSinkOp>; CAPACITY_ASYNC_QUEUE] = match pool_vec.try_into() {
+		let pool = match pool_vec.try_into() {
 			Ok(a) => a,
 			Err(_) => panic!("failed to initialize AsyncQueue pool array"),
 		};
@@ -137,14 +148,6 @@ impl AsyncQueue {
 	}
 
 	#[inline]
-	pub fn is_full(&self) -> bool {
-		let head_idx = self.head_idx.load(Ordering::Relaxed);
-		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
-
-		tail_idx == (head_idx + 1) % self.pool.len()
-	}
-
-	#[inline]
 	pub fn len(&self) -> usize {
 		let head_idx = self.head_idx.load(Ordering::Relaxed);
 		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
@@ -155,7 +158,7 @@ impl AsyncQueue {
 		}
 	}
 
-	fn push_back<'f>(&'f self) -> Option<&'f Mutex<AsyncSinkOp>> {
+	fn push_back<'f>(&'f self) -> Option<&'f mut AsyncSinkOp> {
 		let mut pre_tail_idx: usize;
 
 		loop {
@@ -172,14 +175,16 @@ impl AsyncQueue {
 			};
 		}
 
-		Some(&self.pool[pre_tail_idx])
+		// SAFETY: read and write operations are guaranteed to never hapen concurrently
+		// on the same pool slot, so ops can be safely accessed concurrently as mutable.
+		Some(unsafe { &mut *self.pool[pre_tail_idx].get() })
 	}
 
 	pub fn push_back_flush<'f>(&'f self, sink: &SinkRef) {
 		loop {
 			hint::spin_loop();
 			if let Some(op) = self.push_back() {
-				op.lock().unwrap().set_flush(sink);
+				op.set_flush(sink);
 				break;
 			}
 		}
@@ -189,20 +194,32 @@ impl AsyncQueue {
 		loop {
 			hint::spin_loop();
 			if let Some(op) = self.push_back() {
-				op.lock().unwrap().set_log_update(sink, update);
+				op.set_log_update(sink, update);
 				break;
 			}
 		}
 	}
 
-	pub fn get_front<'f>(&'f self) -> Option<&'f Mutex<AsyncSinkOp>> {
+	pub fn get_front<'f>(&'f self) -> Option<&'f mut AsyncSinkOp> {
 		let head_idx = self.head_idx.load(Ordering::Relaxed);
 		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
 
-		match head_idx == tail_idx {
-			true => None,
-			false => Some(&self.pool[head_idx]),
+		if head_idx == tail_idx {
+			// empty queue
+			return None;
 		}
+
+		// SAFETY: read and write operations are guaranteed to never hapen concurrently
+		// on the same pool slot, so ops can be safely accessed concurrently as mutable.
+		let elem = unsafe { &mut *self.pool[head_idx].get() };
+
+		// account for possible race conditions between an AsyncSinkOp slot being
+		// requested for write, and actually being fully updated.
+		if !elem.is_set() {
+			return None;
+		}
+
+		Some(elem)
 	}
 
 	pub fn pop_front(&self) -> bool {
@@ -262,24 +279,12 @@ impl AsyncHandler {
 					if closed_ref.load(Ordering::Relaxed) {
 						break;
 					}
-					thread::yield_now();
+					hint::spin_loop();
 					continue;
 				}
 
 				// ...then process them.
-				loop {
-					let op_locked = match queue_ref.get_front() {
-						None => break,
-						Some(ol) => ol,
-					};
-					let mut op = op_locked.lock().unwrap();
-
-					// account for the possible race conditions of an op read happening after it's
-					// assigned a pool slot, bue before that slot is actually written to.
-					if !op.is_set() {
-						continue;
-					}
-
+				while let Some(op) = queue_ref.get_front() {
 					if let Some(sink) = op.get_flush() {
 						match sink.lock() {
 							Ok(mut s) => match s.flush() {
@@ -446,31 +451,69 @@ mod queue_tests {
 
 	use super::*;
 
-	static THREADS: usize = 100;
-	static THREAD_ITERATIONS: usize = 10000;
-
 	#[test]
-	fn high_contention() {
+	fn high_contention_single_consumer() {
+		static WRITER_THREADS: usize = 100;
+		static WRITER_ITERATIONS: usize = 500;
+
 		let queue = Arc::new(AsyncQueue::new());
 		let sink: SinkRef = Arc::new(Mutex::new(Box::new(black_hole::default())));
 		let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
-		// threads pushing log ops...
-		for _ in 0..(THREADS / 2) {
+		// multiple writer threads...
+		for _ in 0..WRITER_THREADS {
 			let queue_ref = queue.clone();
 			let sink_ref = sink.clone();
 			handles.push(thread::spawn(move || {
-				for _ in 0..THREAD_ITERATIONS {
+				for _ in 0..WRITER_ITERATIONS {
 					queue_ref.push_back_flush(&sink_ref);
 				}
 			}));
 		}
 
-		// ..and treads popping ops.
+		// ..and a single consumer thread.
+		let queue_ref = queue.clone();
+		handles.push(thread::spawn(move || {
+			for _ in 0..(WRITER_THREADS * WRITER_ITERATIONS) {
+				while !queue_ref.pop_front() {
+					thread::yield_now();
+				}
+			}
+		}));
+
+		for h in handles {
+			assert_eq!(h.join().is_ok(), true);
+		}
+
+		assert!(queue.is_empty());
+		assert_eq!(queue.len(), 0);
+	}
+	#[test]
+
+	fn high_contention_multiple_consumers() {
+		static THREADS: usize = 100;
+		static WRITER_ITERATIONS: usize = 10000;
+
+		let queue = Arc::new(AsyncQueue::new());
+		let sink: SinkRef = Arc::new(Mutex::new(Box::new(black_hole::default())));
+		let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
+
+		// multiple writer threads...
+		for _ in 0..(THREADS / 2) {
+			let queue_ref = queue.clone();
+			let sink_ref = sink.clone();
+			handles.push(thread::spawn(move || {
+				for _ in 0..WRITER_ITERATIONS {
+					queue_ref.push_back_flush(&sink_ref);
+				}
+			}));
+		}
+
+		// ..and multiple consumer threads, reading in parallel.
 		for _ in 0..(THREADS / 2) {
 			let queue_ref = queue.clone();
 			handles.push(thread::spawn(move || {
-				for _ in 0..THREAD_ITERATIONS {
+				for _ in 0..WRITER_ITERATIONS {
 					while !queue_ref.pop_front() {
 						thread::yield_now();
 					}

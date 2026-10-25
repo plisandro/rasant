@@ -16,7 +16,7 @@ pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
 
 /// A container for data structures aligned to the CPU's cache line size,
-/// guaranteeing no cache trashing on concurrently accesed items
+/// guaranteeing no cache trashing on concurrently accesed items.
 /// The current value should be good for all modern platforms, including ARM Cortex.
 ///
 /// TODO: Move the (minimum) size of the CPU's cache line into a
