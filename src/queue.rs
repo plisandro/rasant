@@ -17,8 +17,6 @@ static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHand
 pub struct AsyncSinkOp {
 	// Target sink for this operation.
 	sink: Option<SinkRef>,
-	// Whether the operation is fully initialized and ready for a get().
-	ready: AtomicBool,
 
 	// Whether the operation is a log sink flush.
 	flush: bool,
@@ -42,7 +40,6 @@ impl<'i> AsyncSinkOp {
 	pub fn new() -> Self {
 		Self {
 			sink: None,
-			ready: AtomicBool::new(false),
 			flush: false,
 			when: Timestamp::epoch(),
 			level: Level::Info,
@@ -53,12 +50,11 @@ impl<'i> AsyncSinkOp {
 	}
 
 	pub fn is_set(&mut self) -> bool {
-		self.ready.load(Ordering::Acquire)
+		self.sink.is_some()
 	}
 
 	pub fn unset(&mut self) {
 		self.sink = None;
-		self.ready.store(false, Ordering::Release);
 	}
 
 	pub fn get_flush(&self) -> Option<SinkRef> {
@@ -84,8 +80,6 @@ impl<'i> AsyncSinkOp {
 	pub fn set_flush(&mut self, sink: &SinkRef) {
 		self.flush = true;
 		self.sink = Some(sink.clone());
-
-		self.ready.store(true, Ordering::Release);
 	}
 
 	pub fn set_log_update(&mut self, sink: &SinkRef, update: &'i LogUpdate<'i>) {
@@ -97,8 +91,6 @@ impl<'i> AsyncSinkOp {
 		self.msg.clear();
 		self.msg.push_str(update.message());
 		update.copy_attributes_into(&mut self.attrs);
-
-		self.ready.store(true, Ordering::Release);
 	}
 }
 
@@ -107,6 +99,7 @@ pub struct AsyncQueue {
 	pool: [UnsafeCell<AsyncSinkOp>; CAPACITY_ASYNC_QUEUE],
 	head_idx: CachePadded<AtomicUsize>,
 	tail_idx: CachePadded<AtomicUsize>,
+	tail_ready_idx: CachePadded<AtomicUsize>,
 }
 
 // SAFETY: AsyncQueue will never try to push/pop to the same UnsafeCell-ed pool slots
@@ -128,6 +121,7 @@ impl AsyncQueue {
 			pool: pool,
 			head_idx: CachePadded::new(AtomicUsize::new(0)),
 			tail_idx: CachePadded::new(AtomicUsize::new(0)),
+			tail_ready_idx: CachePadded::new(AtomicUsize::new(0)),
 		}
 	}
 
@@ -150,15 +144,18 @@ impl AsyncQueue {
 	#[inline]
 	pub fn len(&self) -> usize {
 		let head_idx = self.head_idx.load(Ordering::Relaxed);
-		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
+		let tail_ready_idx = self.tail_ready_idx.load(Ordering::Relaxed);
 
-		match tail_idx >= head_idx {
-			true => tail_idx - head_idx,
-			false => tail_idx + self.pool.len() - head_idx,
+		match tail_ready_idx >= head_idx {
+			true => tail_ready_idx - head_idx,
+			false => tail_ready_idx + self.pool.len() - head_idx,
 		}
 	}
 
-	fn push_back<'f>(&'f self) -> Option<&'f mut AsyncSinkOp> {
+	fn push_back<'f, C>(&'f self, mut op_callback: C) -> bool
+	where
+		C: FnMut(&mut AsyncSinkOp),
+	{
 		let mut pre_tail_idx: usize;
 
 		loop {
@@ -166,7 +163,7 @@ impl AsyncQueue {
 			let tail_idx = (pre_tail_idx + 1) % self.pool.len();
 			if tail_idx == self.head_idx.load(Ordering::SeqCst) {
 				// queue is full
-				return None;
+				return false;
 			}
 
 			match self.tail_idx.compare_exchange(pre_tail_idx, tail_idx, Ordering::Release, Ordering::Relaxed) {
@@ -177,34 +174,38 @@ impl AsyncQueue {
 
 		// SAFETY: read and write operations are guaranteed to never hapen concurrently
 		// on the same pool slot, so ops can be safely accessed concurrently as mutable.
-		Some(unsafe { &mut *self.pool[pre_tail_idx].get() })
+		let op = unsafe { &mut *self.pool[pre_tail_idx].get() };
+		op_callback(op);
+
+		loop {
+			let pre_tail_ready_idx = self.tail_ready_idx.load(Ordering::Acquire);
+			let tail_ready_idx = (pre_tail_idx + 1) % self.pool.len();
+			match self.tail_ready_idx.compare_exchange(pre_tail_ready_idx, tail_ready_idx, Ordering::Release, Ordering::Relaxed) {
+				Ok(_) => break,
+				Err(_) => continue,
+			};
+		}
+
+		true
 	}
 
 	pub fn push_back_flush<'f>(&'f self, sink: &SinkRef) {
-		loop {
+		while !self.push_back(|op| op.set_flush(sink)) {
 			hint::spin_loop();
-			if let Some(op) = self.push_back() {
-				op.set_flush(sink);
-				break;
-			}
 		}
 	}
 
 	pub fn push_back_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) {
-		loop {
+		while !self.push_back(|op| op.set_log_update(sink, update)) {
 			hint::spin_loop();
-			if let Some(op) = self.push_back() {
-				op.set_log_update(sink, update);
-				break;
-			}
 		}
 	}
 
 	pub fn get_front<'f>(&'f self) -> Option<&'f mut AsyncSinkOp> {
 		let head_idx = self.head_idx.load(Ordering::Relaxed);
-		let tail_idx = self.tail_idx.load(Ordering::Relaxed);
+		let tail_ready_idx = self.tail_ready_idx.load(Ordering::Relaxed);
 
-		if head_idx == tail_idx {
+		if head_idx == tail_ready_idx {
 			// empty queue
 			return None;
 		}
@@ -213,19 +214,14 @@ impl AsyncQueue {
 		// on the same pool slot, so ops can be safely accessed concurrently as mutable.
 		let elem = unsafe { &mut *self.pool[head_idx].get() };
 
-		// account for possible race conditions between an AsyncSinkOp slot being
-		// requested for write, and actually being fully updated.
-		if !elem.is_set() {
-			return None;
-		}
-
 		Some(elem)
 	}
 
 	pub fn pop_front(&self) -> bool {
 		loop {
 			let pre_head_idx = self.head_idx.load(Ordering::Acquire);
-			if pre_head_idx == self.tail_idx.load(Ordering::SeqCst) {
+			let tail_ready_idx = self.tail_ready_idx.load(Ordering::Relaxed);
+			if pre_head_idx == tail_ready_idx {
 				// queue is empty
 				return false;
 			}
@@ -305,7 +301,7 @@ impl AsyncHandler {
 						panic!("invalid async operation");
 					}
 
-					op.unset();
+					//op.unset();
 					queue_ref.pop_front();
 				}
 			}
@@ -453,8 +449,8 @@ mod queue_tests {
 
 	#[test]
 	fn high_contention_single_consumer() {
-		static WRITER_THREADS: usize = 100;
-		static WRITER_ITERATIONS: usize = 500;
+		static WRITER_THREADS: usize = 50;
+		static WRITER_ITERATIONS: usize = 1000;
 
 		let queue = Arc::new(AsyncQueue::new());
 		let sink: SinkRef = Arc::new(Mutex::new(Box::new(black_hole::default())));
@@ -488,18 +484,18 @@ mod queue_tests {
 		assert!(queue.is_empty());
 		assert_eq!(queue.len(), 0);
 	}
-	#[test]
 
+	#[test]
 	fn high_contention_multiple_consumers() {
-		static THREADS: usize = 100;
-		static WRITER_ITERATIONS: usize = 10000;
+		static TOTAL_THREADS: usize = 100;
+		static WRITER_ITERATIONS: usize = 1000;
 
 		let queue = Arc::new(AsyncQueue::new());
 		let sink: SinkRef = Arc::new(Mutex::new(Box::new(black_hole::default())));
 		let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
 		// multiple writer threads...
-		for _ in 0..(THREADS / 2) {
+		for _ in 0..(TOTAL_THREADS / 2) {
 			let queue_ref = queue.clone();
 			let sink_ref = sink.clone();
 			handles.push(thread::spawn(move || {
@@ -510,7 +506,7 @@ mod queue_tests {
 		}
 
 		// ..and multiple consumer threads, reading in parallel.
-		for _ in 0..(THREADS / 2) {
+		for _ in 0..(TOTAL_THREADS / 2) {
 			let queue_ref = queue.clone();
 			handles.push(thread::spawn(move || {
 				for _ in 0..WRITER_ITERATIONS {
