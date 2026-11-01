@@ -84,7 +84,7 @@ impl AsyncSinkHandler {
 			Some(rx_handler) => {
 				let start = Timestamp::now();
 				while !rx_handler.is_finished() {
-					if Timestamp::now().diff_as_duration(&start) > THREAD_FINALIZE_TIMEOUT {
+					if Timestamp::now().diff_as_duration(&start) > Ok(THREAD_FINALIZE_TIMEOUT) {
 						panic!(
 							"failed to shut down AsyncSinkHandler after {wait:?} with {refcount} async loggers",
 							wait = THREAD_FINALIZE_TIMEOUT,
