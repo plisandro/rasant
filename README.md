@@ -1,15 +1,18 @@
-# Rasant
-
-<p>
+<div align="center">
+  <p>
     <picture>
       <img src="https://raw.githubusercontent.com/plisandro/rasant/master/assets/rasant_title_horizontal.svg" width="400px" />
     </picture>
     <br>
-</p>
-
-[![](https://img.shields.io/crates/v/rasant.svg)][crates-io]
-[![](https://github.com/plisandro/rasant/workflows/build/badge.svg)][build-status]
-[![](https://docs.rs/rasant/badge.svg)][api-docs]
+  </p>
+  </br>
+  <p>
+    <a href="https://crates.io/crates/rasant"><img src="https://img.shields.io/crates/v/rasant.svg" alt="rasant crate" /></a>
+    <a href="https://github.com/plisandro/rasant/actions"><img src="https://github.com/plisandro/rasant/workflows/build/badge.svg" alt="Build status" /></a>
+    <a href="https://docs.rs/rasant/"><img src="https://docs.rs/rasant/badge.svg" alt="API docs" /></a>
+  </p>
+  </br>
+</div>
 
 Rasant is a lightweight, high performance and flexible Rust library for structured logging,
 inspired by the likes of [zap](https://github.com/uber-go/zap) and [zerolog](https://github.com/rs/zerolog).
