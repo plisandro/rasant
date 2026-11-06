@@ -1,10 +1,8 @@
 use ntime::Timestamp;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc;
 
 use crate::filter::Filter;
-use crate::queue::AsyncSinkOp;
 use crate::sink::Sink;
 
 /// An Arc'ed & Mutex'ed reference to a shared log [`Filter`].
@@ -12,9 +10,6 @@ pub type FilterRef = Arc<Mutex<Box<dyn Filter + Send>>>;
 
 /// An Arc'ed & Mutex'ed reference to a shared log [`Sink`].
 pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
-
-/// A sender channel for [`AsyncSinkOp`] async log operations.
-pub type AsyncSinkSender = mpsc::Sender<AsyncSinkOp>;
 
 /// A escape function converting [`chars`] into [`u8`]s.
 pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
