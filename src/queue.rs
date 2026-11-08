@@ -10,7 +10,7 @@ use crate::attributes;
 use crate::constant::{DEFAULT_CAPACITY, THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
 use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
-use crate::types::SinkRef;
+use crate::types::{CachePadded, SinkRef};
 
 static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHandler::new());
 
@@ -95,9 +95,9 @@ impl<'i> AsyncSinkOp {
 pub struct AsyncQueue {
 	// TODO: use UnsafeCell instead of Mutexes for interior mutability?
 	pool: RwLock<Vec<Mutex<AsyncSinkOp>>>,
-	size: AtomicUsize,
-	write_lock: AtomicBool,
-	pending_pushes: AtomicUsize,
+	size: CachePadded<AtomicUsize>,
+	write_lock: CachePadded<AtomicBool>,
+	pending_pushes: CachePadded<AtomicUsize>,
 }
 
 // A AsyncSinkOp iterator for AsyncQueues. Note this is *NOT* an Iterator implementation, as that
@@ -137,9 +137,9 @@ impl AsyncQueue {
 
 		AsyncQueue {
 			pool: RwLock::new(pool),
-			size: AtomicUsize::new(0),
-			write_lock: AtomicBool::new(false),
-			pending_pushes: AtomicUsize::new(0),
+			size: CachePadded::new(AtomicUsize::new(0)),
+			write_lock: CachePadded::new(AtomicBool::new(false)),
+			pending_pushes: CachePadded::new(AtomicUsize::new(0)),
 		}
 	}
 

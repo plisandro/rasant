@@ -1,4 +1,5 @@
 use ntime::Timestamp;
+use std::ops;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -18,6 +19,31 @@ pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
 /// with a period of 2^64−1.
 pub struct Rand {
 	state: u64,
+}
+
+/// A container for data structures aligned to the CPU's cache line size,
+/// guaranteeing no cache thrashing on concurrently accessed items.
+/// The current value should be good for all modern platforms, including ARM Cortex.
+///
+/// TODO: Move the (minimum) size of the CPU's cache line into a
+/// HARDWARE_DESTRUCTIVE_INTERFERENCE_SIZE const, a-la-C++.
+#[repr(align(128))]
+pub struct CachePadded<T> {
+	value: T,
+}
+
+impl<T> CachePadded<T> {
+	pub fn new(v: T) -> Self {
+		CachePadded { value: v }
+	}
+}
+
+impl<T> ops::Deref for CachePadded<T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		&self.value
+	}
 }
 
 impl Rand {
