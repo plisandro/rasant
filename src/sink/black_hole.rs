@@ -1,6 +1,6 @@
 //! Null I/O log [sink], intended mostly for testing.
 //!
-//! Black hole sinks are effectively no-op, but otherwise excercise every
+//! Black hole sinks are effectively no-op, but otherwise exercise every
 //! aspect of Rasant.
 use std::io;
 use std::string;
@@ -58,7 +58,7 @@ impl sink::Sink for BlackHole {
 	}
 }
 
-/// Returns an intitalized [`BlackHole`] log [`sink`], with default values.
+/// Returns an initialized [`BlackHole`] log [`sink`], with default values.
 pub fn default() -> BlackHole {
 	BlackHole::new(BlackHoleConfig::default())
 }

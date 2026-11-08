@@ -72,7 +72,7 @@ impl MetadataImpl for Metadata {
 pub struct Map {
 	/// A container for all strings in this map (keys and scalars)
 	string_pool: String,
-	/// Indeces for every string in the pool: [start, end)
+	/// Indices for every string in the pool: [start, end)
 	string_idxs: Vec<(usize, usize)>,
 	/// Name string index and metadata for all keys.
 	keys: Vec<(usize, Metadata)>,
@@ -245,7 +245,7 @@ impl Map {
 			}
 		});
 
-		// ...and all items refering to strings by idx.
+		// ...and all items referring to strings by idx.
 		self.keys.iter_mut().for_each(|(idx, _)| {
 			if *idx > 0 && *idx >= del_idx {
 				*idx -= 1;
@@ -494,7 +494,7 @@ pub struct MapIter<'s> {
 }
 
 impl<'i> MapIter<'i> {
-	/// Intiializes an attribute map {key, [`Value`]} iterator.
+	/// Initializes an attribute map {key, [`Value`]} iterator.
 	pub fn new(map: &'i Map) -> Self {
 		Self { map: map, idx: 0 }
 	}
@@ -524,7 +524,7 @@ pub struct MapKeyIter<'s> {
 }
 
 impl<'i> MapKeyIter<'i> {
-	/// Intiializes an attribute map key iterator.
+	/// Initializes an attribute map key iterator.
 	pub fn new(map: &'i Map) -> Self {
 		Self { map: map, idx: 0 }
 	}
@@ -548,7 +548,7 @@ pub struct MapFullIter<'s> {
 }
 
 impl<'i> MapFullIter<'i> {
-	/// Intiializes an attribute map key -> {key, [`Value`], [`Metadata`]} iterator.
+	/// Initializes an attribute map key -> {key, [`Value`], [`Metadata`]} iterator.
 	pub fn new(map: &'i Map) -> Self {
 		Self { map: map, idx: 0 }
 	}
@@ -657,7 +657,7 @@ mod map {
 		assert_eq!(attr.store_size(), 7);
 		assert_eq!(attr.to_string(), "a=[1234, -5678] b=123.456 c=[true, false, true] *d=false");
 
-		// overwrite with size increasee
+		// overwrite with size increase
 		attr.set("b", &Value::from(&[Scalar::from(1), Scalar::from(2), Scalar::from(3), Scalar::from(4)]), true);
 		assert_eq!(attr.len(), 4);
 		assert_eq!(attr.store_size(), 10);

@@ -28,13 +28,13 @@ fixed attributes, and per-call attributes, all both in sync and async mode.
 
 All of these are indicative of real world performance. Note that the async logging
 with argument figures are slightly inflated though, as the time gap displayed is
-mostly an artifact of pending log writes watiing to be flushed once the benchmark
+mostly an artifact of pending log writes waiting to be flushed once the benchmark
 run is finished.
 
 ## Internal
 
 Rasant includes a number of [Divan](https://crates.io/crates/divan) benchmark tests,
-intended to gauge performance progress across versions, wich can be run via
+intended to gauge performance progress across versions, which can be run via
 `cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
@@ -135,7 +135,7 @@ log_write                 fastest       │ slowest       │ median        │ 
 
 Zero allocation for all attribute types, excluding long `String`s.
 
-This version also switches bencmarking over to [Divan](https://crates.io/crates/divan), which
+This version also switches benchmarking over to [Divan](https://crates.io/crates/divan), which
 now encompasses log throughput, performance for different log formats, and alloc handling.
 
 ```

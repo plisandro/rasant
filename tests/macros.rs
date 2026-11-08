@@ -18,7 +18,7 @@ fn macro_calls() {
 	r::info!(rlog, "reference");
 	r::info!(rlog, "reference", with = "argument");
 
-	// loger as struct field
+	// logger as struct field
 	struct TestStruct {
 		log: r::Logger,
 	}

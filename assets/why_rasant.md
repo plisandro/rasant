@@ -3,7 +3,7 @@
 Rasant was born as an ad-hoc log solution for a different project, which required logging
 for very fast events, and fueled by a bit of frustration with existing loggers for Rust.
 
-From the beggining, the library's goal write _correct_ log information _as fast as possible_,
+From the beginning, the library's goal write _correct_ log information _as fast as possible_,
 with all other considerations being secondary to performance. It's still feature packed and
 highly configurable, but if a new feature means sacrificing too many cycles writing log
 entries to sinks, it's not implemented.
@@ -59,13 +59,13 @@ the parent (level, fixed attributes, sink references, filter references et al) i
 logger instance.
 
 This new logger will behave exactly as its parent, but it's otherwise _completely independent_
-from it. Subsequent changes made on a cloned logger will not affect its parent, and viceversa.
+from it. Subsequent changes made on a cloned logger will not affect its parent, and vice versa.
 
 <p>
     <img src="block_diagram_-_stacking.svg" title="Stacking example block diagram" width="640px"/>
 </p>
 
-What this capability unlocks is very efficient, and poweful, **stacking** of logger instances.
+What this capability unlocks is very efficient, and powerful, **stacking** of logger instances.
 There's no need to rely on a global state to handle logging within functions, methods, closures,
 subprocesses nor threads; loggers can be simply cloned, passed as parameters, and dropped once no
 longer necessary. Cloned loggers can then change levels, modify or introduce new fixed arguments,
@@ -161,7 +161,7 @@ fit your needs better than Rasant.
 
 ### log
 
-[log](https://crates.io/crates/log) is a "lightweight logging facade" maintaned by the
+[log](https://crates.io/crates/log) is a "lightweight logging facade" maintained by the
 Rust core team, providing a common API for many logging implementations such as
 [env-logger](https://crates.io/crates/env_logger), [log4rs](https://crates.io/crates/log4rs)
 and [fern](https://crates.io/crates/fern).
@@ -179,7 +179,7 @@ very mature, with plenty of third party extension crates available.
 
 `tracing` is, however, comparatively very slow, and not well suited to log events
 happening with frequencies of 100s of nanoseconds. A regular log call can easily
-take 4x that ammount of time to complete.
+take 4x that amount of time to complete.
 
 In general, `tracing` is an excellent fit if you lean into Tokio's event-driven
 model, and your processes are bound by I/O rather than CPU cycles. 

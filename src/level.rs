@@ -20,7 +20,7 @@ pub enum Level {
 	Warning = 3,
 	/// Error updates.
 	Error = 4,
-	/// Appplication-wide errors from which recovery is impoosible.
+	/// Application-wide errors from which recovery is impossible.
 	Fatal = 5,
 	/// Similar to [`Level::Fatal`], but the application panics right after logging the update.
 	Panic = 6,
@@ -28,9 +28,9 @@ pub enum Level {
 
 /// A list of all supported log [`Level`]s, in ascending severity.
 pub const ALL_LEVELS: [Level; 7] = [Level::Trace, Level::Debug, Level::Info, Level::Warning, Level::Error, Level::Fatal, Level::Panic];
-/// Maximum string lenght for a short [`Level`] name (f.ex. `INF`).
+/// Maximum string length for a short [`Level`] name (f.ex. `INF`).
 pub const LEVEL_SHORT_NAME_MAX_LENGTH: usize = 3;
-/// Maximum string lenght for a longt [`Level`] name (f.ex. `WARNING`).
+/// Maximum string length for a long [`Level`] name (f.ex. `WARNING`).
 pub const LEVEL_LONG_NAME_MAX_LENGTH: usize = 7;
 
 impl Level {

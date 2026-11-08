@@ -8,7 +8,7 @@
 //!
 //!   - If `mock_time` is `true`, time is pinned to a fixed start value, and
 //!     increases monolithically with every log write.
-//!   - If `mock_logger_id` is `true`, the `logger_id` atttibute is pinned to a
+//!   - If `mock_logger_id` is `true`, the `logger_id` attribute is pinned to a
 //!     fixed start value, and  increases monolithically with every log write.
 //!
 //! Output is encapsulated in [`MemoryOutput`] instances, which supports casting

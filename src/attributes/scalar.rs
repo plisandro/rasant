@@ -40,7 +40,7 @@ pub enum Scalar {
 	Float(f64),
 }
 
-/// A trait for a container of indedex [&str]s, intended for use with [Scalar::StringIndex].
+/// A trait for a container of indexed [&str]s, intended for use with [Scalar::StringIndex].
 pub trait StringIndexContainer<'t> {
 	fn str_by_idx(&'t self, idx: usize) -> &'t str;
 }

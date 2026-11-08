@@ -10,7 +10,7 @@
 //!     so they get converted into a repeated field of `{key: value}`.
 //!
 //! Log attributes can optionally also be serialized as text, alongside the journal
-//! meesage, via [`MessageFormat::WithAttributes`].
+//! message, via [`MessageFormat::WithAttributes`].
 //!
 //! Note that systemd journal entries don't normally display in `journalctl`
 //! output, unless explicitly set to JSON.
@@ -20,7 +20,7 @@ use std::io::Write;
 use std::os::unix::net::UnixDatagram;
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
-use crate::constant::{DEFAULT_CAPACITY, DEFUALT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
+use crate::constant::{DEFAULT_CAPACITY, DEFAULT_JOURNALD_SOCKET, NETWORK_TIMEOUT, PROCESS_ID};
 use crate::encoding;
 use crate::sink;
 
@@ -49,7 +49,7 @@ impl<'i> Default for JournaldConfig<'i> {
 	fn default() -> Self {
 		Self {
 			name: "default journald",
-			path: DEFUALT_JOURNALD_SOCKET,
+			path: DEFAULT_JOURNALD_SOCKET,
 			message_format: MessageFormat::Raw,
 		}
 	}
@@ -209,12 +209,12 @@ MESSAGE\n",
 	}
 }
 
-/// Returns an intitalized journald log [`sink`]  with defaults.
+/// Returns an initialized journald log [`sink`]  with defaults.
 pub fn default() -> Journald {
 	Journald::new(JournaldConfig::default())
 }
 
-/// Returns an intitalized null-writing journald log [`sink`]  with defaults.
+/// Returns an initialized null-writing journald log [`sink`]  with defaults.
 pub fn black_hole() -> Journald {
 	Journald::black_hole(JournaldConfig::default())
 }

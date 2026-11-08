@@ -486,19 +486,19 @@ impl Drop for Syslog {
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers.
+/// Returns an initialized [`Syslog`] log [`sink`], with defaults for local syslog servers.
 pub fn local() -> Syslog {
 	Syslog::new(SyslogConfig::default_local())
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers over UDP.
+/// Returns an initialized [`Syslog`] log [`sink`], with defaults for local syslog servers over UDP.
 pub fn local_udp() -> Syslog {
 	Syslog::new(SyslogConfig::default_udp())
 }
 
 #[cfg(unix)]
-/// Returns an intitalized [`Syslog`] log [`sink`], with defaults for local syslog servers over TCP.
+/// Returns an initialized [`Syslog`] log [`sink`], with defaults for local syslog servers over TCP.
 pub fn local_tcp() -> Syslog {
 	Syslog::new(SyslogConfig::default_tcp())
 }

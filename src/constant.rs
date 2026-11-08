@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use crate::c_bindings;
 use crate::sink::LogDepth;
 
-/// Ennvironment variable to detect the presence of ANSI color-capable terminals.
+/// Environment variable to detect the presence of ANSI color-capable terminals.
 pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
 
 /// Process ID running this module.
@@ -83,7 +83,7 @@ pub const THREAD_FINALIZE_SPINLOCK_WAIT: Duration = Duration::from_millis(100);
 /// Timeout for network operations.
 pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default journald *NIX socket for writes
-pub const DEFUALT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";
+pub const DEFAULT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";
 /// Default local *NIX syslog sockets.
 #[cfg(unix)]
 pub const DEFAULT_LOCAL_SYSLOG_SOCKETS: [&str; 3] = ["/dev/log", "/var/run/log", "/var/run/syslog"];

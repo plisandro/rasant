@@ -25,7 +25,7 @@ pub enum Mode {
 /// Evaluates whether a [`char`] needs string escaping.
 pub fn char_needs_escaping(c: char) -> bool {
 	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
-	// unforutnately, the std lib offers no methods to evaluate escaping fon individual chars without iterators :'(
+	// unfortunately, the std lib offers no methods to evaluate escaping for individual chars without iterators :'(
 	match c {
 		'\t' => true,
 		'\r' => true,
@@ -84,7 +84,7 @@ pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 			_ => c.encode_utf8(buf),
 		}
 		.as_bytes(),
-		// all oother encodings impact string generation rather than char encoding
+		// all other encodings impact string generation rather than char encoding
 		_ => c.encode_utf8(buf).as_bytes(),
 	}
 }

@@ -24,7 +24,7 @@ Bugfixes and minor feature updates.
 Bugfixes and minor feature updates.
 
   - `Format::Full` and `Format::ColorFull` I/O sink formats are now 100% buffer-less.
-  - Fix spacing ellipsing bug for `Format::Full` and `Format::ColorFull`.
+  - Fix spacing ellipsizing bug for `Format::Full` and `Format::ColorFull`.
   - `Trace` level updates include caller filename and line as attributes.
   - Support initializing `List` and `Map` values from `Vec`tors.
   - Rework log macros to accept `Logger`s as expressions instead of items.

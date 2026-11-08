@@ -354,7 +354,7 @@
 //!
 //! # License
 //!
-//! Rasant is distrubuted under the MIT license.
+//! Rasant is distributed under the MIT license.
 
 #![deny(missing_docs)]
 #![allow(dead_code)]

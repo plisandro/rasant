@@ -19,7 +19,7 @@ pub struct FileConfig {
 	pub buffered: bool,
 	/// Whether to flush immediately after every write operation.
 	pub flush_on_write: bool,
-	/// Wheter to append on existing file paths, or truncate them.
+	/// Whether to append on existing file paths, or truncate them.
 	pub append: bool,
 	/// Full file path to write to, as a [`std::path::PathBuf`].
 	pub path: Option<PathBuf>,

@@ -114,7 +114,7 @@ impl<'i> LogUpdate<'i> {
 		self.attrs.len()
 	}
 
-	/// Returns wheter an attribute is present in the [`LogUpdate`].
+	/// Returns whether an attribute is present in the [`LogUpdate`].
 	#[inline]
 	pub fn attribute_has(&self, key: &str) -> bool {
 		self.attrs.has(key)

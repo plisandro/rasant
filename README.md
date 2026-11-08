@@ -37,7 +37,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
     - Support for third-party sink implementations.
   - [Dynamic async logging](#asynchronous-logging) with constant lock time.
 
-See [Why Rasant?](assets/why_rasant.md) for background, design details, and comparsions with other
+See [Why Rasant?](assets/why_rasant.md) for background, design details, and comparisons with other
 logging solutions for Rust.
 
 ## Output Examples
@@ -247,7 +247,7 @@ Contributions will be accepted under the [project's license](#licence).
 
 ## License
 
-Rasant is distrubuted under the [MIT license][mit].
+Rasant is distributed under the [MIT license][mit].
 
 <img src="assets/Developed-By-a-Human-Not-By-AI-Badge-white.svg" title="Courtesy of https://notbyai.fyi/" height="80px"/>
 
