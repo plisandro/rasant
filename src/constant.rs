@@ -7,13 +7,13 @@ use crate::c_bindings;
 use crate::sink::LogDepth;
 
 /// Environment variable to detect the presence of ANSI color-capable terminals.
-pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
+pub const ENV_VAR_COLORTERM: &str = "COLORTERM";
 
 /// Process ID running this module.
-pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
+pub const PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
 
 /// Name of the process running this module.
-pub static PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
+pub const PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
 	let current_exe = env::current_exe();
 	match &current_exe {
 		Ok(ce) => match ce.file_name() {
@@ -29,16 +29,16 @@ pub static PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
 
 /// System hostname
 // TODO: Replace with std::net::hostname(), once no longer experimental.
-pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get_hostname() {
+pub const HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get_hostname() {
 	Some(s) => s,
 	None => String::from("localhost"),
 });
 
 // Default capacity for all heap storage structures.
-pub static DEFAULT_CAPACITY: usize = 32;
+pub const DEFAULT_CAPACITY: usize = 32;
 
 /// UTF-8 byte-order-mark
-pub static UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
+pub const UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 /// Maximum size of a UTF-8 encoded char, in bytes.
 pub const UTF_8_CHAR_MAX_SIZE: usize = 4;
 
