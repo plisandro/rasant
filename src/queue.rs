@@ -1,13 +1,13 @@
-use ntime::{Timestamp, sleep};
+use ntime::Timestamp;
 use std::hint;
 use std::mem;
-use std::sync::RwLockReadGuard;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, RwLock};
+use std::sync::{Condvar, RwLockReadGuard, WaitTimeoutResult};
 use std::thread;
 
 use crate::attributes;
-use crate::constant::{DEFAULT_CAPACITY, THREAD_FINALIZE_SPINLOCK_WAIT, THREAD_FINALIZE_TIMEOUT};
+use crate::constant::{DEFAULT_CAPACITY, THREAD_FINALIZE_TIMEOUT};
 use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::{CachePadded, SinkRef};
@@ -171,7 +171,7 @@ impl AsyncQueue {
 	}
 
 	#[inline]
-	pub fn lock_writes(&self) {
+	fn lock_writes(&self) {
 		self.write_lock.store(true, Ordering::SeqCst);
 
 		// wait for pending pushes to complete
@@ -181,12 +181,12 @@ impl AsyncQueue {
 	}
 
 	#[inline]
-	pub fn unlock_writes(&self) {
+	fn unlock_writes(&self) {
 		self.write_lock.store(false, Ordering::SeqCst);
 	}
 
 	#[inline]
-	pub fn writes_locked(&self) -> bool {
+	fn writes_locked(&self) -> bool {
 		self.write_lock.load(Ordering::SeqCst)
 	}
 
@@ -257,8 +257,9 @@ impl AsyncQueue {
 struct AsyncHandler {
 	queue_main: Arc<AsyncQueue>,
 	queue_write: Arc<AsyncQueue>,
-	actuator: Mutex<Option<thread::JoinHandle<()>>>,
+	actuator: RwLock<Option<thread::JoinHandle<()>>>,
 	closed: Arc<AtomicBool>,
+	finished: Arc<(Mutex<bool>, Condvar)>,
 	refcount: AtomicUsize,
 }
 
@@ -267,8 +268,9 @@ impl AsyncHandler {
 		Self {
 			queue_main: Arc::new(AsyncQueue::new()),
 			queue_write: Arc::new(AsyncQueue::new()),
-			actuator: Mutex::new(None),
+			actuator: RwLock::new(None),
 			closed: Arc::new(AtomicBool::new(false)),
+			finished: Arc::new((Mutex::new(false), Condvar::new())),
 			refcount: AtomicUsize::new(0),
 		}
 	}
@@ -286,67 +288,81 @@ impl AsyncHandler {
 	}
 
 	fn start_actuator(&self) {
-		let mut actuator_lock = self.actuator.lock().unwrap();
+		let mut actuator_lock = self.actuator.write().unwrap();
 		if actuator_lock.is_some() {
 			return;
 		}
 
 		self.closed.store(false, Ordering::SeqCst);
+		*self.finished.0.lock().unwrap() = false;
 
 		let queue_main_ref = self.queue_main.clone();
 		let queue_write_ref = self.queue_write.clone();
 		let closed_ref = self.closed.clone();
+		let finished_ref = self.finished.clone();
+
 		let actuator = thread::spawn(move || {
 			loop {
-				// TODO: rework to have the thread sleep instead of busy-waiting.
-				// wait for log ops to be queued...
 				if queue_main_ref.is_empty() {
-					if closed_ref.load(Ordering::Relaxed) {
-						break;
-					}
-					hint::spin_loop();
-					continue;
-				}
+					match closed_ref.load(Ordering::Relaxed) {
+						true => break,
+						false => thread::park(),
+					};
+				};
 
 				// ...then process them.
-				queue_write_ref.swap(&queue_main_ref);
+				while !queue_main_ref.is_empty() {
+					queue_write_ref.swap(&queue_main_ref);
 
-				let mut ops = AsyncQueueIter::new(&queue_write_ref);
-				while let Some(mop) = ops.next() {
-					let mut op = mop.lock().unwrap();
-					if let Some(sink) = op.get_flush() {
-						match sink.lock() {
-							Ok(mut s) => match s.flush() {
-								Ok(_) => (),
-								Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
-							},
-							Err(e) => panic!("failed to acquire lock on sink: {e}"),
-						};
-					} else if let Some((sink, update)) = op.get_log_update() {
-						match sink.lock() {
-							Ok(mut s) => match s.log(&update) {
-								Ok(_) => (),
-								Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
-							},
-							Err(e) => panic!("failed to acquire lock on sink: {e}"),
-						};
-					} else {
-						panic!("invalid async operation");
+					let mut ops = AsyncQueueIter::new(&queue_write_ref);
+					while let Some(mop) = ops.next() {
+						let mut op = mop.lock().unwrap();
+						if let Some(sink) = op.get_flush() {
+							match sink.lock() {
+								Ok(mut s) => match s.flush() {
+									Ok(_) => (),
+									Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
+								},
+								Err(e) => panic!("failed to acquire lock on sink: {e}"),
+							};
+						} else if let Some((sink, update)) = op.get_log_update() {
+							match sink.lock() {
+								Ok(mut s) => match s.log(&update) {
+									Ok(_) => (),
+									Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
+								},
+								Err(e) => panic!("failed to acquire lock on sink: {e}"),
+							};
+						} else {
+							panic!("invalid async operation");
+						}
+
+						// drop any lingering references in the async op - notably, Sink's.
+						op.unset();
 					}
 
-					// drop any lingering references in the async op - notably, Sink's.
-					op.unset();
+					queue_write_ref.clear();
 				}
-
-				queue_write_ref.clear();
 			}
+
+			// once out of the main loop, the actuator has finished
+			*finished_ref.0.lock().unwrap() = true;
+			finished_ref.1.notify_all();
 		});
 
 		*actuator_lock = Some(actuator);
 	}
 
+	#[inline]
+	fn wake_actuator(&self) {
+		match &*self.actuator.read().unwrap() {
+			None => (),
+			Some(t) => t.thread().unpark(),
+		};
+	}
+
 	fn stop_actuator(&self) {
-		let mut actuator_lock = self.actuator.lock().unwrap();
+		let mut actuator_lock = self.actuator.write().unwrap();
 		let actuator = match &*actuator_lock {
 			Some(a) => a,
 			None => return,
@@ -354,32 +370,38 @@ impl AsyncHandler {
 
 		// close this handler...
 		self.closed.store(true, Ordering::SeqCst);
+		actuator.thread().unpark();
 
-		// ...and busy wait for the async queue actuator to complete, with a timeout. this
+		// ...and wait for the async queue actuator to complete, with a timeout. this
 		// prevents potential sink write issues from locking shutdown requesters forever.
-		let start = Timestamp::now();
+		let (finished_mutex, finished_cvar) = &*self.finished;
+		let mut finished = finished_mutex.lock().unwrap();
 		loop {
-			if actuator.is_finished() {
+			if *finished {
 				break;
 			}
 
-			if Timestamp::now().diff_as_duration(&start) > Ok(THREAD_FINALIZE_TIMEOUT) {
-				panic!(
-					"failed to shut down AsyncHandler queue after {wait:?} with {len}/{capacity} ops left",
-					wait = THREAD_FINALIZE_TIMEOUT,
-					len = self.queue_len(),
-					capacity = self.queue_capacity(),
-				);
+			let res: WaitTimeoutResult;
+			(finished, res) = finished_cvar.wait_timeout(finished, THREAD_FINALIZE_TIMEOUT).unwrap();
+			if res.timed_out() {
+				break;
 			}
-			sleep(THREAD_FINALIZE_SPINLOCK_WAIT);
-			thread::yield_now();
 		}
+
+		if !*finished {
+			panic!(
+				"failed to shut down AsyncHandler queue after {wait:?} with {len}/{capacity} ops left",
+				wait = THREAD_FINALIZE_TIMEOUT,
+				len = self.queue_len(),
+				capacity = self.queue_capacity(),
+			);
+		};
 
 		*actuator_lock = None;
 	}
 
 	pub fn is_active(&self) -> bool {
-		self.actuator.lock().unwrap().is_some()
+		self.actuator.read().unwrap().is_some()
 	}
 
 	pub fn refcount(&self) -> usize {
@@ -431,11 +453,13 @@ impl AsyncHandler {
 	fn log(&self, sink: &SinkRef, update: &LogUpdate) {
 		self.panic_if_closed();
 		self.queue_main.push_log_update(sink, update);
+		self.wake_actuator();
 	}
 
 	fn flush(&self, sink: &SinkRef) {
 		self.panic_if_closed();
 		self.queue_main.push_flush(sink);
+		self.wake_actuator();
 	}
 }
 
