@@ -473,7 +473,7 @@ impl sink::Sink for Syslog {
 	}
 
 	fn flush(&mut self) -> io::Result<()> {
-		self.writer.flush()
+		self.writer.flush():e
 	}
 }
 
