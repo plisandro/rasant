@@ -1,8 +1,6 @@
 use ntime::Timestamp;
-use std::hint;
-use std::mem;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, RwLock, TryLockError};
 use std::sync::{Condvar, RwLockReadGuard, WaitTimeoutResult};
 use std::thread;
 
@@ -96,8 +94,7 @@ pub struct AsyncQueue {
 	// TODO: use UnsafeCell instead of Mutexes for interior mutability?
 	pool: RwLock<Vec<Mutex<AsyncSinkOp>>>,
 	size: CachePadded<AtomicUsize>,
-	write_lock: CachePadded<AtomicBool>,
-	pending_pushes: CachePadded<AtomicUsize>,
+	write_lock: CachePadded<RwLock<bool>>,
 }
 
 // A AsyncSinkOp iterator for AsyncQueues. Note this is *NOT* an Iterator implementation, as that
@@ -138,8 +135,7 @@ impl AsyncQueue {
 		AsyncQueue {
 			pool: RwLock::new(pool),
 			size: CachePadded::new(AtomicUsize::new(0)),
-			write_lock: CachePadded::new(AtomicBool::new(false)),
-			pending_pushes: CachePadded::new(AtomicUsize::new(0)),
+			write_lock: CachePadded::new(RwLock::new(false)),
 		}
 	}
 
@@ -164,99 +160,68 @@ impl AsyncQueue {
 	}
 
 	#[inline]
-	pub fn clear(&self) {
-		self.size.store(0, Ordering::SeqCst);
-		self.pending_pushes.store(0, Ordering::SeqCst);
-		self.unlock_writes();
-	}
-
-	#[inline]
 	fn lock_writes(&self) {
-		self.write_lock.store(true, Ordering::SeqCst);
-
-		// wait for pending pushes to complete
-		while self.pending_pushes.load(Ordering::SeqCst) != 0 {
-			hint::spin_loop();
-		}
+		*self.write_lock.write().unwrap() = true;
 	}
 
 	#[inline]
 	fn unlock_writes(&self) {
-		self.write_lock.store(false, Ordering::SeqCst);
+		*self.write_lock.write().unwrap() = false;
 	}
 
 	#[inline]
-	fn writes_locked(&self) -> bool {
-		self.write_lock.load(Ordering::SeqCst)
+	pub fn clear(&self) {
+		self.size.store(0, Ordering::SeqCst);
 	}
 
-	fn push<'f, C>(&'f self, mut op_callback: C)
+	fn push<'f, C>(&'f self, mut op_callback: C) -> bool
 	where
 		C: FnMut(&mut AsyncSinkOp),
 	{
-		loop {
-			if self.writes_locked() {
-				hint::spin_loop();
-				continue;
-			}
-			self.pending_pushes.fetch_add(1, Ordering::SeqCst);
+		match self.write_lock.try_read() {
+			Err(e) => match e {
+				// handle poisoned locks that would otherwise deadlock pushes forever
+				TryLockError::Poisoned(e) => panic!("AsyncQueue write lock poisoned! {e}"),
+				TryLockError::WouldBlock => false,
+			},
+			Ok(locked) => match *locked {
+				true => false,
+				false => {
+					let idx = self.size.fetch_add(1, Ordering::AcqRel);
 
-			// double-check the write lock to prevent race conditions
-			// between swap()s and concurrent push()es.
-			if !self.writes_locked() {
-				break;
-			}
-			self.pending_pushes.fetch_sub(1, Ordering::SeqCst);
-			hint::spin_loop();
-		}
+					if idx >= self.capacity() {
+						// buffer is full, extend it (accounting for concurrent writes)
+						let mut pool = self.pool.write().unwrap();
+						while idx >= pool.len() {
+							pool.reserve(DEFAULT_CAPACITY);
+							for _ in 0..DEFAULT_CAPACITY {
+								pool.push(Mutex::new(AsyncSinkOp::new()));
+							}
+						}
+					}
 
-		let idx = self.size.fetch_add(1, Ordering::AcqRel);
-		if idx >= self.capacity() {
-			// buffer is full, extend it (accounting for concurrent writes)
-			let mut pool = self.pool.write().unwrap();
-			while idx >= pool.len() {
-				pool.reserve(DEFAULT_CAPACITY);
-				for _ in 0..DEFAULT_CAPACITY {
-					pool.push(Mutex::new(AsyncSinkOp::new()));
+					let slot = &self.pool.read().unwrap()[idx];
+					op_callback(&mut slot.lock().unwrap());
+
+					true
 				}
-			}
+			},
 		}
-
-		let slot = &self.pool.read().unwrap()[idx];
-		op_callback(&mut slot.lock().unwrap());
-
-		self.pending_pushes.fetch_sub(1, Ordering::Release);
 	}
 
-	pub fn push_flush<'f>(&'f self, sink: &SinkRef) {
+	pub fn push_flush<'f>(&'f self, sink: &SinkRef) -> bool {
 		self.push(|op| op.set_flush(sink))
 	}
 
-	pub fn push_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) {
+	pub fn push_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) -> bool {
 		self.push(|op| op.set_log_update(sink, update))
-	}
-
-	pub fn swap(&self, other: &Self) {
-		self.lock_writes();
-		other.lock_writes();
-
-		let mut self_pool = self.pool.write().unwrap();
-		let self_size = self.size.load(Ordering::Acquire);
-		let mut other_pool = other.pool.write().unwrap();
-		let other_size = other.size.load(Ordering::Acquire);
-
-		mem::swap(&mut *self_pool, &mut *other_pool);
-		self.size.store(other_size, Ordering::Release);
-		other.size.store(self_size, Ordering::Release);
-
-		self.unlock_writes();
-		other.unlock_writes();
 	}
 }
 
+// A double-queue, low contention async handler for log operations.
 struct AsyncHandler {
-	queue_main: Arc<AsyncQueue>,
-	queue_write: Arc<AsyncQueue>,
+	queues: Arc<(AsyncQueue, AsyncQueue)>,
+	queue_push_b: Arc<AtomicBool>,
 	actuator: RwLock<Option<thread::JoinHandle<()>>>,
 	closed: Arc<AtomicBool>,
 	finished: Arc<(Mutex<bool>, Condvar)>,
@@ -266,8 +231,8 @@ struct AsyncHandler {
 impl AsyncHandler {
 	fn new() -> Self {
 		Self {
-			queue_main: Arc::new(AsyncQueue::new()),
-			queue_write: Arc::new(AsyncQueue::new()),
+			queues: Arc::new((AsyncQueue::new(), AsyncQueue::new())),
+			queue_push_b: Arc::new(AtomicBool::new(false)),
 			actuator: RwLock::new(None),
 			closed: Arc::new(AtomicBool::new(false)),
 			finished: Arc::new((Mutex::new(false), Condvar::new())),
@@ -280,11 +245,11 @@ impl AsyncHandler {
 	}
 
 	pub fn queue_len(&self) -> usize {
-		self.queue_main.len() + self.queue_write.len()
+		self.queues.0.len() + self.queues.1.len()
 	}
 
 	pub fn queue_capacity(&self) -> usize {
-		self.queue_main.capacity() + self.queue_write.capacity()
+		self.queues.0.capacity() + self.queues.1.capacity()
 	}
 
 	fn start_actuator(&self) {
@@ -292,57 +257,65 @@ impl AsyncHandler {
 		if actuator_lock.is_some() {
 			return;
 		}
+		if self.refcount.load(Ordering::Acquire) == 0 {
+			return;
+		}
 
 		self.closed.store(false, Ordering::SeqCst);
 		*self.finished.0.lock().unwrap() = false;
 
-		let queue_main_ref = self.queue_main.clone();
-		let queue_write_ref = self.queue_write.clone();
+		let queues = self.queues.clone();
+		let queue_push_b = self.queue_push_b.clone();
 		let closed_ref = self.closed.clone();
 		let finished_ref = self.finished.clone();
 
 		let actuator = thread::spawn(move || {
 			loop {
-				if queue_main_ref.is_empty() {
+				let (pop_queue, push_queue) = match queue_push_b.load(Ordering::Acquire) {
+					false => (&queues.0, &queues.1),
+					true => (&queues.1, &queues.0),
+				};
+				if pop_queue.is_empty() {
 					match closed_ref.load(Ordering::Relaxed) {
 						true => break,
 						false => thread::park(),
 					};
 				};
 
-				// ...then process them.
-				while !queue_main_ref.is_empty() {
-					queue_write_ref.swap(&queue_main_ref);
+				// flip the push/pop queues, and process
+				push_queue.unlock_writes();
+				queue_push_b.fetch_xor(true, Ordering::Release);
+				pop_queue.lock_writes();
 
-					let mut ops = AsyncQueueIter::new(&queue_write_ref);
-					while let Some(mop) = ops.next() {
-						let mut op = mop.lock().unwrap();
-						if let Some(sink) = op.get_flush() {
-							match sink.lock() {
-								Ok(mut s) => match s.flush() {
-									Ok(_) => (),
-									Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
-								},
-								Err(e) => panic!("failed to acquire lock on sink: {e}"),
-							};
-						} else if let Some((sink, update)) = op.get_log_update() {
-							match sink.lock() {
-								Ok(mut s) => match s.log(&update) {
-									Ok(_) => (),
-									Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
-								},
-								Err(e) => panic!("failed to acquire lock on sink: {e}"),
-							};
-						} else {
-							panic!("invalid async operation");
-						}
+				let mut ops = AsyncQueueIter::new(pop_queue);
+				while let Some(mop) = ops.next() {
+					let mut op = mop.lock().unwrap();
 
-						// drop any lingering references in the async op - notably, Sink's.
-						op.unset();
+					if let Some(sink) = op.get_flush() {
+						match sink.lock() {
+							Ok(mut s) => match s.flush() {
+								Ok(_) => (),
+								Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
+							},
+							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						};
+					} else if let Some((sink, update)) = op.get_log_update() {
+						match sink.lock() {
+							Ok(mut s) => match s.log(&update) {
+								Ok(_) => (),
+								Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
+							},
+							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						};
+					} else {
+						panic!("invalid async operation");
 					}
 
-					queue_write_ref.clear();
+					// drop any lingering references in the async op - notably, Sink's.
+					op.unset();
 				}
+
+				pop_queue.clear();
 			}
 
 			// once out of the main loop, the actuator has finished
@@ -367,6 +340,9 @@ impl AsyncHandler {
 			Some(a) => a,
 			None => return,
 		};
+		if self.refcount.load(Ordering::Acquire) != 0 {
+			return;
+		}
 
 		// close this handler...
 		self.closed.store(true, Ordering::SeqCst);
@@ -409,33 +385,14 @@ impl AsyncHandler {
 	}
 
 	pub fn inc_refcount(&self) {
-		loop {
-			let rc = self.refcount.load(Ordering::Acquire);
-
-			let new_rc = rc + 1;
-			if self.refcount.compare_exchange(rc, new_rc, Ordering::Release, Ordering::Relaxed).is_ok() {
-				if rc == 0 {
-					self.start_actuator();
-				}
-				break;
-			}
+		if self.refcount.fetch_add(1, Ordering::AcqRel) == 0 {
+			self.start_actuator();
 		}
 	}
 
 	pub fn dec_refcount(&self) {
-		loop {
-			let rc = self.refcount.load(Ordering::Acquire);
-			if rc == 0 {
-				return;
-			}
-
-			let new_rc = rc - 1;
-			if self.refcount.compare_exchange(rc, new_rc, Ordering::Release, Ordering::Relaxed).is_ok() {
-				if rc == 1 {
-					self.stop_actuator();
-				}
-				break;
-			}
+		if self.refcount.fetch_sub(1, Ordering::AcqRel) == 1 {
+			self.stop_actuator();
 		}
 	}
 
@@ -450,15 +407,23 @@ impl AsyncHandler {
 		}
 	}
 
+	#[inline]
+	fn push_queue<'f>(&'f self) -> &'f AsyncQueue {
+		match self.queue_push_b.load(Ordering::SeqCst) {
+			false => &self.queues.0,
+			true => &self.queues.1,
+		}
+	}
+
 	fn log(&self, sink: &SinkRef, update: &LogUpdate) {
 		self.panic_if_closed();
-		self.queue_main.push_log_update(sink, update);
+		while !self.push_queue().push_log_update(sink, update) {}
 		self.wake_actuator();
 	}
 
 	fn flush(&self, sink: &SinkRef) {
 		self.panic_if_closed();
-		self.queue_main.push_flush(sink);
+		while !self.push_queue().push_flush(sink) {}
 		self.wake_actuator();
 	}
 }
@@ -477,22 +442,34 @@ impl Drop for AsyncHandler {
 
 /// Returns the number of log operations queued for processing by the global async handler.
 pub fn len() -> usize {
-	(*GLOBAL_ASYNC_HANDLER).queue_len()
+	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
+		None => 0,
+		Some(h) => h.queue_len(),
+	}
 }
 
 /// Returns the current total operations capacity for the global async handler.
 pub fn capacity() -> usize {
-	(*GLOBAL_ASYNC_HANDLER).queue_capacity()
+	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
+		None => 0,
+		Some(h) => h.queue_capacity(),
+	}
 }
 
 /// Evaluates whether the global async handler is active.
 pub fn is_active() -> bool {
-	(*GLOBAL_ASYNC_HANDLER).is_active()
+	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
+		None => false,
+		Some(h) => h.is_active(),
+	}
 }
 
 /// Returns the number of active loggers referencing the global async handler.
 pub fn refcount() -> usize {
-	(*GLOBAL_ASYNC_HANDLER).refcount()
+	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
+		None => 0,
+		Some(h) => h.refcount(),
+	}
 }
 
 /// Increments the count of active loggers referencing the global async handler.
