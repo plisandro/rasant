@@ -44,6 +44,7 @@ impl Random {
 	}
 
 	/// A [`Random`] sampling [`Filter`] with a fixed random seed, used only for testing.
+	#[cfg(test)]
 	fn with_seed(conf: RandomConfig, seed: u64) -> Self {
 		let mut f = Self::new(conf);
 		f.rand = Rand::with_seed(seed);
@@ -134,6 +135,7 @@ impl RandomStep {
 	}
 
 	/// A [`RandomStep`] sampling [`Filter`] with a fixed random seed, used only for testing.
+	#[cfg(test)]
 	fn with_seed(conf: RandomStepConfig, seed: u64) -> Self {
 		let mut f = Self::new(conf);
 		f.rand = Rand::with_seed(seed);

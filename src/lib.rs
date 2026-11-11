@@ -365,7 +365,7 @@
 //! Rasant is distributed under the MIT license.
 
 #![deny(missing_docs)]
-#![allow(dead_code)]
+#![deny(dead_code)]
 
 mod attributes;
 #[cfg_attr(target_env = "msvc", path = "c_bindings_win.rs")]

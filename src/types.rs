@@ -12,9 +12,6 @@ pub type FilterRef = Arc<Mutex<Box<dyn Filter + Send>>>;
 /// An Arc'ed & Mutex'ed reference to a shared log [`Sink`].
 pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
 
-/// A escape function converting [`chars`] into [`u8`]s.
-pub type StringEscapeFn<'t> = Option<fn(char) -> &'t [u8]>;
-
 /// Rand is a 64-bit PRNG, implementing the Xorshift algorithm (https://en.wikipedia.org/wiki/Xorshift),
 /// with a period of 2^64−1.
 pub struct Rand {
@@ -47,6 +44,7 @@ impl<T> ops::Deref for CachePadded<T> {
 }
 
 impl Rand {
+	#[cfg(test)]
 	pub fn with_seed(seed: u64) -> Self {
 		Self { state: seed }
 	}

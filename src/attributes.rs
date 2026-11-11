@@ -133,6 +133,7 @@ impl Map {
 		self.keys.is_empty()
 	}
 
+	#[cfg(test)]
 	fn store_size(&self) -> usize {
 		self.scalar_pool.len()
 	}
@@ -182,17 +183,6 @@ impl Map {
 		}
 	}
 
-	fn key_meta_by_idx(&self, idx: usize) -> Option<(&str, Metadata)> {
-		match idx < self.keys.len() {
-			false => None,
-			true => {
-				let (str_idx, meta) = self.keys[idx];
-				let (start, end) = self.string_idxs[str_idx];
-				Some((&self.string_pool[start..end], meta))
-			}
-		}
-	}
-
 	fn meta_by_idx(&self, idx: usize) -> Metadata {
 		self.keys[idx].1
 	}
@@ -214,10 +204,6 @@ impl Map {
 	/// Evaluates whether a key is contained in the [`Map`].
 	pub fn has(&self, key: &str) -> bool {
 		self.idx_by_key(key).is_some()
-	}
-
-	fn has_idx(&self, idx: usize) -> bool {
-		idx < self.keys.len()
 	}
 
 	fn string_pool_add(&mut self, s: &str) -> usize {

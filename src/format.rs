@@ -55,12 +55,6 @@ pub const ALL_OUTPUT_FORMATS: [OutputFormat; 6] = [
 	OutputFormat::Cbor,
 ];
 
-/// Formatting errors.
-#[derive(Clone, Debug)]
-pub enum FormatterError {
-	DelimiterNotAString,
-}
-
 impl OutputFormat {
 	/// Returns a short name for an `OutputFormat`.
 	pub fn as_short_str(&self) -> &str {
@@ -213,14 +207,6 @@ impl Formatter {
 	/// Returns the formatter's delimiter as a [`u8`] slice.
 	pub fn delimiter(&self) -> &[u8] {
 		self.delimiter.as_slice()
-	}
-
-	/// Serializes the formatter's delimiter into a [`String`].
-	pub fn delimiter_as_string(&self) -> Result<String, FormatterError> {
-		match String::from_utf8(self.delimiter.clone()) {
-			Ok(s) => Ok(s),
-			Err(_) => Err(FormatterError::DelimiterNotAString),
-		}
 	}
 
 	/// Write the formatter's delimiter into a [`io::Write`].

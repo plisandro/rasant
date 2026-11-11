@@ -28,10 +28,6 @@ pub enum Level {
 
 /// A list of all supported log [`Level`]s, in ascending severity.
 pub const ALL_LEVELS: [Level; 7] = [Level::Trace, Level::Debug, Level::Info, Level::Warning, Level::Error, Level::Fatal, Level::Panic];
-/// Maximum string length for a short [`Level`] name (f.ex. `INF`).
-pub const LEVEL_SHORT_NAME_MAX_LENGTH: usize = 3;
-/// Maximum string length for a long [`Level`] name (f.ex. `WARNING`).
-pub const LEVEL_LONG_NAME_MAX_LENGTH: usize = 7;
 
 impl Level {
 	/// Returns a numeric value for the log level.
@@ -150,6 +146,21 @@ impl TryFrom<u8> for Level {
 }
 
 /* ----------------------- Tests ----------------------- */
+
+#[cfg(test)]
+mod level {
+	use super::*;
+
+	use crate::constant::{LEVEL_LONG_NAME_MAX_LENGTH, LEVEL_SHORT_NAME_LENGTH};
+
+	#[test]
+	fn log_name_sizes() {
+		for level in ALL_LEVELS {
+			assert_eq!(level.as_short_str().len(), LEVEL_SHORT_NAME_LENGTH);
+			assert!(level.as_long_str().len() <= LEVEL_LONG_NAME_MAX_LENGTH);
+		}
+	}
+}
 
 #[cfg(test)]
 mod from {

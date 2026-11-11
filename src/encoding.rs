@@ -7,6 +7,9 @@ use crate::constant::{UTF_8_CHAR_MAX_SIZE, UTF8_BOM};
 const CHAR_ESCAPE_BUFFER_SIZE: usize = 6 * UTF_8_CHAR_MAX_SIZE;
 
 #[derive(Clone, Debug, PartialEq)]
+// Allow enums for journald/syslog-specific strings on non-Unix platforms, even
+// when not actively used.
+#[allow(dead_code)]
 pub enum Mode {
 	// vanilla UTF-8 string
 	Utf8,
@@ -54,11 +57,6 @@ pub fn str_needs_escaping(s: &str) -> bool {
 
 	false
 	*/
-}
-
-/// Evaluates whether a [`&str`] has line feeds (`\n`).
-pub fn str_has_lf(s: &str) -> bool {
-	s.chars().any(|c| c == '\n')
 }
 
 pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
@@ -144,13 +142,6 @@ mod tests {
 		assert_eq!(str_needs_escaping("abcd 1234"), false);
 		assert_eq!(str_needs_escaping("declaró\nen\tcontra"), true);
 		assert_eq!(str_needs_escaping("so pretty ❤"), true);
-	}
-
-	#[test]
-	fn str_newlines() {
-		assert_eq!(str_has_lf(""), false);
-		assert_eq!(str_has_lf("abcd 1234"), false);
-		assert_eq!(str_has_lf("abcd\n1234"), true);
 	}
 
 	#[test]

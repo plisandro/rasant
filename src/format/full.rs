@@ -16,10 +16,10 @@ use crate::attributes::value::Value;
 use crate::attributes::{MetadataField, MetadataImpl};
 use crate::constant::{
 	DEFAULT_LOG_DELIMITER_STRING, FORMAT_FULL_DEPTH_ELLIPSIS, FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH, FORMAT_FULL_DEPTH_SEPARATOR, FORMAT_FULL_DEPTH_SEPARATOR_LENGTH, FORMAT_FULL_MAX_DEPTH,
+	LEVEL_LONG_NAME_MAX_LENGTH,
 };
 use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
-use crate::level::LEVEL_LONG_NAME_MAX_LENGTH;
 use crate::sink::{LogDepth, LogUpdate};
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::Full`].

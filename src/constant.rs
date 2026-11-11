@@ -42,6 +42,12 @@ pub const UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 /// Maximum size of a UTF-8 encoded char, in bytes.
 pub const UTF_8_CHAR_MAX_SIZE: usize = 4;
 
+/// String length for a short [`crate::level::Level`] name (f.ex. `INF`).
+#[cfg(test)]
+pub const LEVEL_SHORT_NAME_LENGTH: usize = 3;
+/// Maximum string length for a long [`crate::level::Level`] name (f.ex. `WARNING`).
+pub const LEVEL_LONG_NAME_MAX_LENGTH: usize = 7;
+
 /// Attribute key for error details.
 pub const ATTRIBUTE_KEY_ERROR: &str = "error";
 /// Attribute key for log level.
@@ -81,6 +87,7 @@ pub const THREAD_FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
 /// Timeout for network operations.
 pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 /// Default journald *NIX socket for writes
+#[cfg(unix)]
 pub const DEFAULT_JOURNALD_SOCKET: &str = "/run/systemd/journal/socket";
 /// Default local *NIX syslog sockets.
 #[cfg(unix)]

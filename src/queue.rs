@@ -176,14 +176,6 @@ impl AsyncQueue {
 		self.size.store(0, Ordering::SeqCst);
 	}
 
-	#[inline]
-	fn get_mut_pool_slot<'f>(&'f self, idx: usize) -> &'f mut AsyncSinkOp {
-		let us_slot = &self.pool.read().unwrap()[idx];
-		// SAFETY: AsyncQueue will never read/write the same UnsafeCell-ed pool slots
-		// concurrently, so  it is safe to share between threads.
-		unsafe { &mut *us_slot.get() }
-	}
-
 	fn push<'f, C>(&'f self, mut op_callback: C) -> bool
 	where
 		C: FnMut(&mut AsyncSinkOp),
@@ -298,7 +290,7 @@ impl AsyncHandler {
 				queue_push_b.fetch_xor(true, Ordering::Release);
 				pop_queue.lock_writes();
 
-				let mut ops = AsyncQueueIter::new(pop_queue);
+				let mut ops = pop_queue.iter();
 				while let Some(op) = ops.next() {
 					if let Some(sink) = op.get_flush() {
 						match sink.lock() {

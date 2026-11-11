@@ -9,6 +9,7 @@ use std::io;
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
 use crate::constant::ATTRIBUTE_KEY_MESSAGE;
+use crate::constant::DEFAULT_LOG_DELIMITER_BINARY;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
 
@@ -22,7 +23,7 @@ pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::Cbor,
 		time_format: ntime::Format::TimestampMilliseconds,
-		delimiter: [].into(), // no separator
+		delimiter: DEFAULT_LOG_DELIMITER_BINARY.into(),
 	}
 }
 

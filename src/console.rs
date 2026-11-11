@@ -31,12 +31,14 @@ static COLORTERM_OVERRIDE: AtomicBool = AtomicBool::new(false);
 static COLORTERM_OVERRIDE_VALUE: AtomicBool = AtomicBool::new(false);
 
 // forces a return value for colorterm status
+#[cfg(test)]
 pub fn colorterm_force(b: bool) {
 	COLORTERM_OVERRIDE_VALUE.store(b, Ordering::Relaxed);
 	COLORTERM_OVERRIDE.store(true, Ordering::Relaxed);
 }
 
 // resets forced colorterm status.
+#[cfg(test)]
 pub fn colorterm_unforce() {
 	COLORTERM_OVERRIDE.store(false, Ordering::Relaxed);
 }
