@@ -541,7 +541,7 @@ impl<'i> Iterator for MapKeyIter<'i> {
 	}
 }
 
-/// A {key, [`Value`], [`Metadata`]} iterator for attribute maps.
+/// A (key, [`Value`], [`Metadata`]) iterator for attribute maps.
 pub struct MapFullIter<'s> {
 	map: &'s Map,
 	idx: usize,

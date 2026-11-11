@@ -340,12 +340,12 @@
 //! filter code fulfills these requirements, and don't introduce unnecessary
 //! dependencies, consider [contributing it](#repository)!
 //!
-//! ## Status Inspection
+//! ## Global Status
 //!
-//! Rasant's global status can be inspected via `get_status()`, which returns a snapshot of
-//! different metrics, including the number of loggers and async queue size.
+//! Rasant's global status can be inspected via [`get_status()`], which returns a snapshot of
+//! different metrics, including the number of active loggers and async queue size.
 //!
-//! Note that `Status` is, as the name implies, a _status_ snapshot and not internal _state_;
+//! Note that [`Status`] is, as the name implies, a _status_ snapshot and not internal _state_;
 //! by design, Rasant is globally stateless.
 //!
 //! ## Error Handling

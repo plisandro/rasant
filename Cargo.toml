@@ -49,3 +49,7 @@ harness = false
 [[bench]]
 name = "sinks"
 harness = false
+
+[[bench]]
+name = "stress_test"
+harness = false
