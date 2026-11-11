@@ -26,7 +26,7 @@ operations. Can't wait that long? There's built-in [async support](#asynchronous
 
   - Minimal dependencies.
   - Thread safe.
-  - [Blazing fast](assets/benchmarks.md) performance, with zero allocations on most operations.
+  - [Blazing fast](assets/benchmarks.md) performance, with [zero allocations](assets/why_rasant.md#zero-allocations) on most operations.
   - Leveled, [structured](#attributes) contextual logging with [nanosecond precision](https://github.com/plisandro/ntime).
   - [Simple API](#basic-examples), with support for [stacked logging](#stacking).
   - [Log filters](#filtering), including log sampling, with support for third-party implementations.
@@ -56,11 +56,11 @@ All I/O sinks support multiple formattings, including compact (one log entry per
 
 ## Usage 
 
-Latest stable release is **v1.2.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v1.3.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "1.2.0"
+rasant = "1.3.0"
 ```
 
 ## Getting Started

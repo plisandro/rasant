@@ -21,7 +21,7 @@ pub struct IOConfig<T: io::Write + Send> {
 	pub flush_on_write: bool,
 	/// Whether to insert a [delimiter][`format::FormatterConfig::delimiter`] before the first log entry.
 	pub initial_delimiter: bool,
-	/// Whether to insert a [delimiter][`format::FormatterConfig::delimiter`] before, or after, after every log write.
+	/// Whether to insert a [delimiter][`format::FormatterConfig::delimiter`] before, or after, every log write.
 	pub delimiter_after_write: bool,
 	/// [`io::Write`]r for this sink.
 	pub out: Option<T>,

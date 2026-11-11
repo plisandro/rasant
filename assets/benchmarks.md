@@ -6,10 +6,14 @@
 
 This project compares the performance of multiple logging libraries for Rust, including
 [log](https://crates.io/crates/log), [slog](https://crates.io/crates/slog) and
-[tracing](https://crates.io/crates/tracing).
+[tracing](https://crates.io/crates/tracing). Charts below show the relationship between log
+operations and iteration time, with the thickness of the shaded region indicating the probability
+that a measurement of a given log op would take a particular length of time.
 
-Rasant v1.0.0 performs, in average, 68% faster than [slog](https://crates.io/crates/slog),
-second fastest in the benchmark, and 114% faster than [tracing](https://crates.io/crates/tracing).
+Rasant v1.3.0 performs, on average, 40% faster than [slog](https://crates.io/crates/slog),
+second fastest in the benchmark, and 107% faster than [tracing](https://crates.io/crates/tracing)
+(latest stable versions).
+
 
 <p>
     <img src="rust_logger_benchmark.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
@@ -26,10 +30,11 @@ fixed attributes, and per-call attributes, all both in sync and async mode.
     <img src="rust_logger_benchmark_-_rasant_modes.svg" title="https://github.com/jackson211/rust_logger_benchmark" width="960px"/>
 </p>
 
-All of these are indicative of real world performance. Note that the async logging
-with argument figures are slightly inflated though, as the time gap displayed is
-mostly an artifact of pending log writes waiting to be flushed once the benchmark
-run is finished.
+All of these are indicative of real world performance, with the variance for
+async mode writes being mostly dependent on system load, thread counts and occasional
+re-allocs required to grow buffers. In general, 90%+ of all async log writes
+can be expected to complete _faster_ than other logging solutions take to perform
+synchronous updates.
 
 ## Internal
 
@@ -38,6 +43,52 @@ intended to gauge performance progress across versions, which can be run via
 `cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
+
+### Version 1.3.0 (2026-11-11)
+
+New async queue handler implementation, with much improved throughput and performance under contention.
+
+```
+Running benches/log_write.rs (target/release/deps/log_write-f976ead5213181f4)
+Timer precision: 10 ns
+log_write                 fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ nested                               │               │               │               │         │
+│  ├─ async_skip          52.65 µs      │ 121.8 µs      │ 65.02 µs      │ 66.08 µs      │ 100     │ 100
+│  │                      189.8 Mitem/s │ 82.09 Mitem/s │ 153.7 Mitem/s │ 151.3 Mitem/s │         │
+│  ├─ async_write         1.832 ms      │ 4.039 ms      │ 2.361 ms      │ 2.365 ms      │ 100     │ 100
+│  │                      5.456 Mitem/s │ 2.475 Mitem/s │ 4.235 Mitem/s │ 4.228 Mitem/s │         │
+│  ├─ skip                35.29 µs      │ 41.12 µs      │ 35.71 µs      │ 35.89 µs      │ 100     │ 100
+│  │                      283.2 Mitem/s │ 243.1 Mitem/s │ 279.9 Mitem/s │ 278.5 Mitem/s │         │
+│  ╰─ write               970.7 µs      │ 1.022 ms      │ 981.3 µs      │ 983.5 µs      │ 100     │ 100
+│                         10.3 Mitem/s  │ 9.776 Mitem/s │ 10.18 Mitem/s │ 10.16 Mitem/s │         │
+├─ nested_with_arguments                │               │               │               │         │
+│  ├─ async_skip          99.22 µs      │ 139.6 µs      │ 110.4 µs      │ 111.6 µs      │ 100     │ 100
+│  │                      100.7 Mitem/s │ 71.62 Mitem/s │ 90.5 Mitem/s  │ 89.53 Mitem/s │         │
+│  ├─ async_write         4.224 ms      │ 5.732 ms      │ 4.535 ms      │ 4.547 ms      │ 100     │ 100
+│  │                      2.367 Mitem/s │ 1.744 Mitem/s │ 2.204 Mitem/s │ 2.199 Mitem/s │         │
+│  ├─ skip                61.05 µs      │ 69.81 µs      │ 62.97 µs      │ 63.45 µs      │ 100     │ 100
+│  │                      163.7 Mitem/s │ 143.2 Mitem/s │ 158.7 Mitem/s │ 157.5 Mitem/s │         │
+│  ╰─ write               4.499 ms      │ 5.866 ms      │ 4.603 ms      │ 4.717 ms      │ 100     │ 100
+│                         2.222 Mitem/s │ 1.704 Mitem/s │ 2.172 Mitem/s │ 2.119 Mitem/s │         │
+├─ single                               │               │               │               │         │
+│  ├─ async_skip          25 µs         │ 35.29 µs      │ 25.01 µs      │ 25.24 µs      │ 100     │ 100
+│  │                      399.8 Mitem/s │ 283.2 Mitem/s │ 399.6 Mitem/s │ 396 Mitem/s   │         │
+│  ├─ async_write         2.152 ms      │ 2.895 ms      │ 2.365 ms      │ 2.309 ms      │ 100     │ 100
+│  │                      4.646 Mitem/s │ 3.453 Mitem/s │ 4.226 Mitem/s │ 4.33 Mitem/s  │         │
+│  ├─ skip                24.37 µs      │ 29.5 µs       │ 24.5 µs       │ 24.64 µs      │ 100     │ 100
+│  │                      410.1 Mitem/s │ 338.8 Mitem/s │ 408 Mitem/s   │ 405.7 Mitem/s │         │
+│  ╰─ write               714.7 µs      │ 761.1 µs      │ 741.2 µs      │ 740.7 µs      │ 100     │ 100
+│                         13.99 Mitem/s │ 13.13 Mitem/s │ 13.49 Mitem/s │ 13.49 Mitem/s │         │
+╰─ threaded                             │               │               │               │         │
+   ├─ async_skip          1.154 ms      │ 2.423 ms      │ 1.36 ms       │ 1.384 ms      │ 100     │ 100
+   │                      8.659 Mitem/s │ 4.126 Mitem/s │ 7.351 Mitem/s │ 7.221 Mitem/s │         │
+   ├─ async_write         2.415 ms      │ 4.306 ms      │ 2.988 ms      │ 3.02 ms       │ 100     │ 100
+   │                      4.139 Mitem/s │ 2.322 Mitem/s │ 3.345 Mitem/s │ 3.31 Mitem/s  │         │
+   ├─ skip                1.013 ms      │ 1.82 ms       │ 1.177 ms      │ 1.223 ms      │ 100     │ 100
+   │                      9.868 Mitem/s │ 5.494 Mitem/s │ 8.492 Mitem/s │ 8.17 Mitem/s  │         │
+   ╰─ write               2.737 ms      │ 3.97 ms       │ 2.982 ms      │ 2.99 ms       │ 100     │ 100
+                          3.653 Mitem/s │ 2.518 Mitem/s │ 3.352 Mitem/s │ 3.344 Mitem/s │         │
+```
 
 ### Version 1.0.0 (2026-06-22)
 

@@ -2,6 +2,21 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 1.3.0 (2026-11-11)
+
+High-performance async queue implementation, improved third-party APIs, bugfixes.
+
+  - New custom, low contention double-buffered global async queue handler. This not only
+    minimizes memory fragmentation by reusing heap whenever possible, but also performs
+    _much_ better than the previous version, particularly regarding throughput and contention.
+  - All heap data structures now get a (small) default capacity, minimizing reallocs for
+    small items.
+  - Improved API for third-party sinks.
+  - Formalize support for third-party `Scalar` casting on custom types.
+  - Add `Scalar` casting support for `char`, `&Option<>`, `&String` and all `net::*` types.
+  - Fix a bug where `Trace` and `Panic` log updates could incorrectly modify fixed
+    attributes for a `Logger`.
+
 ## Version 1.2.0 (2026-08-23)
 
 Bugfixes and minor feature updates.
