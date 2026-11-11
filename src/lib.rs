@@ -340,6 +340,14 @@
 //! filter code fulfills these requirements, and don't introduce unnecessary
 //! dependencies, consider [contributing it](#repository)!
 //!
+//! ## Status Inspection
+//!
+//! Rasant's global status can be inspected via `get_status()`, which returns a snapshot of
+//! different metrics, including the number of loggers and async queue size.
+//!
+//! Note that `Status` is, as the name implies, a _status_ snapshot and not internal _state_;
+//! by design, Rasant is globally stateless.
+//!
 //! ## Error Handling
 //!
 //! For performance's sake, very few operations in Rasant's public API return errors, and
@@ -367,6 +375,7 @@ mod console;
 mod constant;
 mod encoding;
 mod format;
+mod global;
 mod level;
 mod logger;
 mod macros;
@@ -375,6 +384,7 @@ mod types;
 
 // Public exported symbols
 pub mod filter;
+pub use global::{Status, get_status};
 pub mod sink;
 pub use attributes::scalar::Scalar;
 pub use attributes::value::Value;

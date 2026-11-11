@@ -1,6 +1,7 @@
 use core::panic;
 use ntime::Timestamp;
 use std::error::Error;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::attributes;
@@ -13,6 +14,9 @@ use crate::queue;
 use crate::sink;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::{FilterRef, SinkRef};
+
+/// A global refcount of active [`Logger`]s.
+pub static GLOBAL_ACTIVE_LOGGERS: AtomicUsize = AtomicUsize::new(0);
 
 /// Base logger structure for Rasant.
 pub struct Logger {
@@ -30,6 +34,8 @@ impl<'i> Logger {
 	/// Creates a brand new [`Logger`] instance, with a default level of [`Level::Warning`]
 	/// and no associated sinks.
 	pub fn new() -> Self {
+		GLOBAL_ACTIVE_LOGGERS.fetch_add(1, Ordering::AcqRel);
+
 		Self {
 			enabled: true,
 			depth: 0,
@@ -426,6 +432,8 @@ impl Clone for Logger {
 		};
 		clone.set_async(self.is_async());
 
+		GLOBAL_ACTIVE_LOGGERS.fetch_add(1, Ordering::AcqRel);
+
 		clone
 	}
 }
@@ -433,15 +441,8 @@ impl Clone for Logger {
 impl Drop for Logger {
 	fn drop(&mut self) {
 		self.flush();
-
-		/*
-		// If we're dropping a root logger, make sure any async writes left are processed.
-		if self.depth == 0 {
-			queue::flush_queue();
-		}
-		*/
-
 		self.set_async(false);
+		GLOBAL_ACTIVE_LOGGERS.fetch_sub(1, Ordering::AcqRel);
 	}
 }
 
