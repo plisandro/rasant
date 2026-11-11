@@ -12,10 +12,12 @@ High-performance async queue implementation, improved third-party APIs, bugfixes
   - All heap data structures now get a (small) default capacity, minimizing reallocs for
     small items.
   - Improved API for third-party sinks.
-  - Formalize support for third-party `Scalar` casting on custom types.
-  - Add `Scalar` casting support for `char`, `&Option<>`, `&String` and all `net::*` types.
-  - Fix a bug where `Trace` and `Panic` log updates could incorrectly modify fixed
+  - Formalized support for third-party `Scalar` casting on custom types.
+  - `Scalar` casting support for `char`, `&Option<>`, `&String` and all `net::*` types.
+  - Fixes a bug where `Trace` and `Panic` log updates could incorrectly modify fixed
     attributes for a `Logger`.
+  - New API for live global logging status metrics.
+  - `IO` sinks can now fine-tne behavior for delimiters between log updates.
 
 ## Version 1.2.0 (2026-08-23)
 
