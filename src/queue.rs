@@ -1,7 +1,8 @@
 use ntime::Timestamp;
+use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, RwLock, TryLockError};
-use std::sync::{Condvar, RwLockReadGuard, WaitTimeoutResult};
+use std::sync::{Condvar, WaitTimeoutResult};
 use std::thread;
 
 use crate::attributes;
@@ -91,35 +92,36 @@ impl<'i> AsyncSinkOp {
 
 // Thread-safe, low-contention async operations MPSC queue, implemented as an vector of reusable data structs.
 pub struct AsyncQueue {
-	// TODO: use UnsafeCell instead of Mutexes for interior mutability?
-	pool: RwLock<Vec<Mutex<AsyncSinkOp>>>,
+	pool: RwLock<Vec<UnsafeCell<AsyncSinkOp>>>,
 	size: CachePadded<AtomicUsize>,
 	write_lock: CachePadded<RwLock<bool>>,
 }
 
+// SAFETY: AsyncQueue will never read/write the same UnsafeCell-ed pool slots
+// concurrently, so it is safe to share between threads.
+unsafe impl Sync for AsyncQueue {}
+
 // A AsyncSinkOp iterator for AsyncQueues. Note this is *NOT* an Iterator implementation, as that
 // trait would require self-borrows to work.
 pub struct AsyncQueueIter<'s> {
-	pool: RwLockReadGuard<'s, Vec<Mutex<AsyncSinkOp>>>,
-	size: usize,
+	queue: &'s AsyncQueue,
 	idx: usize,
 }
 
 impl<'i> AsyncQueueIter<'i> {
 	pub fn new(queue: &'i AsyncQueue) -> Self {
-		Self {
-			pool: queue.pool.read().unwrap(),
-			size: queue.len(),
-			idx: 0,
-		}
+		Self { queue: queue, idx: 0 }
 	}
 
-	pub fn next<'f>(&'f mut self) -> Option<&'f Mutex<AsyncSinkOp>> {
-		if self.idx >= self.size {
+	pub fn next<'f>(&'f mut self) -> Option<&'f mut AsyncSinkOp> {
+		if self.idx >= self.queue.len() {
 			return None;
 		}
 
-		let slot = &self.pool[self.idx];
+		// SAFETY: Neither AsyncQueue nor AsyncQueueIter will ever read/write the same
+		// UnsafeCell-ed pool slots concurrently, so it is safe to cast them as mutable.
+		let slot = unsafe { &mut *self.queue.pool.read().unwrap()[self.idx].get() };
+
 		self.idx += 1;
 		Some(slot)
 	}
@@ -127,9 +129,9 @@ impl<'i> AsyncQueueIter<'i> {
 
 impl AsyncQueue {
 	pub fn new() -> Self {
-		let mut pool: Vec<Mutex<AsyncSinkOp>> = Vec::with_capacity(DEFAULT_CAPACITY);
+		let mut pool: Vec<UnsafeCell<AsyncSinkOp>> = Vec::with_capacity(DEFAULT_CAPACITY);
 		for _ in 0..DEFAULT_CAPACITY {
-			pool.push(Mutex::new(AsyncSinkOp::new()));
+			pool.push(UnsafeCell::new(AsyncSinkOp::new()));
 		}
 
 		AsyncQueue {
@@ -174,6 +176,14 @@ impl AsyncQueue {
 		self.size.store(0, Ordering::SeqCst);
 	}
 
+	#[inline]
+	fn get_mut_pool_slot<'f>(&'f self, idx: usize) -> &'f mut AsyncSinkOp {
+		let us_slot = &self.pool.read().unwrap()[idx];
+		// SAFETY: AsyncQueue will never read/write the same UnsafeCell-ed pool slots
+		// concurrently, so  it is safe to share between threads.
+		unsafe { &mut *us_slot.get() }
+	}
+
 	fn push<'f, C>(&'f self, mut op_callback: C) -> bool
 	where
 		C: FnMut(&mut AsyncSinkOp),
@@ -195,13 +205,14 @@ impl AsyncQueue {
 						while idx >= pool.len() {
 							pool.reserve(DEFAULT_CAPACITY);
 							for _ in 0..DEFAULT_CAPACITY {
-								pool.push(Mutex::new(AsyncSinkOp::new()));
+								pool.push(UnsafeCell::new(AsyncSinkOp::new()));
 							}
 						}
 					}
 
-					let slot = &self.pool.read().unwrap()[idx];
-					op_callback(&mut slot.lock().unwrap());
+					// SAFETY: AsyncQueue will never read/write the same UnsafeCell-ed pool slots
+					// concurrently, so it is safe to cast them as mutable.
+					unsafe { op_callback(&mut *self.pool.read().unwrap()[idx].get()) }
 
 					true
 				}
@@ -288,9 +299,7 @@ impl AsyncHandler {
 				pop_queue.lock_writes();
 
 				let mut ops = AsyncQueueIter::new(pop_queue);
-				while let Some(mop) = ops.next() {
-					let mut op = mop.lock().unwrap();
-
+				while let Some(op) = ops.next() {
 					if let Some(sink) = op.get_flush() {
 						match sink.lock() {
 							Ok(mut s) => match s.flush() {
