@@ -17,7 +17,7 @@ High-performance async queue implementation, improved third-party APIs, bugfixes
   - Fixes a bug where `Trace` and `Panic` log updates could incorrectly modify fixed
     attributes for a `Logger`.
   - New API for live global logging status metrics.
-  - `IO` sinks can now fine-tne behavior for delimiters between log updates.
+  - `IO` sinks can now fine-tune delimiter insertion behavior between log updates.
 
 ## Version 1.2.0 (2026-08-23)
 

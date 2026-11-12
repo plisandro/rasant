@@ -10,9 +10,8 @@ This project compares the performance of multiple logging libraries for Rust, in
 operations and iteration time, with the thickness of the shaded region indicating the probability
 that a measurement of a given log op would take a particular length of time.
 
-Rasant v1.3.0 performs, on average, 40% faster than [slog](https://crates.io/crates/slog),
-second fastest in the benchmark, and 107% faster than [tracing](https://crates.io/crates/tracing)
-(latest stable versions).
+Rasant v1.3.0 performs, on average, 40% faster than [slog](https://crates.io/crates/slog) (v2.8.2),
+second fastest in the benchmark, and 107% faster than [tracing](https://crates.io/crates/tracing) (v0.1.44).
 
 
 <p>
@@ -32,7 +31,7 @@ fixed attributes, and per-call attributes, all both in sync and async mode.
 
 All of these are indicative of real world performance, with the variance for
 async mode writes being mostly dependent on system load, thread counts and occasional
-re-allocs required to grow buffers. In general, 90%+ of all async log writes
+re-allocs required to grow queues. In general, 90%+ of all async log writes
 can be expected to complete _faster_ than other logging solutions take to perform
 synchronous updates.
 
