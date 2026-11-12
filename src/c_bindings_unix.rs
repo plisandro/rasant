@@ -7,7 +7,8 @@ const MAX_HOSTNAME_LENGTH: usize = 256;
 
 // *nix C standard functions
 unsafe extern "C" {
-	unsafe fn gethostname(name: *mut c_char, namelen: *mut c_int) -> c_int;
+	// TODO: replace namelen type with c_sizet once stable.
+	unsafe fn gethostname(name: *mut c_char, namelen: *mut usize) -> c_int;
 }
 
 /* -----------------------Safe C function wrappers ----------------------- */
@@ -21,7 +22,7 @@ pub fn c_get_hostname() -> Option<String> {
 		let c_hostname_buf: Vec<u8> = vec![0; MAX_HOSTNAME_LENGTH];
 		let c_hostname = CString::from_vec_unchecked(c_hostname_buf);
 		let c_hostname_ptr = c_hostname.into_raw();
-		let mut c_hostname_len: c_int = MAX_HOSTNAME_LENGTH as c_int;
+		let mut c_hostname_len: usize = MAX_HOSTNAME_LENGTH;
 
 		if gethostname(c_hostname_ptr as *mut i8, &mut c_hostname_len) != 0 {
 			return None;
