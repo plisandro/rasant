@@ -226,8 +226,15 @@ impl<'i> Logger {
 		let update = LogUpdate::from((&when, level, self.depth, msg, attrs as &attributes::Map));
 
 		// apply filters, if any
-		if self.filters.iter().any(|f| f.skip(&update)) {
-			return self;
+		for filter in self.filters.iter() {
+			match filter.skip(&update) {
+				Ok(s) => {
+					if s {
+						return self;
+					}
+				}
+				Err(err) => panic!("filter {name} is poisoned: {err}", name = "placeholder" /* TODO: fix me! filter.inner().name() */, err = err),
+			}
 		}
 
 		// if we're about to panic, parse the message before attempting to
