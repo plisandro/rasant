@@ -9,14 +9,15 @@ use crate::attributes;
 use crate::constant::{DEFAULT_CAPACITY, THREAD_FINALIZE_TIMEOUT};
 use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
-use crate::types::{CachePadded, SinkRef};
+use crate::types::CachePadded;
+use crate::wrapper::SinkWrap;
 
 static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHandler::new());
 
 // Encapsulates all supported asynchronous operations, so they can be reused without heap reallocs.
 pub struct AsyncSinkOp {
 	// Target sink for this operation.
-	sink: Option<SinkRef>,
+	sink: Option<SinkWrap>,
 
 	// Whether the operation is a log sink flush.
 	flush: bool,
@@ -53,7 +54,7 @@ impl<'i> AsyncSinkOp {
 		self.sink = None;
 	}
 
-	pub fn get_flush(&self) -> Option<SinkRef> {
+	pub fn get_flush(&self) -> Option<SinkWrap> {
 		match self.sink {
 			None => None,
 			Some(ref sink) => match self.flush {
@@ -63,7 +64,7 @@ impl<'i> AsyncSinkOp {
 		}
 	}
 
-	pub fn get_log_update<'f>(&'f self) -> Option<(SinkRef, LogUpdate<'f>)> {
+	pub fn get_log_update<'f>(&'f self) -> Option<(SinkWrap, LogUpdate<'f>)> {
 		match self.sink {
 			None => None,
 			Some(ref sink) => match self.flush {
@@ -73,12 +74,12 @@ impl<'i> AsyncSinkOp {
 		}
 	}
 
-	pub fn set_flush(&mut self, sink: &SinkRef) {
+	pub fn set_flush(&mut self, sink: &SinkWrap) {
 		self.flush = true;
 		self.sink = Some(sink.clone());
 	}
 
-	pub fn set_log_update(&mut self, sink: &SinkRef, update: &'i LogUpdate<'i>) {
+	pub fn set_log_update(&mut self, sink: &SinkWrap, update: &'i LogUpdate<'i>) {
 		self.sink = Some(sink.clone());
 		self.flush = false;
 		self.when.copy_from(update.when());
@@ -212,11 +213,11 @@ impl AsyncQueue {
 		}
 	}
 
-	pub fn push_flush<'f>(&'f self, sink: &SinkRef) -> bool {
+	pub fn push_flush<'f>(&'f self, sink: &SinkWrap) -> bool {
 		self.push(|op| op.set_flush(sink))
 	}
 
-	pub fn push_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) -> bool {
+	pub fn push_log_update<'f>(&'f self, sink: &SinkWrap, update: &LogUpdate) -> bool {
 		self.push(|op| op.set_log_update(sink, update))
 	}
 }
@@ -293,20 +294,14 @@ impl AsyncHandler {
 				let mut ops = pop_queue.iter();
 				while let Some(op) = ops.next() {
 					if let Some(sink) = op.get_flush() {
-						match sink.lock() {
-							Ok(mut s) => match s.flush() {
-								Ok(_) => (),
-								Err(e) => panic!("async flush on sink {name} failed: {e}", name = s.name()),
-							},
-							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						match sink.flush() {
+							Ok(_) => (),
+							Err(e) => panic!("async flush on sink {name} failed: {e}", name = sink.inner().name()),
 						};
 					} else if let Some((sink, update)) = op.get_log_update() {
-						match sink.lock() {
-							Ok(mut s) => match s.log(&update) {
-								Ok(_) => (),
-								Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = s.name()),
-							},
-							Err(e) => panic!("failed to acquire lock on sink: {e}"),
+						match sink.log(&update) {
+							Ok(_) => (),
+							Err(e) => panic!("async log update {update:?} on sink {name} failed: {e}", name = sink.inner().name()),
 						};
 					} else {
 						panic!("invalid async operation");
@@ -416,13 +411,13 @@ impl AsyncHandler {
 		}
 	}
 
-	fn log(&self, sink: &SinkRef, update: &LogUpdate) {
+	fn log(&self, sink: &SinkWrap, update: &LogUpdate) {
 		self.panic_if_closed();
 		while !self.push_queue().push_log_update(sink, update) {}
 		self.wake_actuator();
 	}
 
-	fn flush(&self, sink: &SinkRef) {
+	fn flush(&self, sink: &SinkWrap) {
 		self.panic_if_closed();
 		while !self.push_queue().push_flush(sink) {}
 		self.wake_actuator();
@@ -484,11 +479,11 @@ pub fn dec_refcount() {
 }
 
 /// Queues a log operation for the async handler.
-pub fn log(sink: &SinkRef, update: &LogUpdate) {
+pub fn log(sink: &SinkWrap, update: &LogUpdate) {
 	(*GLOBAL_ASYNC_HANDLER).log(sink, update)
 }
 
 /// Queues a sink flush operation for the async handler.
-pub fn flush(sink: &SinkRef) {
+pub fn flush(sink: &SinkWrap) {
 	(*GLOBAL_ASYNC_HANDLER).flush(sink)
 }

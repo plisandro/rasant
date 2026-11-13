@@ -381,6 +381,7 @@ mod logger;
 mod macros;
 mod queue;
 mod types;
+mod wrapper;
 
 // Public exported symbols
 pub mod filter;

@@ -7,7 +7,7 @@ const MAX_HOSTNAME_LENGTH: usize = 256;
 
 // *nix C standard functions
 unsafe extern "C" {
-	// TODO: replace namelen type with c_sizet once stable.
+	// TODO: make namelen a c_sizet once this type is stable.
 	unsafe fn gethostname(name: *mut c_char, namelen: *mut usize) -> c_int;
 }
 

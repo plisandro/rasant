@@ -2,7 +2,6 @@ use core::panic;
 use ntime::Timestamp;
 use std::error::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 
 use crate::attributes;
 use crate::attributes::Value;
@@ -13,7 +12,7 @@ use crate::level::Level;
 use crate::queue;
 use crate::sink;
 use crate::sink::{LogDepth, LogUpdate};
-use crate::types::{FilterRef, SinkRef};
+use crate::wrapper::{FilterWrap, SinkWrap};
 
 /// A global refcount of active [`Logger`]s.
 pub static GLOBAL_ACTIVE_LOGGERS: AtomicUsize = AtomicUsize::new(0);
@@ -25,8 +24,8 @@ pub struct Logger {
 	level: Level,
 	is_async: bool,
 	attributes: attributes::Map,
-	sinks: Vec<SinkRef>,
-	filters: Vec<FilterRef>,
+	sinks: Vec<SinkWrap>,
+	filters: Vec<FilterWrap>,
 	common_attributes: attributes::Map,
 }
 
@@ -141,7 +140,7 @@ impl<'i> Logger {
 		// log*() locks sinks, so collect details we want to log about it beforehand
 		let name: String = sink.name().into();
 
-		self.sinks.push(Arc::new(Mutex::new(Box::new(sink))));
+		self.sinks.push(SinkWrap::new(sink));
 
 		self.trace_with(
 			"added new log sink",
@@ -157,7 +156,7 @@ impl<'i> Logger {
 	/// latency regardless of whether the [`Logger`] is async or not.
 	pub fn add_filter<T: filter::Filter + Send + 'static>(&mut self, filter: T) -> &mut Self {
 		let name: String = filter.name().into();
-		self.filters.push(Arc::new(Mutex::new(Box::new(filter))));
+		self.filters.push(FilterWrap::new(filter));
 
 		if self.has_sinks() {
 			self.trace_with("added new log filter", [("name", Value::from(name)), ("total", Value::from(self.filters.len() as u64))]);
@@ -227,7 +226,7 @@ impl<'i> Logger {
 		let update = LogUpdate::from((&when, level, self.depth, msg, attrs as &attributes::Map));
 
 		// apply filters, if any
-		if self.filters.iter().any(|f| f.lock().unwrap().skip(&update)) {
+		if self.filters.iter().any(|f| f.skip(&update)) {
 			return self;
 		}
 
@@ -235,18 +234,18 @@ impl<'i> Logger {
 		// deliver the log update - and losing ownership.
 		let panic_msg: Option<String> = if level == Level::Panic { Some(format::as_panic_string(&update)) } else { None };
 
-		for asink in self.sinks.iter() {
+		for sink in self.sinks.iter() {
 			let res = match self.is_async {
 				true => {
-					queue::log(&asink, &update);
+					queue::log(sink, &update);
 					Ok(())
 				}
-				false => asink.lock().unwrap().log(&update),
+				false => sink.log(&update),
 			};
 			if let Err(e) = res {
 				panic!(
 					"failed to log update {update:?} on sink {name} at \"{file}\", line {line}: {e}",
-					name = asink.lock().unwrap().name(),
+					name = sink.inner().name(),
 					file = loc.file(),
 					line = loc.line()
 				);
@@ -382,21 +381,21 @@ impl<'i> Logger {
 	/// log messages. The method will not lock, and return immediately, but actual flushes
 	/// will materialize later.
 	pub fn flush(&mut self) -> &Self {
-		for asink in self.sinks.iter() {
+		for sink in self.sinks.iter() {
 			// TODO: fix logging.
 			//let name = asink.lock().unwrap().as_mut().name();
 			let res = match self.is_async {
 				true => {
-					queue::flush(&asink);
+					queue::flush(sink);
 					Ok(())
 				}
-				false => asink.lock().unwrap().flush(),
+				false => sink.flush(),
 			};
 			if let Err(e) = res {
 				let loc = panic::Location::caller();
 				panic!(
 					"failed to flush logger sink {name} at \"{file}\", line {line}: {e}",
-					name = asink.lock().unwrap().name(),
+					name = sink.inner().name(),
 					file = loc.file(),
 					line = loc.line()
 				);

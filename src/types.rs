@@ -1,22 +1,6 @@
-use ntime::Timestamp;
 use std::ops;
-use std::sync::Arc;
-use std::sync::Mutex;
 
-use crate::filter::Filter;
-use crate::sink::Sink;
-
-/// An Arc'ed & Mutex'ed reference to a shared log [`Filter`].
-pub type FilterRef = Arc<Mutex<Box<dyn Filter + Send>>>;
-
-/// An Arc'ed & Mutex'ed reference to a shared log [`Sink`].
-pub type SinkRef = Arc<Mutex<Box<dyn Sink + Send>>>;
-
-/// Rand is a 64-bit PRNG, implementing the Xorshift algorithm (https://en.wikipedia.org/wiki/Xorshift),
-/// with a period of 2^64−1.
-pub struct Rand {
-	state: u64,
-}
+use ntime::Timestamp;
 
 /// A container for data structures aligned to the CPU's cache line size,
 /// guaranteeing no cache thrashing on concurrently accessed items.
@@ -41,6 +25,12 @@ impl<T> ops::Deref for CachePadded<T> {
 	fn deref(&self) -> &Self::Target {
 		&self.value
 	}
+}
+
+/// Rand is a 64-bit PRNG, implementing the Xorshift algorithm (https://en.wikipedia.org/wiki/Xorshift),
+/// with a period of 2^64−1.
+pub struct Rand {
+	state: u64,
 }
 
 impl Rand {
