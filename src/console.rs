@@ -1,8 +1,6 @@
 use std::env;
 use std::io;
 use std::sync::LazyLock;
-#[cfg(test)]
-use std::sync::Mutex;
 
 use crate::constant::ENV_VAR_COLORTERM;
 
@@ -27,9 +25,6 @@ pub enum Color {
 }
 
 static COLORTERM_OK: LazyLock<bool> = LazyLock::new(|| env::var(ENV_VAR_COLORTERM).is_ok());
-#[cfg(test)]
-// An COLORTERM_OK override used only for testing
-static COLORTERM_OVERRIDE: Mutex<Option<bool>> = Mutex::new(None);
 
 impl Color {
 	#[cfg(not(test))]
@@ -38,8 +33,9 @@ impl Color {
 	}
 
 	#[cfg(test)]
+	// A mockable version of supported() to test formatters with different terminal settings.
 	fn supported(&self) -> bool {
-		match *COLORTERM_OVERRIDE.lock().unwrap() {
+		match *mocks::COLORTERM_OK_OVERRIDE.lock().unwrap() {
 			Some(ok) => ok,
 			None => *COLORTERM_OK,
 		}
@@ -141,19 +137,27 @@ impl ToString for Color {
 
 #[cfg(test)]
 pub mod mocks {
+	use std::any::Any;
 	use std::panic;
 	use std::sync::Mutex;
 
-	use crate::console::COLORTERM_OVERRIDE;
-
+	// global lock for all mocked tests
 	static MOCK_TEST_LOCK: Mutex<()> = Mutex::new(());
+	// an optional COLORTERM_OK override for testing.
+	pub static COLORTERM_OK_OVERRIDE: Mutex<Option<bool>> = Mutex::new(None);
 
-	pub fn with_colorterm(mock_colortem_ok: bool, test_fn: impl FnOnce()) {
-		let _lock = MOCK_TEST_LOCK.lock().unwrap();
+	// runs a test closure with a mocked COLORTERM_OK setting
+	pub fn with_colorterm(mock_colorterm_ok: bool, test_fn: impl FnOnce()) {
+		let res: Result<(), Box<dyn Any + Send>>;
 
-		*COLORTERM_OVERRIDE.lock().unwrap() = Some(mock_colortem_ok);
-		let res = panic::catch_unwind(panic::UnwindSafe::new(test_fn));
-		*COLORTERM_OVERRIDE.lock().unwrap() = None;
+		match MOCK_TEST_LOCK.lock() {
+			Err(_) => panic!("COLORTERM_OK mock is poisoned"),
+			Ok(_) => {
+				*COLORTERM_OK_OVERRIDE.lock().unwrap() = Some(mock_colorterm_ok);
+				res = panic::catch_unwind(panic::AssertUnwindSafe(|| test_fn()));
+				*COLORTERM_OK_OVERRIDE.lock().unwrap() = None;
+			}
+		}
 
 		match res {
 			Ok(_) => (),
