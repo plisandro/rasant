@@ -159,12 +159,12 @@ mod tests {
 		] {
 			let (enable, want) = tc;
 
-			let mut out = Vec::new();
+			console::mocks::with_colorterm(enable, || {
+				let mut out = Vec::new();
 
-			console::colorterm_force(enable);
-			assert!(write(&mut out, time_format, &update).is_ok());
-			console::colorterm_unforce();
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+				assert!(write(&mut out, &time_format, &update).is_ok());
+				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+			})
 		}
 	}
 }

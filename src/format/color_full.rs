@@ -242,16 +242,16 @@ mod tests {
 			),
 		] {
 			let (enable, update, want) = tc;
-			let mut out = Vec::new();
 
-			let delimiter: Vec<u8> = [b'\n'].to_vec();
-			let time_format = &ntime::Format::TimestampNanoseconds;
+			console::mocks::with_colorterm(enable, || {
+			    let mut out = Vec::new();
 
-			console::colorterm_force(enable);
-			assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
-			console::colorterm_unforce();
+				let delimiter: Vec<u8> = [b'\n'].to_vec();
+				let time_format = &ntime::Format::TimestampNanoseconds;
 
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+				assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
+				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+			});
 		}
 	}
 }

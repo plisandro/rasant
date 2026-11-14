@@ -1,7 +1,6 @@
 use std::env;
 use std::io;
 use std::sync::LazyLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::constant::ENV_VAR_COLORTERM;
 
@@ -26,30 +25,20 @@ pub enum Color {
 }
 
 static COLORTERM_OK: LazyLock<bool> = LazyLock::new(|| env::var(ENV_VAR_COLORTERM).is_ok());
-// COLORTERM_OVERRIDE and COLORTERM_OVERRIDE_VALUE allow forcing COLORTERM status, while introducing as little overhead as possible.
-static COLORTERM_OVERRIDE: AtomicBool = AtomicBool::new(false);
-static COLORTERM_OVERRIDE_VALUE: AtomicBool = AtomicBool::new(false);
-
-// forces a return value for colorterm status
-#[cfg(test)]
-pub fn colorterm_force(b: bool) {
-	COLORTERM_OVERRIDE_VALUE.store(b, Ordering::Relaxed);
-	COLORTERM_OVERRIDE.store(true, Ordering::Relaxed);
-}
-
-// resets forced colorterm status.
-#[cfg(test)]
-pub fn colorterm_unforce() {
-	COLORTERM_OVERRIDE.store(false, Ordering::Relaxed);
-}
 
 impl Color {
+	#[cfg(not(test))]
 	fn supported(&self) -> bool {
-		if COLORTERM_OVERRIDE.load(Ordering::Relaxed) {
-			return COLORTERM_OVERRIDE_VALUE.load(Ordering::Relaxed);
-		}
-
 		*COLORTERM_OK
+	}
+
+	#[cfg(test)]
+	// A mockable version of supported() to test formatters with different terminal settings.
+	fn supported(&self) -> bool {
+		match mocks::colorterm_ok_override() {
+			None => *COLORTERM_OK,
+			Some(ok) => ok,
+		}
 	}
 
 	pub fn to_str(&self) -> &'static str {
@@ -143,5 +132,40 @@ impl Color {
 impl ToString for Color {
 	fn to_string(&self) -> String {
 		self.to_str().into()
+	}
+}
+
+#[cfg(test)]
+pub mod mocks {
+	use std::any::Any;
+	use std::panic;
+	use std::sync::{Mutex, RwLock};
+
+	// global lock for all mocked tests
+	static MOCK_TEST_LOCK: Mutex<()> = Mutex::new(());
+	// an optional COLORTERM_OK override for testing.
+	static COLORTERM_OK_OVERRIDE: RwLock<Option<bool>> = RwLock::new(None);
+
+	pub fn colorterm_ok_override() -> Option<bool> {
+		*COLORTERM_OK_OVERRIDE.read().unwrap()
+	}
+
+	// runs a test closure with a mocked COLORTERM_OK setting
+	pub fn with_colorterm(mock_colorterm_ok: bool, test_fn: impl FnOnce()) {
+		let res: Result<(), Box<dyn Any + Send>>;
+
+		match MOCK_TEST_LOCK.lock() {
+			Err(_) => panic!("COLORTERM_OK mock is poisoned"),
+			Ok(_) => {
+				*COLORTERM_OK_OVERRIDE.write().unwrap() = Some(mock_colorterm_ok);
+				res = panic::catch_unwind(panic::AssertUnwindSafe(|| test_fn()));
+				*COLORTERM_OK_OVERRIDE.write().unwrap() = None;
+			}
+		}
+
+		match res {
+			Ok(_) => (),
+			Err(panic) => panic::resume_unwind(panic),
+		}
 	}
 }

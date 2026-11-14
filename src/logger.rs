@@ -675,9 +675,7 @@ mod formatting {
 		];
 
 		for tc in test_cases {
-			let got: String;
-
-			{
+			console::mocks::with_colorterm(tc.colorterm, || {
 				let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 					mock_time: true,
 					formatter_cfg: format::FormatterConfig {
@@ -689,7 +687,6 @@ mod formatting {
 					..sink::memory::MemoryConfig::default()
 				});
 				let mem_sink_output = mem_sink.output();
-				console::colorterm_force(tc.colorterm);
 
 				let mut log = Logger::new();
 				log.add_sink(mem_sink).set_level(Level::Info);
@@ -701,11 +698,9 @@ mod formatting {
 				nlog.info("first test info").warn("first test warn").debug("first test debug").trace("trace log to be ignored");
 				log.error(Error::new(ErrorKind::NotFound, "oh no"), "something failed");
 
-				got = mem_sink_output.as_string();
-				console::colorterm_unforce();
-			}
-
-			assert_eq!(got, tc.want, "{}", tc.name);
+				let got = mem_sink_output.as_string();
+				assert_eq!(got, tc.want, "{}", tc.name);
+			});
 		}
 	}
 }
