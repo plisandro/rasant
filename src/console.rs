@@ -1,7 +1,8 @@
 use std::env;
 use std::io;
 use std::sync::LazyLock;
-use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(test)]
+use std::sync::Mutex;
 
 use crate::constant::ENV_VAR_COLORTERM;
 
@@ -26,30 +27,22 @@ pub enum Color {
 }
 
 static COLORTERM_OK: LazyLock<bool> = LazyLock::new(|| env::var(ENV_VAR_COLORTERM).is_ok());
-// COLORTERM_OVERRIDE and COLORTERM_OVERRIDE_VALUE allow forcing COLORTERM status, while introducing as little overhead as possible.
-static COLORTERM_OVERRIDE: AtomicBool = AtomicBool::new(false);
-static COLORTERM_OVERRIDE_VALUE: AtomicBool = AtomicBool::new(false);
-
-// forces a return value for colorterm status
 #[cfg(test)]
-pub fn colorterm_force(b: bool) {
-	COLORTERM_OVERRIDE_VALUE.store(b, Ordering::Relaxed);
-	COLORTERM_OVERRIDE.store(true, Ordering::Relaxed);
-}
-
-// resets forced colorterm status.
-#[cfg(test)]
-pub fn colorterm_unforce() {
-	COLORTERM_OVERRIDE.store(false, Ordering::Relaxed);
-}
+// An COLORTERM_OK override used only for testing
+static COLORTERM_OVERRIDE: Mutex<Option<bool>> = Mutex::new(None);
 
 impl Color {
+	#[cfg(not(test))]
 	fn supported(&self) -> bool {
-		if COLORTERM_OVERRIDE.load(Ordering::Relaxed) {
-			return COLORTERM_OVERRIDE_VALUE.load(Ordering::Relaxed);
-		}
-
 		*COLORTERM_OK
+	}
+
+	#[cfg(test)]
+	fn supported(&self) -> bool {
+		match *COLORTERM_OVERRIDE.lock().unwrap() {
+			Some(ok) => ok,
+			None => *COLORTERM_OK,
+		}
 	}
 
 	pub fn to_str(&self) -> &'static str {
@@ -143,5 +136,28 @@ impl Color {
 impl ToString for Color {
 	fn to_string(&self) -> String {
 		self.to_str().into()
+	}
+}
+
+#[cfg(test)]
+pub mod mocks {
+	use std::panic;
+	use std::sync::Mutex;
+
+	use crate::console::COLORTERM_OVERRIDE;
+
+	static MOCK_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+	pub fn with_colorterm(mock_colortem_ok: bool, test_fn: impl FnOnce()) {
+		let _lock = MOCK_TEST_LOCK.lock().unwrap();
+
+		*COLORTERM_OVERRIDE.lock().unwrap() = Some(mock_colortem_ok);
+		let res = panic::catch_unwind(panic::UnwindSafe::new(test_fn));
+		*COLORTERM_OVERRIDE.lock().unwrap() = None;
+
+		match res {
+			Ok(_) => (),
+			Err(panic) => panic::resume_unwind(panic),
+		}
 	}
 }
