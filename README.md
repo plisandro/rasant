@@ -243,11 +243,15 @@ Comments, feedback and bug reports are always welcome!
 You can reach out through regular GitHub issues and bug reports, or via the
 [rasant gitter channel](https://app.gitter.im/#/room/#rasant:gitter.im).
 
-Contributions will be accepted under the [project's license](#licence).
+Contributions will be accepted under the [project's license](#license).
 
 ## License
 
-Rasant is distributed under the [MIT license][mit].
+Rasant is distributed under the terms of the [MIT][mit] or [Apache 2.0][apache] license, at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in Rasant
+by you, as defined in the [Apache 2.0][apache] license, shall be dual licensed as above, without any
+additional terms or conditions.
 
 <img src="assets/Developed-By-a-Human-Not-By-AI-Badge-white.svg" title="Courtesy of https://notbyai.fyi/" height="80px"/>
 
@@ -256,4 +260,5 @@ Rasant is distributed under the [MIT license][mit].
 [crates-io]: https://crates.io/crates/rasant
 [CHANGELOG]: CHANGELOG.md
 [benchmarks]: assets/benchmarks.md
-[mit]: LICENSE
+[mit]: LICENSE-MIT
+[apache]: LICENSE-APACHE
