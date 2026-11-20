@@ -124,7 +124,7 @@
 //!     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
 //! 		formatter_cfg: r::FormatterConfig {
 //! 			format: r::OutputFormat::Json,
-//! 			time_format: r::TimeFormat::UtcNanosDateTime,
+//! 			time_format: r::TimeFormat::DateTime(r::TimeTimezone::Utc, r::TimePrecision::Nanoseconds),
 //! 			..r::FormatterConfig::default()
 //! 		},
 //! 		..r::sink::stdout::StdoutConfig::default()
@@ -380,6 +380,8 @@ mod level;
 mod logger;
 mod macros;
 mod queue;
+#[cfg(test)]
+mod test_helpers;
 mod types;
 
 // Public exported symbols
@@ -393,5 +395,5 @@ pub use attributes::{Metadata as AttributeMetadata, MetadataField as AttributeMe
 pub use format::{FormatterConfig, OutputFormat};
 pub use level::Level;
 pub use logger::Logger;
-/// [`ntime::Format`], re-exported for convenience.
-pub use ntime::Format as TimeFormat;
+/// `ntime` formatting enums, re-exported for convenience.
+pub use ntime::{Format as TimeFormat, Precision as TimePrecision, Timezone as TimeTimezone};

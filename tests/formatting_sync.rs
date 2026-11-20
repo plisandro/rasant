@@ -1,7 +1,6 @@
 use rasant::Level;
-use rasant::TimeFormat;
 use rasant::sink;
-use rasant::{FormatterConfig, OutputFormat};
+use rasant::{FormatterConfig, OutputFormat, TimeFormat, TimePrecision, TimeTimezone};
 
 use std::io::{Error, ErrorKind};
 
@@ -18,7 +17,7 @@ fn sync_output() {
 		TestCase {
 			name: "compact default",
 			out_format: OutputFormat::Compact,
-			time_format: ntime::Format::UtcMillisDateTime,
+			time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Milliseconds),
 			want: "2026-03-04 15:10:15.000 [INF] root test info\n\
 			       2026-03-04 15:10:16.234 [WRN] root test warn\n\
 				   2026-03-04 15:10:17.468 [INF] first test info number=1\n\
@@ -30,7 +29,7 @@ fn sync_output() {
 		TestCase {
 			name: "compact with timestamps",
 			out_format: OutputFormat::Compact,
-			time_format: ntime::Format::TimestampNanoseconds,
+			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			want: "1772637015000000000 [INF] root test info\n\
 			       1772637016234000000 [WRN] root test warn\n\
 				   1772637017468000000 [INF] first test info number=1\n\
@@ -43,7 +42,7 @@ fn sync_output() {
 		TestCase {
 			name: "JSON",
 			out_format: OutputFormat::Json,
-			time_format: ntime::Format::UtcDateTime,
+			time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Seconds),
 			want: "{\"time\":\"2026-03-04 15:10:15\",\"level\":\"info\",\"message\":\"root test info\"}\n\
 			       {\"time\":\"2026-03-04 15:10:16\",\"level\":\"warning\",\"message\":\"root test warn\"}\n\
 				   {\"time\":\"2026-03-04 15:10:17\",\"level\":\"info\",\"message\":\"first test info\",\"number\":1}\n\
@@ -55,7 +54,7 @@ fn sync_output() {
 		TestCase {
 			name: "JSON with timestamps",
 			out_format: OutputFormat::Json,
-			time_format: ntime::Format::TimestampMilliseconds,
+			time_format: TimeFormat::Timestamp(TimePrecision::Milliseconds),
 			want: "{\"timestamp\":1772637015000,\"level\":\"info\",\"message\":\"root test info\"}\n\
 			       {\"timestamp\":1772637016234,\"level\":\"warning\",\"message\":\"root test warn\"}\n\
 				   {\"timestamp\":1772637017468,\"level\":\"info\",\"message\":\"first test info\",\"number\":1}\n\
@@ -67,7 +66,7 @@ fn sync_output() {
 		TestCase {
 			name: "CBOR",
 			out_format: OutputFormat::Cbor,
-			time_format: ntime::Format::UtcDateTime,
+			time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Seconds),
 			want: [
 				0xa2, 0x64, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x32, 0x30, 0x32, 0x36, 0x2d, 0x30, 0x33, 0x2d, 0x30, 0x34, 0x20, 0x31, 0x35, 0x3a, 0x31, 0x30, 0x3a, 0x31, 0x35, 0x67, 0x6d, 0x65, 0x73,
 				0x73, 0x61, 0x67, 0x65, 0x6e, 0x72, 0x6f, 0x6f, 0x74, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x69, 0x6e, 0x66, 0x6f, 0x0a, 0xa2, 0x64, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x32, 0x30, 0x32,
@@ -87,7 +86,7 @@ fn sync_output() {
 		TestCase {
 			name: "CBOR with timestamps",
 			out_format: OutputFormat::Cbor,
-			time_format: ntime::Format::TimestampMilliseconds,
+			time_format: TimeFormat::Timestamp(TimePrecision::Milliseconds),
 			want: [
 				0xa2, 0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x1b, 0x00, 0x00, 0x01, 0x9c, 0xb9, 0x66, 0x4b, 0xd8, 0x67, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x6e, 0x72,
 				0x6f, 0x6f, 0x74, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x69, 0x6e, 0x66, 0x6f, 0x0a, 0xa2, 0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x1b, 0x00, 0x00, 0x01, 0x9c,

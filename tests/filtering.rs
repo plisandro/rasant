@@ -1,8 +1,15 @@
+use std::thread;
+use std::time;
+
 use ntime;
 use rasant as r;
 use rasant::Level;
 use rasant::filter;
 use rasant::sink;
+
+fn sleep_millis(millis: u64) {
+	thread::sleep(time::Duration::from_millis(millis));
+}
 
 #[test]
 fn step() {
@@ -56,7 +63,7 @@ fn burst() {
 		for i in 0..15 {
 			r::info!(log, "test info", iteration = i + 1);
 			r::debug!(log, "i'm ignored :(");
-			ntime::sleep_millis(10);
+			sleep_millis(10);
 		}
 	}
 

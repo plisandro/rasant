@@ -1,8 +1,15 @@
-use ntime::sleep_millis;
+use std::thread;
+use std::time;
+
 use rasant as r;
 use rasant::FormatterConfig;
 use rasant::Level;
 use rasant::sink;
+
+#[inline]
+fn sleep_millis(millis: u64) {
+	thread::sleep(time::Duration::from_millis(millis));
+}
 
 /// A Q&D dumb test to render a sample output for README.md.
 #[test]

@@ -26,7 +26,7 @@ use crate::sink::{LogDepth, LogUpdate};
 pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::Full,
-		time_format: ntime::Format::LocalMillisDateTime,
+		time_format: ntime::Format::DateTime(ntime::Timezone::Local, ntime::Precision::Milliseconds),
 		delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 	}
 }
@@ -72,7 +72,7 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// compute header length to properly align all log output lines
 	// "<time str> [WARNING]" + <depth spacer>
-	let header_len: usize = update.when().string_len(time_format) + 10 + depth_spacer_len(*update.depth());
+	let header_len: usize = update.when().string_len_as(time_format) + 10 + depth_spacer_len(*update.depth());
 
 	// write header
 	update.when().write(out, time_format)?;
@@ -168,7 +168,7 @@ mod tests {
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("nothing", Value::from(None::<bool>));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		for tc in [
 			(
 				LogUpdate::from((&when, Level::Warning, 0, "test full, no depth", &attrs)),
@@ -195,7 +195,7 @@ mod tests {
 			let delimiter: Vec<u8> = [b'\n'].to_vec();
 
 			let update = LogUpdate::from((&pupdate, &attrs));
-			let time_format = &ntime::Format::TimestampNanoseconds;
+			let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 
 			assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
 			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

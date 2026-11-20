@@ -16,7 +16,7 @@ use crate::sink::LogUpdate;
 pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::Json,
-		time_format: ntime::Format::TimestampMilliseconds,
+		time_format: ntime::Format::Timestamp(ntime::Precision::Milliseconds),
 		delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 	}
 }
@@ -73,7 +73,7 @@ pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Json`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// build output header
-	match time_format.as_integer(&update.when()) {
+	match time_format.to_integer_for(&update.when()) {
 		Some(timestamp_int) => write!(
 			out,
 			"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
@@ -191,11 +191,11 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 3, "test JSON update ❤️", &attrs));
 
 		let time_key: &str = "timestamp";
-		let time_format = &ntime::Format::TimestampNanoseconds;
+		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 
 		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
 		let mut out = Vec::new();

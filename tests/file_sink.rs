@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use ntime;
 use rasant as r;
 use rasant::sink;
-use rasant::{FormatterConfig, Level};
+use rasant::{FormatterConfig, Level, TimeFormat, TimePrecision, TimeTimezone};
 
 fn test_filename() -> PathBuf {
 	let mut path = env::temp_dir();
@@ -36,7 +36,7 @@ fn append() {
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..FormatterConfig::default()
 			},
@@ -65,7 +65,7 @@ fn append() {
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..FormatterConfig::default()
 			},
@@ -99,7 +99,7 @@ fn overwrite() {
 		log.set_level(Level::Info).add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..FormatterConfig::default()
 			},
@@ -124,7 +124,7 @@ fn overwrite() {
 		log.add_sink(sink::file::new(sink::file::FileConfig {
 			path: Some(log_file_path.clone()),
 			formatter_cfg: FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: TimeFormat::DateTime(TimeTimezone::Utc, TimePrecision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..FormatterConfig::default()
 			},

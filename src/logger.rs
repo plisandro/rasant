@@ -497,7 +497,7 @@ mod log_disabling {
 		let mem_sink = sink::memory::Memory::new(sink::memory::MemoryConfig {
 			mock_time: true,
 			formatter_cfg: format::FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..format::FormatterConfig::default()
 			},
@@ -557,7 +557,7 @@ mod attribute_handling {
 			mock_time: true,
 			mock_trace: true,
 			formatter_cfg: format::FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..format::FormatterConfig::default()
 			},
@@ -607,7 +607,7 @@ mod formatting {
 			TestCase {
 				name: "compact default",
 				out_format: format::OutputFormat::Compact,
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 [INF] root test info\n\
 				       2026-03-04 15:10:16.234 [WRN] root test warn\n\
@@ -619,7 +619,7 @@ mod formatting {
 			TestCase {
 				name: "compact color, ANSI console",
 				out_format: format::OutputFormat::ColorCompact,
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				colorterm: true,
 				want: "\u{1b}[37m2026-03-04 15:10:15.000 \u{1b}[32mINF \u{1b}[97mroot test info\u{1b}[0m\n\
 				       \u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWRN \u{1b}[97mroot test warn\u{1b}[0m\n\
@@ -631,7 +631,7 @@ mod formatting {
 			TestCase {
 				name: "compact color, non-ANSI console",
 				out_format: format::OutputFormat::ColorCompact,
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 INF root test info\n\
 				       2026-03-04 15:10:16.234 WRN root test warn\n\
@@ -643,7 +643,7 @@ mod formatting {
 			TestCase {
 				name: "full color, ANSI console",
 				out_format: format::OutputFormat::ColorFull,
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				colorterm: true,
 				want: "\u{1b}[37m2026-03-04 15:10:15.000 \u{1b}[32mINFO    \u{1b}[97mroot test info\u{1b}[0m
 \u{1b}[37m2026-03-04 15:10:16.234 \u{1b}[33mWARNING \u{1b}[97mroot test warn\u{1b}[0m
@@ -659,7 +659,7 @@ mod formatting {
 			TestCase {
 				name: "full color, non-ANSI console",
 				out_format: format::OutputFormat::ColorFull,
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				colorterm: false,
 				want: "2026-03-04 15:10:15.000 INFO    root test info
 2026-03-04 15:10:16.234 WARNING root test warn

@@ -16,7 +16,7 @@ fn init_logger() -> r::Logger {
 	log.add_sink(r::sink::black_hole::BlackHole::new(r::sink::black_hole::BlackHoleConfig {
 		formatter_cfg: r::FormatterConfig {
 			format: r::OutputFormat::Compact,
-			time_format: r::TimeFormat::TimestampNanoseconds,
+			time_format: r::TimeFormat::Timestamp(r::TimePrecision::Nanoseconds),
 			..r::FormatterConfig::default()
 		},
 		..r::sink::black_hole::BlackHoleConfig::default()

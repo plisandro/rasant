@@ -19,7 +19,7 @@ use crate::sink::LogUpdate;
 pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::ColorCompact,
-		time_format: ntime::Format::LocalMillisDateTime,
+		time_format: Format::DateTime(ntime::Timezone::Local, ntime::Precision::Milliseconds),
 		delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 	}
 }
@@ -96,7 +96,7 @@ mod tests {
 
 	use crate::attributes::{Map, Scalar, Value};
 	use crate::console;
-	use ntime::Timestamp;
+	use ntime::{Format, Precision, Timestamp};
 
 	#[test]
 	fn serialize_value() {
@@ -143,9 +143,9 @@ mod tests {
 		attrs.insert("nothing", Value::from(None::<u32>));
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 1, "test compact update", &attrs));
-		let time_format = &ntime::Format::TimestampNanoseconds;
+		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 
 		for tc in [
 			(

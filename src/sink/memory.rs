@@ -64,7 +64,7 @@ impl Default for MemoryConfig {
 		Self {
 			type_str: "default".into(),
 			formatter_cfg: format::FormatterConfig {
-				time_format: ntime::Format::UtcMillisDateTime,
+				time_format: ntime::Format::DateTime(ntime::Timezone::Utc, ntime::Precision::Milliseconds),
 				delimiter: vec![b'\n'],
 				..format::FormatterConfig::default()
 			},
@@ -167,7 +167,7 @@ impl sink::Sink for Memory {
 
 		if let Some(now) = &mut (self.frozen_now) {
 			if let Some(tick) = self.frozen_now_tick {
-				now.add_duration(&tick);
+				*now += tick;
 			}
 		}
 

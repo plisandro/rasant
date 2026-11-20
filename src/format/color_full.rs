@@ -29,7 +29,7 @@ use crate::sink::{LogDepth, LogUpdate};
 pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::ColorFull,
-		time_format: ntime::Format::LocalMillisDateTime,
+		time_format: Format::DateTime(ntime::Timezone::Local, ntime::Precision::Milliseconds),
 		delimiter: DEFAULT_LOG_DELIMITER_STRING.into(),
 	}
 }
@@ -88,7 +88,7 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// compute header length to properly align all log output lines
 	// "<time str> WARNING" + <depth spacer>
-	let header_len: usize = update.when().string_len(time_format) + 8 + depth_spacer_len(*update.depth());
+	let header_len: usize = update.when().string_len_as(time_format) + 8 + depth_spacer_len(*update.depth());
 
 	// write header
 	write!(out, "{}", Color::White.to_escape_str())?;
@@ -149,7 +149,7 @@ mod tests {
 	use crate::attributes::{Map, Scalar, Value};
 	use crate::console;
 	use crate::level::Level;
-	use ntime::Timestamp;
+	use ntime::{Format, Precision, Timestamp};
 
 	#[test]
 	fn serialize_value() {
@@ -195,7 +195,7 @@ mod tests {
 		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("nothing", Value::from(None::<bool>));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 
 		for tc in [
 			(
@@ -247,7 +247,7 @@ mod tests {
 			    let mut out = Vec::new();
 
 				let delimiter: Vec<u8> = [b'\n'].to_vec();
-				let time_format = &ntime::Format::TimestampNanoseconds;
+				let time_format = &Format::Timestamp(Precision::Nanoseconds);
 
 				assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
 				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

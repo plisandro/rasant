@@ -15,7 +15,7 @@
 //!
 //! Multiple syslog formats are supported:
 //!
-//!   - [`SyslogFormat::RFC3164`] implements the older, but widely supported,
+//!   - [`SyslogFormat::Rfc3164`] implements the older, but widely supported,
 //!     [RFC 3164](<https://datatracker.ietf.org/doc/html/rfc3164>) BSD standard,
 //!     pretty much guaranteed to work with all existing syslog server implementations.
 //!     It has a number of limitations though...
@@ -24,8 +24,8 @@
 //!       - Log timestamp precision is seconds.
 //!       - Can't properly handle newlines (ASCII LF) in log messages.
 //!
-//!     ...so [`SyslogFormat::RFC5424`] should be favored whenever possible.
-//!   - [`SyslogFormat::RFC5424`] implements the 2009
+//!     ...so [`SyslogFormat::Rfc5424`] should be favored whenever possible.
+//!   - [`SyslogFormat::Rfc5424`] implements the 2009
 //!     [RFC 5424](<https://datatracker.ietf.org/doc/html/rfc5424>) standard, with
 //!     proper Unicode support, parameterized logging, and nanosecond precision. Most
 //!     modern syslog servers (f.ex. [syslog-ng](https://www.syslog-ng.com/products/open-source-log-management/))
@@ -39,7 +39,7 @@
 //!         string: `["val_1", "val_2", ... ]`.
 //!       - [`Map`][Value::Map]s have no native syslog representation, and encode as a single
 //!         string: `{"key_1": "val_1", "key_2": "val_2", ... }`.
-//!   - [`SyslogFormat::RFC5424Full`] is identical to [`SyslogFormat::RFC5424`], but log
+//!   - [`SyslogFormat::Rfc5424Full`] is identical to [`SyslogFormat::Rfc5424`], but log
 //!     attributes are also serialized as text and appended to the log message.
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
@@ -58,15 +58,32 @@ use std::os::unix::net::UnixDatagram;
 #[derive(Debug, PartialEq)]
 pub enum SyslogFormat {
 	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424).
-	RFC5424,
+	Rfc5424,
 	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424), with
 	/// attributes rendered as part of the main message in addition to
 	/// `STRUCTURED-DATA`.
-	RFC5424Full,
+	Rfc5424Full,
 	/// [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164). This standard
-	/// was obsoleted in 2009, and [`RFC 5424`][`SyslogFormat::RFC5424`] should
+	/// was obsoleted in 2009, and [`RFC 5424`][`SyslogFormat::Rfc5424`] should
 	/// be favored when possible.
-	RFC3164,
+	Rfc3164,
+}
+
+impl SyslogFormat {
+	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424).
+	#[deprecated(note = "use SyslogFormat::Rfc5424 instead")]
+	pub const RFC5424: Self = Self::Rfc5424;
+	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424), with
+	/// attributes rendered as part of the main message in addition to
+	/// `STRUCTURED-DATA`.
+	#[deprecated(note = "use SyslogFormat::Rfc5424Full instead")]
+	#[allow(non_upper_case_globals)]
+	pub const RFC5424Full: Self = Self::Rfc5424Full;
+	/// [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164). This standard
+	/// was obsoleted in 2009, and [`RFC 5424`][`SyslogFormat::Rfc5424`] should
+	/// be favored when possible.
+	#[deprecated(note = "use SyslogFormat::Rfc3164 instead")]
+	pub const RFC3164: Self = Self::Rfc3164;
 }
 
 /// Supported connection types for [`Syslog`] [`sink`]s.
@@ -109,7 +126,7 @@ impl<'i> Default for SyslogConfig<'i> {
 		Self {
 			name: String::from("default Syslog"),
 			server: SyslogSocket::TCP(""),
-			format: SyslogFormat::RFC5424Full,
+			format: SyslogFormat::Rfc5424Full,
 			facility: 1, // user-level messages
 		}
 	}
@@ -123,7 +140,7 @@ impl<'i> SyslogConfig<'i> {
 			name: String::from("default local Syslog"),
 			server: SyslogSocket::Local,
 			// most local syslogs (notably, journald) expect the older RFC 3146 format :(
-			format: SyslogFormat::RFC3164,
+			format: SyslogFormat::Rfc3164,
 			..Self::default()
 		}
 	}
@@ -437,9 +454,11 @@ impl sink::Sink for Syslog {
 	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
 		self.output_buf.clear();
 		match self.format {
-			SyslogFormat::RFC5424 | SyslogFormat::RFC5424Full => {
+			SyslogFormat::Rfc5424 | SyslogFormat::Rfc5424Full => {
 				write!(&mut self.output_buf, "<{pri}>1 ", pri = self.facility_mask + update.level().syslog_severity())?;
-				update.when().write(&mut self.output_buf, &ntime::Format::UtcNanosRFC3339)?;
+				update
+					.when()
+					.write(&mut self.output_buf, &ntime::Format::Rfc3339(ntime::Timezone::Utc, ntime::Precision::Nanoseconds))?;
 				write!(
 					self.output_buf,
 					" {hostname} {process_name} {process_id} - ",
@@ -450,13 +469,13 @@ impl sink::Sink for Syslog {
 				self.write_buf_attributes_5424(update)?;
 				self.output_buf.write(&[b' '])?;
 				encoding::str_write(&mut self.output_buf, update.message(), &encoding::Mode::Utf8Bom)?;
-				if self.format == SyslogFormat::RFC5424Full {
+				if self.format == SyslogFormat::Rfc5424Full {
 					self.write_buf_attributes_text(update)?;
 				}
 			}
-			SyslogFormat::RFC3164 => {
+			SyslogFormat::Rfc3164 => {
 				write!(&mut self.output_buf, "<{pri}>", pri = self.facility_mask + update.level().syslog_severity())?;
-				update.when().write(&mut self.output_buf, &ntime::Format::LocalRFC3164)?;
+				update.when().write(&mut self.output_buf, &ntime::Format::Rfc3164(ntime::Timezone::Local))?;
 				write!(
 					self.output_buf,
 					" {process_name}[{process_id}]: {message}",
@@ -522,16 +541,16 @@ mod tests {
 			// TODO: RFC 3164 mandates a local timestamp, fix this test to make it deterministic.
 			/*
 			(
-				SyslogFormat::RFC3164,
+				SyslogFormat::Rfc3164,
 				"<12>Apr 12 19:56:39 test_process[1234]: test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
 			),
 			*/
 			(
-				SyslogFormat::RFC5424,
+				SyslogFormat::Rfc5424,
 				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 nothing=\"\"][rasant@4 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@5 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f}",
 			),
 			(
-				SyslogFormat::RFC5424Full,
+				SyslogFormat::Rfc5424Full,
 				"<12>1 2026-04-12T17:56:39.123000456Z localhost test_process 1234 - [rasant@0 an_int=\"123\"][rasant@1 a_float=\"-456.789\"][rasant@2 some_string=\"hi there!\"][rasant@3 nothing=\"\"][rasant@4 a_list=\"[\\\"349834934\\\", \\\"true\\\"\\]\"][rasant@5 a_map=\"{\\\"key #1\\\": \\\"false\\\", \\\"key #2\\\": \\\"weee\\\"}\"] \u{feff}test Syslog message update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}",
 			),
 		] {
@@ -545,7 +564,7 @@ mod tests {
 			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-			let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+			let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 			let update = LogUpdate::from((&when, Level::Warning, 0, "test Syslog message update ❤️", &attrs));
 
 			let mut sink = Syslog::new(SyslogConfig {

@@ -59,7 +59,7 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 			Some(s) => s.as_str(),
 			None => "",
 		},
-		timestamp = ntime::Timestamp::now().as_string(if conf.local_timestamp { &ntime::Format::LocalFileName } else { &ntime::Format::UtcFileName }),
+		timestamp = ntime::Timestamp::now().to_string_as(&ntime::Format::FileName(if conf.local_timestamp { ntime::Timezone::Local } else { ntime::Timezone::Utc })),
 		pid = *PROCESS_ID,
 	));
 

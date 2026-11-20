@@ -189,7 +189,7 @@ impl Burst {
 		Self {
 			name: format!("burst sample filter (max {max} per {period:?})", max = conf.max_updates, period = conf.period),
 			period: conf.period,
-			period_end: ntime::Timestamp::epoch(),
+			period_end: ntime::Timestamp::EPOCH,
 			period_count: 0,
 			max_updates: conf.max_updates,
 		}
@@ -208,8 +208,7 @@ impl Filter for Burst {
 
 		let now = Timestamp::now();
 		if now >= self.period_end {
-			self.period_end = now;
-			self.period_end.add_duration(&self.period);
+			self.period_end = now + self.period;
 			self.period_count = 0;
 		}
 
@@ -316,12 +315,14 @@ mod random_step {
 #[cfg(test)]
 mod burst {
 	use super::*;
+
 	use ntime::Timestamp;
 
 	use crate::attributes;
 	use crate::filter::Filter;
 	use crate::level::Level;
 	use crate::sink::LogUpdate;
+	use crate::test_helpers::sleep;
 
 	#[test]
 	fn filtering() {
@@ -339,7 +340,7 @@ mod burst {
 			if filter.pass(&update) {
 				got.push(i + 1);
 			}
-			ntime::sleep_millis(10);
+			sleep::millis(10);
 		}
 
 		let want: Vec<usize> = [1, 2, 3, 6, 7, 8, 11, 12, 13].to_vec();

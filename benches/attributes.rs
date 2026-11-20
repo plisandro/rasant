@@ -1,7 +1,7 @@
 use divan::{Bencher, counter};
 use rasant as r;
 use rasant::sink::black_hole;
-use rasant::{FormatterConfig, Logger, OutputFormat, Scalar, TimeFormat, Value};
+use rasant::{FormatterConfig, Logger, OutputFormat, Scalar, TimeFormat, TimePrecision, Value};
 
 const COUNTS: &[usize] = &[0, 1, 5, 10, 25, 50, 100, 250];
 
@@ -14,7 +14,7 @@ fn init_logger() -> Logger {
 	log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 		formatter_cfg: FormatterConfig {
 			format: OutputFormat::Compact,
-			time_format: TimeFormat::TimestampNanoseconds,
+			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
 		..black_hole::BlackHoleConfig::default()

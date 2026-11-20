@@ -3,8 +3,8 @@
 //!
 //! Outputs one CBOR-formatted map per log entry.
 
-use ntime::Format;
 use ntime::Timestamp;
+use ntime::{Format, Precision};
 use std::io;
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
@@ -22,7 +22,7 @@ const MAX_64_BITS: u128 = (u64::MAX as u128) + 1;
 pub fn default_format_config() -> FormatterConfig {
 	FormatterConfig {
 		format: OutputFormat::Cbor,
-		time_format: ntime::Format::TimestampMilliseconds,
+		time_format: ntime::Format::Timestamp(Precision::Milliseconds),
 		delimiter: DEFAULT_LOG_DELIMITER_BINARY.into(),
 	}
 }
@@ -151,7 +151,7 @@ fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
 
 // Serializes a timestamp into a CBOR stream; turns out there're dedicated types for second timestamps and RFC3339.
 fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, f: &Format) -> io::Result<()> {
-	if f.is_rfc_3339() {
+	if matches!(f, Format::Rfc3339(_, _)) {
 		// major type 6, tag 0 (date/time string)
 		_ = out.write(&[((6 << 5) + 0) as u8])?;
 		buf.clear();
@@ -159,8 +159,8 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 		return write_string_bytes(out, buf);
 	}
 
-	if let Some(i) = t.as_integer(f) {
-		if *f == Format::TimestampSeconds {
+	if let Some(i) = t.to_integer_as(f) {
+		if *f == Format::Timestamp(Precision::Seconds) {
 			// major type 6, tag 1 (epoch timestamp in seconds)
 			_ = out.write(&[((6 << 5) + 1) as u8])?;
 		}
@@ -245,6 +245,8 @@ pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: 
 mod tests {
 	use super::*;
 
+	use ntime::{Format, Precision, Timezone};
+
 	use crate::Level;
 	use crate::attributes::Map;
 
@@ -315,15 +317,15 @@ mod tests {
 
 	#[test]
 	fn serialize_timestamp() {
-		let ts = Timestamp::from_utc_date(2026, 05, 07, 16, 04, 34, 123, 456).unwrap();
+		let ts = Timestamp::try_from((2026, 05, 07, 16, 04, 34, 123, 456)).unwrap();
 		for tc in [
 			// 1778169874; second timestamps get CBOR tag 1
-			(Format::TimestampSeconds, [0xc1, 0x1a, 0x69, 0xfc, 0xb8, 0x12].as_slice()),
+			(Format::Timestamp(Precision::Seconds), [0xc1, 0x1a, 0x69, 0xfc, 0xb8, 0x12].as_slice()),
 			// 1778169874123000456
-			(Format::TimestampNanoseconds, [0x1b, 0x18, 0xad, 0x54, 0x14, 0x51, 0x67, 0x0a, 0x88].as_slice()),
+			(Format::Timestamp(Precision::Nanoseconds), [0x1b, 0x18, 0xad, 0x54, 0x14, 0x51, 0x67, 0x0a, 0x88].as_slice()),
 			// "2026-05-07T16:04:34Z"; RFC 3339 strings get CBOR tag 0
 			(
-				Format::UtcRFC3339,
+				Format::Rfc3339(Timezone::Utc, Precision::Seconds),
 				[
 					0xc0, 0x74, 0x32, 0x30, 0x32, 0x36, 0x2d, 0x30, 0x35, 0x2d, 0x30, 0x37, 0x54, 0x31, 0x36, 0x3a, 0x30, 0x34, 0x3a, 0x33, 0x34, 0x5a,
 				]
@@ -331,7 +333,7 @@ mod tests {
 			),
 			// "2026-05-07 16:04:34.123000456"
 			(
-				Format::UtcNanosDateTime,
+				Format::DateTime(Timezone::Utc, Precision::Nanoseconds),
 				[
 					0x78, 0x1d, 0x32, 0x30, 0x32, 0x36, 0x2d, 0x30, 0x35, 0x2d, 0x30, 0x37, 0x20, 0x31, 0x36, 0x3a, 0x30, 0x34, 0x3a, 0x33, 0x34, 0x2e, 0x31, 0x32, 0x33, 0x30, 0x30, 0x30, 0x34, 0x35,
 					0x36,
@@ -404,11 +406,11 @@ mod tests {
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update", &attrs));
 
 		let time_key: &str = "timestamp";
-		let time_format = &ntime::Format::TimestampNanoseconds;
+		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 
 		let want = [
 			0xa7, 0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x1b, 0x18, 0xa5, 0xad, 0xaf, 0xe9, 0xec, 0x7c, 0x88, 0x67, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x70, 0x74, 0x65,
@@ -427,7 +429,7 @@ mod tests {
 	#[test]
 	fn serialize_multi() {
 		let time_key: &str = "timestamp";
-		let time_format = &ntime::Format::TimestampNanoseconds;
+		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 		let mut attrs = Map::new();
 		let mut buffer = Vec::new();
 		let mut out = Vec::new();
@@ -437,7 +439,7 @@ mod tests {
 		attrs.insert("an_int", Value::from(123 as i32));
 		attrs.insert("a_float", Value::from(-456.789));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 123, 456).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update #1", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
@@ -447,7 +449,7 @@ mod tests {
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
 
-		let when = Timestamp::from_utc_date(2026, 04, 12, 17, 56, 39, 789, 012).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 789, 012)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Info, 0, "test CBOR update #2", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());

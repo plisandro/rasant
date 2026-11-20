@@ -41,7 +41,7 @@ impl<'i> AsyncSinkOp {
 		Self {
 			sink: None,
 			flush: false,
-			when: Timestamp::epoch(),
+			when: Timestamp::EPOCH,
 			level: Level::Info,
 			depth: 0,
 			msg: String::from(""),
