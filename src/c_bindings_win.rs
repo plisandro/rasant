@@ -2,7 +2,7 @@ use core::ffi::{c_char, c_int, c_ushort};
 use std::ffi::CString;
 
 const MAX_HOSTNAME_LENGTH: usize = 256;
-const WSADATA_MAX_SIZE: usize = 64;
+const WSADATA_MAX_SIZE: usize = 512;
 const WSADATA_VERSION: u16 = 0x22; // Windows Sockets version 2.2.
 
 /* ----------------------- Bindings for MSVC functions ----------------------- */
@@ -13,6 +13,8 @@ unsafe extern "C" {
 	unsafe fn gethostname(name: *mut c_char, namelen: c_int) -> c_int;
 	// https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-wsastartup
 	unsafe fn WSAStartup(wVersionRequested: c_ushort, lpWSAData: *mut c_char) -> c_int;
+	// https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-wsacleanup
+	unsafe fn WSACleanup() -> c_int;
 }
 
 /* -----------------------Safe C function wrappers ----------------------- */
@@ -32,27 +34,38 @@ fn c_wsa_startup() {
 	}
 }
 
+// Terminaes the use of Windows's sockets.
+fn c_wsa_cleanup() {
+	// SAFETY: Calling MSVC functions with properly initialized types.
+	unsafe {
+		let err = WSACleanup();
+		if err != 0 {
+			panic!("WSACleanup() failed with error {err}");
+		}
+	}
+}
+
 // Resolves the system's hostname, if available.
 pub fn c_get_hostname() -> Option<String> {
-	let res: Option<String>;
-
 	c_wsa_startup();
 
 	// SAFETY: Calling MSVC functions with properly initialized types.
-	unsafe {
+	let res = unsafe {
 		let c_hostname_buf: Vec<u8> = vec![0; MAX_HOSTNAME_LENGTH];
 		let c_hostname = CString::from_vec_unchecked(c_hostname_buf);
 		let c_hostname_ptr = c_hostname.into_raw();
 
 		if gethostname(c_hostname_ptr as *mut c_char, MAX_HOSTNAME_LENGTH as c_int) != 0 {
-			return None;
+			None
+		} else {
+			match CString::from_raw(c_hostname_ptr).into_string() {
+				Ok(s) => Some(s),
+				Err(_) => None,
+			}
 		}
+	};
 
-		res = match CString::from_raw(c_hostname_ptr).into_string() {
-			Ok(s) => Some(s),
-			Err(_) => None,
-		}
-	}
+	c_wsa_cleanup();
 
 	res
 }
