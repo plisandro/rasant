@@ -115,9 +115,9 @@ extremely efficient.
 
 Fast means nothing if log entries are incorrect.
 
-Rasant ensures correctness by, among others, timestamping all log operations at
-creation time instead of write time, and handling overlapping attribute definitions
-cleanly so log output is never garbled.
+Rasant ensures correctness by, among others, ensuring no log writes are ever dropped,
+timestamping all log operations at creation time instead of write time, and handling
+overlapping attribute definitions cleanly so log output is never garbled.
 
 A number of other structured log solutions tend to optimize duplicate attribute keys
 checks away, which can easily lead to invalid output in formats such as JSON.
@@ -202,3 +202,25 @@ exact time log entries were created, specially when
 
 Overall, `slog` is a strong contender for fast structured logging in Rust, and
 should be specially considered if Rasant doesn't offer the feature set you're after.
+
+### ticklog
+
+[ticklog](https://github.com/tensorbinge/ticklog) is an ultra-fast, minimal logging
+crate, representative of similar specialized solutions geared for applications such
+as [HFT](https://en.wikipedia.org/wiki/High-frequency_trading). Out of the box,
+it offers a logging lock time of ~10ns on modern systems - which is _exceptionally_
+fast.
+
+These types of logging crates are, however, very application specific and not
+suited for general use. `ticklog` in particular achieves its performance figures
+by limiting configuration/logging options, and queuing log updates in fixed-size
+lock-free ring buffers. This makes it exceedingly performant as long as the rate
+of queued messages doesn't outpace the buffer drain; at which point, it will
+(silently!) drop log writes.
+
+`ticklog` provides an option to avoid dropouts by busy-waiting on a full queue,
+but this dramatically shrinks the performance gap, and at the cost of spinlock
+busy waits with high CPU usage.
+
+In general, `ticklog` et al are the fastest logging solutions available for
+Rust, _as long_ as the tradeoffs suit your application's workload.
