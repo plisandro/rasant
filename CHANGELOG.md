@@ -2,6 +2,20 @@
 
 A list of important changes for relevant `rasant` releases.
 
+## Version 1.4.0 (2026-11-22)
+
+Improved logging performance, courtesy of [NanoTime v1.0.0](https://github.com/plisandro/ntime/tree/v1.0.0).
+
+  - Use NanoTime v1.0.0, which introduces a new serializer yielding write throughput boosts of
+    1.31x to 7.03x _(!!!)_. This translates directly to log write performance, which is now
+    1.2x to 1.7x faster than v1.3.0 - mostly depending on the sink type.
+  - NanoTime v1.0.0 also imposes a few minor API changes which are reflected on Rasant's
+    public API (f.ex. formatting settings); aliases are provided with the older v0.x
+    format to prevent API breakages on update.
+  - Fixed a sneaky heap corruption bug on Windows.
+  - Fixed flaky unit tests for color I/O sinks.
+  - Rasant is now distributed under either the MIT or Apache 2.0 licence.
+
 ## Version 1.3.0 (2026-11-11)
 
 High-performance async queue implementation, improved third-party APIs, bugfixes.

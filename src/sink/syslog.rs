@@ -71,18 +71,18 @@ pub enum SyslogFormat {
 
 impl SyslogFormat {
 	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424).
-	#[deprecated(note = "use SyslogFormat::Rfc5424 instead")]
+	#[deprecated(since = "1.4.0", note = "use SyslogFormat::Rfc5424 instead")]
 	pub const RFC5424: Self = Self::Rfc5424;
 	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424), with
 	/// attributes rendered as part of the main message in addition to
 	/// `STRUCTURED-DATA`.
-	#[deprecated(note = "use SyslogFormat::Rfc5424Full instead")]
+	#[deprecated(since = "1.4.0", note = "use SyslogFormat::Rfc5424Full instead")]
 	#[allow(non_upper_case_globals)]
 	pub const RFC5424Full: Self = Self::Rfc5424Full;
 	/// [RFC 3164](https://datatracker.ietf.org/doc/html/rfc3164). This standard
 	/// was obsoleted in 2009, and [`RFC 5424`][`SyslogFormat::Rfc5424`] should
 	/// be favored when possible.
-	#[deprecated(note = "use SyslogFormat::Rfc3164 instead")]
+	#[deprecated(since = "1.4.0", note = "use SyslogFormat::Rfc3164 instead")]
 	pub const RFC3164: Self = Self::Rfc3164;
 }
 

@@ -10,8 +10,8 @@ This project compares the performance of multiple logging libraries for Rust, in
 operations and iteration time, with the thickness of the shaded region indicating the probability
 that a measurement of a given log op would take a particular length of time.
 
-Rasant v1.3.0 performs, on average, 40% faster than [slog](https://crates.io/crates/slog) (v2.8.2),
-second fastest in the benchmark, and 107% faster than [tracing](https://crates.io/crates/tracing) (v0.1.44).
+Rasant v1.4.0 performs, on median, 219% faster than [slog](https://crates.io/crates/slog) (v2.8.2),
+second fastest in the benchmark, and 370% faster than [tracing](https://crates.io/crates/tracing) (v0.1.44).
 
 
 <p>
@@ -31,9 +31,8 @@ fixed attributes, and per-call attributes, all both in sync and async mode.
 
 All of these are indicative of real world performance, with the variance for
 async mode writes being mostly dependent on system load, thread counts and occasional
-re-allocs required to grow queues. In general, 90%+ of all async log writes
-can be expected to complete _faster_ than other logging solutions take to perform
-synchronous updates.
+re-allocs required to grow queues. In general, 50%+ of all async log writes will
+complete _faster_ than other logging solutions take to perform synchronous updates.
 
 ## Internal
 
@@ -42,6 +41,76 @@ intended to gauge performance progress across versions, which can be run via
 `cargo bench --profile=release`.
 
 All figures below were collected on 16-core AMD Ryzen 9 5950X system with 64GB of DDR4 memory.
+
+### Version 1.4.0 (2026-11-22)
+
+Uses a [new NanoTime release](https://github.com/plisandro/ntime/tree/v1.0.0), greatly improving
+timestamp write throughput. This impacts log write throughput which, depending
+on the sink type, is now 1.2x to 1.7x faster than v1.3.0.
+
+```
+Timer precision: 10 ns
+log_write                 fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ nested                               │               │               │               │         │
+│  ├─ async_skip          66.82 µs      │ 98.24 µs      │ 70.17 µs      │ 71.01 µs      │ 100     │ 100
+│  │                      149.6 Mitem/s │ 101.7 Mitem/s │ 142.5 Mitem/s │ 140.8 Mitem/s │         │
+│  ├─ async_write         3.534 ms      │ 4.402 ms      │ 3.654 ms      │ 3.717 ms      │ 100     │ 100
+│  │                      2.829 Mitem/s │ 2.271 Mitem/s │ 2.736 Mitem/s │ 2.69 Mitem/s  │         │
+│  ├─ skip                36.79 µs      │ 50.64 µs      │ 37.21 µs      │ 37.94 µs      │ 100     │ 100
+│  │                      271.7 Mitem/s │ 197.4 Mitem/s │ 268.7 Mitem/s │ 263.5 Mitem/s │         │
+│  ╰─ write               1.08 ms       │ 1.17 ms       │ 1.1 ms        │ 1.101 ms      │ 100     │ 100
+│                         9.252 Mitem/s │ 8.541 Mitem/s │ 9.085 Mitem/s │ 9.077 Mitem/s │         │
+├─ nested_with_arguments                │               │               │               │         │
+│  ├─ async_skip          70.75 µs      │ 132.7 µs      │ 103.4 µs      │ 102.5 µs      │ 100     │ 100
+│  │                      141.3 Mitem/s │ 75.34 Mitem/s │ 96.66 Mitem/s │ 97.47 Mitem/s │         │
+│  ├─ async_write         3.639 ms      │ 7.094 ms      │ 4.268 ms      │ 4.203 ms      │ 100     │ 100
+│  │                      2.747 Mitem/s │ 1.409 Mitem/s │ 2.342 Mitem/s │ 2.378 Mitem/s │         │
+│  ├─ skip                64.01 µs      │ 74.7 µs       │ 66.4 µs       │ 66.94 µs      │ 100     │ 100
+│  │                      156.2 Mitem/s │ 133.8 Mitem/s │ 150.5 Mitem/s │ 149.3 Mitem/s │         │
+│  ╰─ write               4.633 ms      │ 4.795 ms      │ 4.648 ms      │ 4.657 ms      │ 100     │ 100
+│                         2.158 Mitem/s │ 2.085 Mitem/s │ 2.151 Mitem/s │ 2.146 Mitem/s │         │
+├─ single                               │               │               │               │         │
+│  ├─ async_skip          26.81 µs      │ 30.81 µs      │ 27.23 µs      │ 27.12 µs      │ 100     │ 100
+│  │                      372.8 Mitem/s │ 324.4 Mitem/s │ 367.1 Mitem/s │ 368.6 Mitem/s │         │
+│  ├─ async_write         1.171 ms      │ 3.619 ms      │ 1.195 ms      │ 1.256 ms      │ 100     │ 100
+│  │                      8.533 Mitem/s │ 2.762 Mitem/s │ 8.365 Mitem/s │ 7.956 Mitem/s │         │
+│  ├─ skip                26.4 µs       │ 32.04 µs      │ 26.95 µs      │ 27.01 µs      │ 100     │ 100
+│  │                      378.6 Mitem/s │ 312 Mitem/s   │ 370.9 Mitem/s │ 370.1 Mitem/s │         │
+│  ╰─ write               823.1 µs      │ 862.3 µs      │ 841.8 µs      │ 841.6 µs      │ 100     │ 100
+│                         12.14 Mitem/s │ 11.59 Mitem/s │ 11.87 Mitem/s │ 11.88 Mitem/s │         │
+╰─ threaded                             │               │               │               │         │
+   ├─ async_skip          1.117 ms      │ 2.355 ms      │ 1.259 ms      │ 1.292 ms      │ 100     │ 100
+   │                      8.945 Mitem/s │ 4.245 Mitem/s │ 7.936 Mitem/s │ 7.737 Mitem/s │         │
+   ├─ async_write         2.106 ms      │ 4.249 ms      │ 3.33 ms       │ 3.291 ms      │ 100     │ 100
+   │                      4.746 Mitem/s │ 2.353 Mitem/s │ 3.002 Mitem/s │ 3.038 Mitem/s │         │
+   ├─ skip                1.102 ms      │ 2.352 ms      │ 1.187 ms      │ 1.231 ms      │ 100     │ 100
+   │                      9.069 Mitem/s │ 4.25 Mitem/s  │ 8.419 Mitem/s │ 8.12 Mitem/s  │         │
+   ╰─ write               3.41 ms       │ 4.251 ms      │ 3.613 ms      │ 3.623 ms      │ 100     │ 100
+                          2.931 Mitem/s │ 2.352 Mitem/s │ 2.767 Mitem/s │ 2.759 Mitem/s │         │
+
+Timer precision: 20 ns
+sinks                fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ io_cbor           658.9 µs      │ 702.4 µs      │ 670.1 µs      │ 671.1 µs      │ 100     │ 100
+│                    15.17 Mitem/s │ 14.23 Mitem/s │ 14.92 Mitem/s │ 14.9 Mitem/s  │         │
+├─ io_color_compact  870.9 µs      │ 930.7 µs      │ 905 µs        │ 904.2 µs      │ 100     │ 100
+│                    11.48 Mitem/s │ 10.74 Mitem/s │ 11.04 Mitem/s │ 11.05 Mitem/s │         │
+├─ io_color_full     1.005 ms      │ 1.079 ms      │ 1.022 ms      │ 1.022 ms      │ 100     │ 100
+│                    9.948 Mitem/s │ 9.266 Mitem/s │ 9.784 Mitem/s │ 9.776 Mitem/s │         │
+├─ io_compact        820.4 µs      │ 861.5 µs      │ 831.1 µs      │ 832.6 µs      │ 100     │ 100
+│                    12.18 Mitem/s │ 11.6 Mitem/s  │ 12.03 Mitem/s │ 12 Mitem/s    │         │
+├─ io_full           1.001 ms      │ 1.062 ms      │ 1.008 ms      │ 1.011 ms      │ 100     │ 100
+│                    9.989 Mitem/s │ 9.414 Mitem/s │ 9.917 Mitem/s │ 9.888 Mitem/s │         │
+├─ io_json           680.6 µs      │ 742.3 µs      │ 688.4 µs      │ 691.9 µs      │ 100     │ 100
+│                    14.69 Mitem/s │ 13.47 Mitem/s │ 14.52 Mitem/s │ 14.45 Mitem/s │         │
+├─ journald          1.849 ms      │ 2.052 ms      │ 1.868 ms      │ 1.885 ms      │ 100     │ 100
+│                    5.406 Mitem/s │ 4.872 Mitem/s │ 5.35 Mitem/s  │ 5.303 Mitem/s │         │
+├─ syslog_3164       2.366 ms      │ 2.546 ms      │ 2.389 ms      │ 2.394 ms      │ 100     │ 100
+│                    4.225 Mitem/s │ 3.926 Mitem/s │ 4.184 Mitem/s │ 4.176 Mitem/s │         │
+├─ syslog_5424       1.88 ms       │ 1.997 ms      │ 1.916 ms      │ 1.92 ms       │ 100     │ 100
+│                    5.318 Mitem/s │ 5.006 Mitem/s │ 5.217 Mitem/s │ 5.206 Mitem/s │         │
+╰─ syslog_5424_full  2.447 ms      │ 2.549 ms      │ 2.487 ms      │ 2.487 ms      │ 100     │ 100
+                     4.085 Mitem/s │ 3.923 Mitem/s │ 4.02 Mitem/s  │ 4.019 Mitem/s │         │
+```
 
 ### Version 1.3.0 (2026-11-11)
 
@@ -87,6 +156,29 @@ log_write                 fastest       │ slowest       │ median        │ 
    │                      9.868 Mitem/s │ 5.494 Mitem/s │ 8.492 Mitem/s │ 8.17 Mitem/s  │         │
    ╰─ write               2.737 ms      │ 3.97 ms       │ 2.982 ms      │ 2.99 ms       │ 100     │ 100
                           3.653 Mitem/s │ 2.518 Mitem/s │ 3.352 Mitem/s │ 3.344 Mitem/s │         │
+
+Timer precision: 20 ns
+sinks                fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ io_cbor           660.5 µs      │ 900.9 µs      │ 676 µs        │ 697.2 µs      │ 100     │ 100
+│                    15.13 Mitem/s │ 11.09 Mitem/s │ 14.79 Mitem/s │ 14.34 Mitem/s │         │
+├─ io_color_compact  694.6 µs      │ 1.148 ms      │ 707.5 µs      │ 721 µs        │ 100     │ 100
+│                    14.39 Mitem/s │ 8.708 Mitem/s │ 14.13 Mitem/s │ 13.86 Mitem/s │         │
+├─ io_color_full     1.451 ms      │ 2.008 ms      │ 1.483 ms      │ 1.488 ms      │ 100     │ 100
+│                    6.891 Mitem/s │ 4.979 Mitem/s │ 6.741 Mitem/s │ 6.718 Mitem/s │         │
+├─ io_compact        666.6 µs      │ 1.117 ms      │ 679.1 µs      │ 695.9 µs      │ 100     │ 100
+│                    14.99 Mitem/s │ 8.944 Mitem/s │ 14.72 Mitem/s │ 14.36 Mitem/s │         │
+├─ io_full           1.448 ms      │ 2.007 ms      │ 1.456 ms      │ 1.468 ms      │ 100     │ 100
+│                    6.905 Mitem/s │ 4.98 Mitem/s  │ 6.864 Mitem/s │ 6.808 Mitem/s │         │
+├─ io_json           682 µs        │ 1.069 ms      │ 689.8 µs      │ 702.4 µs      │ 100     │ 100
+│                    14.66 Mitem/s │ 9.347 Mitem/s │ 14.49 Mitem/s │ 14.23 Mitem/s │         │
+├─ journald          1.858 ms      │ 2.652 ms      │ 1.87 ms       │ 1.886 ms      │ 100     │ 100
+│                    5.38 Mitem/s  │ 3.769 Mitem/s │ 5.345 Mitem/s │ 5.3 Mitem/s   │         │
+├─ syslog_3164       2.816 ms      │ 4.21 ms       │ 2.836 ms      │ 2.856 ms      │ 100     │ 100
+│                    3.55 Mitem/s  │ 2.375 Mitem/s │ 3.525 Mitem/s │ 3.501 Mitem/s │         │
+├─ syslog_5424       3.192 ms      │ 4.647 ms      │ 3.213 ms      │ 3.238 ms      │ 100     │ 100
+│                    3.131 Mitem/s │ 2.151 Mitem/s │ 3.111 Mitem/s │ 3.087 Mitem/s │         │
+╰─ syslog_5424_full  3.752 ms      │ 4.659 ms      │ 3.814 ms      │ 3.836 ms      │ 100     │ 100
+                     2.664 Mitem/s │ 2.145 Mitem/s │ 2.621 Mitem/s │ 2.606 Mitem/s │         │
 ```
 
 ### Version 1.0.0 (2026-06-22)

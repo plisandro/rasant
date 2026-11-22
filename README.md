@@ -56,11 +56,11 @@ All I/O sinks support multiple formattings, including compact (one log entry per
 
 ## Usage 
 
-Latest stable release is **v1.3.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
+Latest stable release is **v1.4.0**. To use it, add the `rasant` crate to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-rasant = "1.3.0"
+rasant = "1.4.0"
 ```
 
 ## Getting Started
@@ -162,7 +162,7 @@ log.set_level(r::Level::Info).add_sink(
     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
 		formatter_cfg: r::sink::format::FormatterConfig {
 			format: r::sink::format::OutputFormat::Json,
-			time_format: r::TimeFormat::UtcNanosDateTime,
+			time_format: r::TimeFormat::DateTime(r::TimeTimezone::Utc, r::TimePrecision::Nanoseconds),
 			..r::sink::format::FormatterConfig::default()
 		},
 		..r::sink::stdout::StdoutConfig::default()
