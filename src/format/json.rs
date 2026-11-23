@@ -26,9 +26,9 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 	match s {
 		Scalar::None => write!(out, "null"),
 		Scalar::Bool(b) => write!(out, "{}", b),
-		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
-		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
-		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, update.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
+		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
+		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
+		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, update.str_by_idx(*idx), if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
 		Scalar::Int(i) => write!(out, "{}", i),
 		Scalar::LongInt(i) => write!(out, "{}", i),
 		Scalar::Size(s) => write!(out, "{}", s),
@@ -76,23 +76,18 @@ pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, up
 	match time_format.to_integer_for(update.when()) {
 		Some(timestamp_int) => write!(
 			out,
-			"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
+			"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":",
 			level = update.level().as_str(),
 			msg_key = ATTRIBUTE_KEY_MESSAGE,
-			msg = update.message(),
 		)?,
 		None => {
 			write!(out, "{{\"{time_key}\":\"")?;
 			update.when().write(out, time_format)?;
-			write!(
-				out,
-				"\",\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
-				level = update.level().as_str(),
-				msg_key = ATTRIBUTE_KEY_MESSAGE,
-				msg = update.message(),
-			)?;
+			write!(out, "\",\"level\":\"{level}\",\"{msg_key}\":", level = update.level().as_str(), msg_key = ATTRIBUTE_KEY_MESSAGE,)?;
 		}
 	}
+
+	encoding::write_quoted_str(out, update.message(), &encoding::Mode::Rfc8259)?;
 
 	// append fields
 	for (key, val) in update.attribute_iter() {
@@ -121,7 +116,7 @@ mod tests {
 			(Scalar::from(true), "true"),
 			(Scalar::from(""), "\"\""),
 			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
-			(Scalar::from("quizás\n\"lala\""), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
+			(Scalar::from("quizás\n\"lala\""), "\"quizás\\u000a\\u0022lala\\u0022\""),
 			(Scalar::from(-123), "-123"),
 			(Scalar::from(-12345678901234567_i128), "-12345678901234567"),
 			(Scalar::from(89801234567890123_i128), "89801234567890123"),
@@ -141,7 +136,7 @@ mod tests {
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+			assert_eq!(String::from_utf8(out).unwrap(), String::from(want), "{}", s);
 		}
 	}
 
@@ -186,7 +181,7 @@ mod tests {
 		let mut attrs = Map::new();
 		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert("a_float", Value::from(-456.789));
-		attrs.insert("some_string", Value::from("hi there!"));
+		attrs.insert("some_string", Value::from("hi there! \\o/"));
 		attrs.insert("nothing", Value::from(None::<f64>));
 		attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
@@ -197,7 +192,7 @@ mod tests {
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 
-		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there!\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
+		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there! \\o/\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));

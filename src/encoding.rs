@@ -11,18 +11,20 @@ const CHAR_ESCAPE_BUFFER_SIZE: usize = 6 * UTF_8_CHAR_MAX_SIZE;
 // when not actively used.
 #[allow(dead_code)]
 pub enum Mode {
-	// vanilla UTF-8 string
+	/// Vanilla UTF-8 string
 	Utf8,
-	// UTF-8 with byte-order mark
+	/// UTF-8 with byte-order mark.
 	Utf8Bom,
-	// UTF-8 string with upper-cased characters (when possible)
+	/// UTF-8 string with upper-cased characters (when possible).
 	Utf8Uppercase,
-	// UTF-8 with escaped characters
+	/// UTF-8 with escaped characters.
 	Utf8Escaped,
-	// UTF-8 with journald formatting for k/v data values
+	/// UTF-8 with journald formatting for k/v data values.
 	Utf8JournalDataValue,
-	// UTF-8 with RFC 5424 formatting for syslog PARAM-VALUEs.
+	/// UTF-8 with RFC 5424 formatting for syslog PARAM-VALUEs.
 	Utf8Rfc5424ParamValue,
+	/// RFC 8259 - a.k.a JSON strings.
+	Rfc8259,
 }
 
 /// Evaluates whether a [`char`] needs string escaping.
@@ -40,6 +42,7 @@ pub fn char_needs_escaping(c: char) -> bool {
 }
 
 /// Evaluates whether a [`&str`] needs string escaping.
+// TODO: This check is valid only for UTF8* encodings. Rework Scalars with string escaping annotations - or maybe just drop this?
 pub fn str_needs_escaping(s: &str) -> bool {
 	s.chars().any(char_needs_escaping)
 	/*
@@ -74,14 +77,56 @@ pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 
 			&buf[0..start]
 		}
+		// https://www.rfc-editor.org/rfc/rfc5424?utm_source=chatgpt.com#section-6.3.3
 		Mode::Utf8Rfc5424ParamValue => match c {
-			// https://www.rfc-editor.org/rfc/rfc5424?utm_source=chatgpt.com#section-6.3.3
-			'"' => "\\\"",
-			'\\' => "\\\\",
-			']' => "\\]",
-			_ => c.encode_utf8(buf),
-		}
-		.as_bytes(),
+			'"' => b"\\\"",
+			'\\' => b"\\\\",
+			']' => b"\\]",
+			_ => c.encode_utf8(buf).as_bytes(),
+		},
+		// https://www.rfc-editor.org/info/rfc8259/#section-7
+		Mode::Rfc8259 => match c {
+			'"' => b"\\u0022",
+			'\\' => b"\\u005c",
+			'/' => b"\\u002f",
+			// backspace
+			'\x08' => b"\\u0008",
+			// form feed
+			'\x0c' => b"\\u000c",
+			'\n' => b"\\u000a",
+			'\r' => b"\\u000d",
+			'\t' => b"\\u0009",
+			// other escape characters (0x00 to 0x1f)
+			'\x00' => b"\\u0000",
+			'\x01' => b"\\u0001",
+			'\x02' => b"\\u0002",
+			'\x03' => b"\\u0003",
+			'\x04' => b"\\u0004",
+			'\x05' => b"\\u0005",
+			'\x06' => b"\\u0006",
+			'\x07' => b"\\u0007",
+			'\x0b' => b"\\u000b",
+			'\x0e' => b"\\u000e",
+			'\x0f' => b"\\u000f",
+			'\x10' => b"\\u0010",
+			'\x11' => b"\\u0011",
+			'\x12' => b"\\u0012",
+			'\x13' => b"\\u0013",
+			'\x14' => b"\\u0014",
+			'\x15' => b"\\u0015",
+			'\x16' => b"\\u0016",
+			'\x17' => b"\\u0017",
+			'\x18' => b"\\u0018",
+			'\x19' => b"\\u0019",
+			'\x1a' => b"\\u001a",
+			'\x1b' => b"\\u001b",
+			'\x1c' => b"\\u001c",
+			'\x1d' => b"\\u001d",
+			'\x1e' => b"\\u001e",
+			'\x1f' => b"\\u001f",
+			// UTF-8 bytes are valid within JSON strings
+			_ => c.encode_utf8(buf).as_bytes(),
+		},
 		// all other encodings impact string generation rather than char encoding
 		_ => c.encode_utf8(buf).as_bytes(),
 	}
@@ -152,39 +197,47 @@ mod tests {
 			('A', Mode::Utf8Escaped, "A"),
 			('A', Mode::Utf8JournalDataValue, "A"),
 			('A', Mode::Utf8Rfc5424ParamValue, "A"),
+			('A', Mode::Rfc8259, "A"),
 			('z', Mode::Utf8, "z"),
 			('z', Mode::Utf8Uppercase, "Z"),
 			('z', Mode::Utf8Escaped, "z"),
 			('z', Mode::Utf8JournalDataValue, "z"),
 			('z', Mode::Utf8Rfc5424ParamValue, "z"),
+			('z', Mode::Rfc8259, "z"),
 			('"', Mode::Utf8, "\""),
 			('"', Mode::Utf8Uppercase, "\""),
 			('"', Mode::Utf8Escaped, "\\\""),
 			('"', Mode::Utf8JournalDataValue, "\""),
 			('"', Mode::Utf8Rfc5424ParamValue, "\\\""),
+			('"', Mode::Rfc8259, "\\u0022"),
 			('\t', Mode::Utf8, "\t"),
 			('\t', Mode::Utf8Uppercase, "\t"),
 			('\t', Mode::Utf8Escaped, "\\t"),
 			('\t', Mode::Utf8JournalDataValue, "\t"),
 			('\t', Mode::Utf8Rfc5424ParamValue, "\t"),
+			('\t', Mode::Rfc8259, "\\u0009"),
 			('❤', Mode::Utf8, "❤"),
 			('❤', Mode::Utf8Uppercase, "❤"),
 			('❤', Mode::Utf8Escaped, "\\u{2764}"),
 			('❤', Mode::Utf8JournalDataValue, "❤"),
 			('❤', Mode::Utf8Rfc5424ParamValue, "❤"),
+			('❤', Mode::Rfc8259, "❤"),
 			('\"', Mode::Utf8, "\""),
 			('\"', Mode::Utf8Rfc5424ParamValue, "\\\""),
+			('\"', Mode::Rfc8259, "\\u0022"),
 			('\\', Mode::Utf8, "\\"),
 			('\\', Mode::Utf8Rfc5424ParamValue, "\\\\"),
+			('\\', Mode::Rfc8259, "\\u005c"),
 			(']', Mode::Utf8, "]"),
 			(']', Mode::Utf8Rfc5424ParamValue, "\\]"),
+			(']', Mode::Rfc8259, "]"),
 		] {
 			let (c, mode, want): (char, Mode, &str) = tc;
 
 			let mut buf: [u8; CHAR_ESCAPE_BUFFER_SIZE] = [0; CHAR_ESCAPE_BUFFER_SIZE];
 			let got = char_encode(&mut buf, c, &mode);
 
-			assert_eq!(got, want.as_bytes());
+			assert_eq!(got, want.as_bytes(), "expected {} for {}", want, c);
 		}
 	}
 
@@ -197,6 +250,7 @@ mod tests {
 			("lalala ❤ 1234", Mode::Utf8Bom, b"\xef\xbb\xbflalala \xe2\x9d\xa4 1234".as_slice()),
 			("lalala\n❤ 1234", Mode::Utf8JournalDataValue, b"\n\x0f\x00\x00\x00\x00\x00\x00\x00lalala\n\xe2\x9d\xa4 1234".as_slice()),
 			("lalala ❤ \\ \" [ ] 1234", Mode::Utf8Rfc5424ParamValue, b"lalala \xe2\x9d\xa4 \\\\ \\\" [ \\] 1234".as_slice()),
+			("lalala ❤ \\ \" [ ] 1234", Mode::Rfc8259, b"lalala \xe2\x9d\xa4 \\u005c \\u0022 [ ] 1234".as_slice()),
 		] {
 			let (s, mode, want): (&str, Mode, &[u8]) = tc;
 
