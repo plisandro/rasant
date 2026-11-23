@@ -16,14 +16,14 @@ impl sink::Sink for DummySink {
 		"a dumb test sink"
 	}
 
-	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		let mut out = SINK_OUTPUT.lock().unwrap();
 
 		write!(out, "level: {:?}, msg: {}, attrs:", update.level(), update.message())?;
 		for (key, value, meta) in update.attribute_full_iter() {
 			write!(out, " <{key}{eph} -> {value}>", eph = if meta.get(AttributeMetadataField::Ephemeral) { " (ephemeral)" } else { "" })?;
 		}
-		out.push('\n' as u8);
+		out.push(b'\n');
 
 		Ok(())
 	}

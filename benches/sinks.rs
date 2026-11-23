@@ -32,7 +32,6 @@ fn io_compact(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);
@@ -46,7 +45,6 @@ fn io_color_compact(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);
@@ -60,7 +58,6 @@ fn io_full(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);
@@ -74,7 +71,6 @@ fn io_color_full(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);
@@ -88,7 +84,6 @@ fn io_json(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);
@@ -102,7 +97,6 @@ fn io_cbor(bencher: Bencher) {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..BlackHoleConfig::default()
 	});
 
 	run(bencher, sink);

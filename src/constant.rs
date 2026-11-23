@@ -7,18 +7,18 @@ use crate::c_bindings;
 use crate::sink::LogDepth;
 
 /// Environment variable to detect the presence of ANSI color-capable terminals.
-pub const ENV_VAR_COLORTERM: &str = "COLORTERM";
+pub static ENV_VAR_COLORTERM: &str = "COLORTERM";
 
 /// Process ID running this module.
-pub const PROCESS_ID: LazyLock<u32> = LazyLock::new(|| process::id());
+pub static PROCESS_ID: LazyLock<u32> = LazyLock::new(process::id);
 
 /// Name of the process running this module.
-pub const PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
+pub static PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
 	let current_exe = env::current_exe();
 	match &current_exe {
 		Ok(ce) => match ce.file_name() {
 			Some(n) => match n.to_str() {
-				Some(s) => return String::from(s),
+				Some(s) => String::from(s),
 				None => String::from("process_invalid_name"),
 			},
 			_ => String::from("process_no_name"),
@@ -29,7 +29,7 @@ pub const PROCESS_NAME: LazyLock<String> = LazyLock::new(|| {
 
 /// System hostname
 // TODO: Replace with std::net::hostname(), once no longer experimental.
-pub const HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get_hostname() {
+pub static HOSTNAME: LazyLock<String> = LazyLock::new(|| match c_bindings::c_get_hostname() {
 	Some(s) => s,
 	None => String::from("localhost"),
 });

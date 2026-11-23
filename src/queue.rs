@@ -11,7 +11,7 @@ use crate::level::Level;
 use crate::sink::{LogDepth, LogUpdate};
 use crate::types::{CachePadded, SinkRef};
 
-static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(|| AsyncHandler::new());
+static GLOBAL_ASYNC_HANDLER: LazyLock<AsyncHandler> = LazyLock::new(AsyncHandler::new);
 
 // Encapsulates all supported asynchronous operations, so they can be reused without heap reallocs.
 pub struct AsyncSinkOp {
@@ -82,8 +82,8 @@ impl<'i> AsyncSinkOp {
 		self.sink = Some(sink.clone());
 		self.flush = false;
 		self.when.copy_from(update.when());
-		self.level = update.level().clone();
-		self.depth = update.depth().clone();
+		self.level = *update.level();
+		self.depth = *update.depth();
 		self.msg.clear();
 		self.msg.push_str(update.message());
 		update.copy_attributes_into(&mut self.attrs);
@@ -110,10 +110,10 @@ pub struct AsyncQueueIter<'s> {
 
 impl<'i> AsyncQueueIter<'i> {
 	pub fn new(queue: &'i AsyncQueue) -> Self {
-		Self { queue: queue, idx: 0 }
+		Self { queue, idx: 0 }
 	}
 
-	pub fn next<'f>(&'f mut self) -> Option<&'f mut AsyncSinkOp> {
+	pub fn next(&mut self) -> Option<&mut AsyncSinkOp> {
 		if self.idx >= self.queue.len() {
 			return None;
 		}
@@ -176,7 +176,7 @@ impl AsyncQueue {
 		self.size.store(0, Ordering::SeqCst);
 	}
 
-	fn push<'f, C>(&'f self, mut op_callback: C) -> bool
+	fn push<C>(&self, mut op_callback: C) -> bool
 	where
 		C: FnMut(&mut AsyncSinkOp),
 	{
@@ -212,11 +212,11 @@ impl AsyncQueue {
 		}
 	}
 
-	pub fn push_flush<'f>(&'f self, sink: &SinkRef) -> bool {
+	pub fn push_flush(&self, sink: &SinkRef) -> bool {
 		self.push(|op| op.set_flush(sink))
 	}
 
-	pub fn push_log_update<'f>(&'f self, sink: &SinkRef, update: &LogUpdate) -> bool {
+	pub fn push_log_update(&self, sink: &SinkRef, update: &LogUpdate) -> bool {
 		self.push(|op| op.set_log_update(sink, update))
 	}
 }
@@ -409,7 +409,7 @@ impl AsyncHandler {
 	}
 
 	#[inline]
-	fn push_queue<'f>(&'f self) -> &'f AsyncQueue {
+	fn push_queue(&self) -> &AsyncQueue {
 		match self.queue_push_b.load(Ordering::SeqCst) {
 			false => &self.queues.0,
 			true => &self.queues.1,
@@ -443,6 +443,8 @@ impl Drop for AsyncHandler {
 
 /// Returns the number of log operations queued for processing by the global async handler.
 pub fn len() -> usize {
+	// TODO: Fix me! LazyLock::get() is not compatible with the current MSRV 1.85.0
+	#[allow(clippy::incompatible_msrv)]
 	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
 		None => 0,
 		Some(h) => h.queue_len(),
@@ -451,6 +453,8 @@ pub fn len() -> usize {
 
 /// Returns the current total operations capacity for the global async handler.
 pub fn capacity() -> usize {
+	// TODO: Fix me! LazyLock::get() is not compatible with the current MSRV 1.85.0
+	#[allow(clippy::incompatible_msrv)]
 	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
 		None => 0,
 		Some(h) => h.queue_capacity(),
@@ -459,6 +463,8 @@ pub fn capacity() -> usize {
 
 /// Evaluates whether the global async handler is active.
 pub fn is_active() -> bool {
+	// TODO: Fix me! LazyLock::get() is not compatible with the current MSRV 1.85.0
+	#[allow(clippy::incompatible_msrv)]
 	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
 		None => false,
 		Some(h) => h.is_active(),
@@ -467,6 +473,8 @@ pub fn is_active() -> bool {
 
 /// Returns the number of active loggers referencing the global async handler.
 pub fn refcount() -> usize {
+	// TODO: Fix me! LazyLock::get() is not compatible with the current MSRV 1.85.0
+	#[allow(clippy::incompatible_msrv)]
 	match LazyLock::get(&GLOBAL_ASYNC_HANDLER) {
 		None => 0,
 		Some(h) => h.refcount(),

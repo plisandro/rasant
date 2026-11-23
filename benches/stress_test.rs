@@ -19,7 +19,6 @@ fn init_logger() -> r::Logger {
 			time_format: r::TimeFormat::Timestamp(r::TimePrecision::Nanoseconds),
 			..r::FormatterConfig::default()
 		},
-		..r::sink::black_hole::BlackHoleConfig::default()
 	}))
 	.set_all_levels()
 	.set_async(true);
@@ -68,7 +67,7 @@ mod async_handler {
 									"info test",
 									heap_string = String::from("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
 								),
-								_ => r::warn!(log, "warn test", a_map = r::map!("a" => "lalala", "b" => "lololo", "c" => 123 as u8, "d" => 456 as usize)),
+								_ => r::warn!(log, "warn test", a_map = r::map!("a" => "lalala", "b" => "lololo", "c" => 123_u8, "d" => 456_usize)),
 							};
 						}
 					}));

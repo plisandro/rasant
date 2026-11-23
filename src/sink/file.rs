@@ -46,12 +46,12 @@ pub fn new<'f>(conf: FileConfig) -> IO<'f> {
 
 	let exists = match fs::exists(&path) {
 		Ok(b) => b,
-		Err(e) => panic!("failed to check if log file for \"{name}\" at {path} exists: {e}", name = &conf.name, path = path.display()),
+		Err(e) => panic!("failed to check if log file for \"{name}\" at {path} exists: {e}", name = conf.name, path = path.display()),
 	};
 	let fh = match fs::File::options().create(true).write(true).append(conf.append).truncate(!conf.append).open(&path) {
 		Ok(fh) => fh,
 		Err(e) => {
-			panic!("failed to open log file for \"{name}\" at {path}: {e:?}", name = &conf.name, path = path.display());
+			panic!("failed to open log file for \"{name}\" at {path}: {e:?}", name = conf.name, path = path.display());
 		}
 	};
 

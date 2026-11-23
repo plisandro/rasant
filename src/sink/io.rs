@@ -68,7 +68,7 @@ impl<'i> IO<'i> {
 			initial_delimiter: conf.initial_delimiter,
 			delimiter_after_write: conf.delimiter_after_write,
 			flush_on_write: conf.flush_on_write,
-			out: out,
+			out,
 		}
 	}
 }
@@ -78,7 +78,7 @@ impl<'i> sink::Sink for IO<'i> {
 		self.name.as_str()
 	}
 
-	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		if (!self.written_to && self.initial_delimiter) || !self.delimiter_after_write {
 			self.formatter.write_delimiter(&mut self.out)?;
 		}

@@ -66,7 +66,6 @@ impl OutputFormat {
 			Self::Json => "json",
 			Self::Cbor => "cbor",
 		}
-		.into()
 	}
 
 	/// Returns a name for an `OutputFormat`.
@@ -79,7 +78,6 @@ impl OutputFormat {
 			Self::Json => "JSON",
 			Self::Cbor => "CBOR",
 		}
-		.into()
 	}
 }
 
@@ -108,12 +106,14 @@ pub struct FormatterConfig {
 	pub delimiter: Vec<u8>,
 }
 
-impl FormatterConfig {
+impl Default for FormatterConfig {
 	/// Returns the default [`FormatterConfig`], which is [`OutputFormat::Compact`] with date/time + milliseconds in local timezone.
-	pub fn default() -> Self {
+	fn default() -> Self {
 		compact::default_format_config()
 	}
+}
 
+impl FormatterConfig {
 	/// Returns a default [`FormatterConfig`] for [`OutputFormat::Compact`], with date/time + milliseconds in local timezone.
 	pub fn default_compact() -> Self {
 		compact::default_format_config()
@@ -211,7 +211,7 @@ impl Formatter {
 
 	/// Write the formatter's delimiter into a [`io::Write`].
 	pub fn write_delimiter<T: io::Write>(&self, out: &mut T) -> io::Result<()> {
-		match out.write(self.delimiter.as_slice()) {
+		match out.write_all(self.delimiter.as_slice()) {
 			Ok(_) => Ok(()),
 			Err(e) => Err(e),
 		}

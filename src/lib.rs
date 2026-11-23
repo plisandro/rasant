@@ -104,10 +104,10 @@
 //! let mut thread_log = log.clone();
 //! thread::spawn(move || {
 //!     thread_log.add_sink(r::sink::stderr::default()).set_level(r::Level::Error);
-//! 	r::set!(thread_log, thread_id = thread::current().id());
+//!     r::set!(thread_log, thread_id = thread::current().id());
 //!
-//! 	r::info!(thread_log, "this will not log anything");
-//! 	r::fatal!(thread_log, "but this will log to both stdout and stderr");
+//!     r::info!(thread_log, "this will not log anything");
+//!     r::fatal!(thread_log, "but this will log to both stdout and stderr");
 //! });
 //! ```
 //!
@@ -122,13 +122,13 @@
 //! let mut log = r::Logger::new();
 //! log.set_level(r::Level::Info).add_sink(
 //!     r::sink::stdout::new(r::sink::stdout::StdoutConfig {
-//! 		formatter_cfg: r::FormatterConfig {
-//! 			format: r::OutputFormat::Json,
-//! 			time_format: r::TimeFormat::DateTime(r::TimeTimezone::Utc, r::TimePrecision::Nanoseconds),
-//! 			..r::FormatterConfig::default()
-//! 		},
-//! 		..r::sink::stdout::StdoutConfig::default()
-//! 	})
+//!         formatter_cfg: r::FormatterConfig {
+//!             format: r::OutputFormat::Json,
+//!             time_format: r::TimeFormat::DateTime(r::TimeTimezone::Utc, r::TimePrecision::Nanoseconds),
+//!             ..r::FormatterConfig::default()
+//!         },
+//!         ..r::sink::stdout::StdoutConfig::default()
+//!     })
 //! );
 //!
 //! r::info!(log, "hello!");

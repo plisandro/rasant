@@ -14,7 +14,6 @@ fn init_logger() -> Logger {
 	let mut log = rasant::Logger::new();
 	log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 		formatter_cfg: r::FormatterConfig::default_compact(),
-		..black_hole::BlackHoleConfig::default()
 	}))
 	.set_all_levels();
 
@@ -76,8 +75,8 @@ mod multi_argument {
 		bencher.bench_local(move || {
 			log.set("some_bool", true);
 			log.set("short_string", "hello_there");
-			log.set("a_float", 3.1415926);
-			log.set("an_usize", 374943849439 as usize);
+			log.set("a_float", 4.1415926);
+			log.set("an_usize", 374943849439_usize);
 			r::info!(log, "benchmark test!", foo = 12345);
 		});
 	}
@@ -108,8 +107,8 @@ mod with_long_strings {
 				"long_string",
 				"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
 			);
-			log.set("a_float", 3.1415926);
-			log.set("an_usize", 374943849439 as usize);
+			log.set("a_float", 4.1415926);
+			log.set("an_usize", 374943849439_usize);
 			r::info!(log, "benchmark test!", foo = 12345);
 		});
 	}

@@ -33,7 +33,7 @@ fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io
 #[inline]
 pub fn message_color(update: &LogUpdate) -> Color {
 	// update messages above debug are highlighted
-	if Level::Debug.includes(&update.level()) {
+	if Level::Debug.includes(update.level()) {
 		return Color::White;
 	}
 	Color::BrightWhite
@@ -60,7 +60,7 @@ pub fn val_color(meta: Metadata) -> Color {
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
-	out.write(Color::White.to_escape_str().as_bytes())?;
+	out.write_all(Color::White.to_escape_str().as_bytes())?;
 	update.when().write(out, time_format)?;
 	write!(
 		out,
@@ -102,14 +102,14 @@ mod tests {
 	fn serialize_value() {
 		for tc in [
 			(Value::from(true), "true"),
-			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
+			(Value::from(89801234567890123_usize), "0x13f09bf3ecf84cb"),
 			(
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(-123),
 					Scalar::None,
-					Scalar::from(89801234567890123 as usize),
+					Scalar::from(89801234567890123_usize),
 					Scalar::from(5678901.2345),
 				]),
 				"[false, \"abcd 1234\", -123, <none>, 0x13f09bf3ecf84cb, 5678901.2345]",
@@ -137,13 +137,13 @@ mod tests {
 	#[test]
 	fn serialize_color() {
 		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("nothing", Value::from(None::<u32>));
-		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 1, "test compact update", &attrs));
 		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 
@@ -162,7 +162,7 @@ mod tests {
 			console::mocks::with_colorterm(enable, || {
 				let mut out = Vec::new();
 
-				assert!(write(&mut out, &time_format, &update).is_ok());
+				assert!(write(&mut out, time_format, &update).is_ok());
 				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
 			})
 		}

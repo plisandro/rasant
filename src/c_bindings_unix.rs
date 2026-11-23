@@ -24,14 +24,11 @@ pub fn c_get_hostname() -> Option<String> {
 		let c_hostname_ptr = c_hostname.into_raw();
 		let mut c_hostname_len: usize = MAX_HOSTNAME_LENGTH;
 
-		if gethostname(c_hostname_ptr as *mut i8, &mut c_hostname_len) != 0 {
+		if gethostname(c_hostname_ptr, &mut c_hostname_len) != 0 {
 			return None;
 		}
 
-		res = match CString::from_raw(c_hostname_ptr).into_string() {
-			Ok(s) => Some(s),
-			Err(_) => None,
-		}
+		res = CString::from_raw(c_hostname_ptr).into_string().ok();
 	}
 
 	res

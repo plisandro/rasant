@@ -194,19 +194,13 @@ mod tests {
 
 	#[test]
 	fn is_none() {
-		assert_eq!(Value::from(123).is_none(), false);
-		assert_eq!(Value::from(None::<bool>).is_none(), true);
-		assert_eq!(Value::List(&[Scalar::from(1), Scalar::from(2), Scalar::from(None::<i32>)]).is_none(), false);
-		assert_eq!(Value::List(&[Scalar::from(None::<i32>), Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none(), true);
-		assert_eq!(Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none(), false);
-		assert_eq!(
-			Value::Map(&[Scalar::from("a"), Scalar::from(None::<&str>)], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none(),
-			false
-		);
-		assert_eq!(
-			Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none(),
-			true
-		);
+		assert!(!Value::from(123).is_none());
+		assert!(Value::from(None::<bool>).is_none());
+		assert!(!Value::List(&[Scalar::from(1), Scalar::from(2), Scalar::from(None::<i32>)]).is_none());
+		assert!(Value::List(&[Scalar::from(None::<i32>), Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none());
+		assert!(!Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none());
+		assert!(!Value::Map(&[Scalar::from("a"), Scalar::from(None::<&str>)], &[Scalar::from(1), Scalar::from(None::<i32>)]).is_none());
+		assert!(Value::Map(&[Scalar::from("a"), Scalar::from("b")], &[Scalar::from(None::<i32>), Scalar::from(None::<i32>)]).is_none());
 	}
 
 	#[test]
@@ -219,21 +213,21 @@ mod tests {
 			Value::from(String::from("declaró\nen\tcontra")),
 			Value::Scalar(Scalar::String(String::from("declaró\nen\tcontra"), true))
 		);
-		assert_eq!(Value::from(-12 as i8), Value::Scalar(Scalar::Int(-12)));
-		assert_eq!(Value::from(345 as i16), Value::Scalar(Scalar::Int(345)));
-		assert_eq!(Value::from(-678 as i32), Value::Scalar(Scalar::Int(-678)));
-		assert_eq!(Value::from(9012 as i64), Value::Scalar(Scalar::Int(9012)));
-		assert_eq!(Value::from(-3456 as i128), Value::Scalar(Scalar::LongInt(-3456)));
-		assert_eq!(Value::from(7890 as isize), Value::Scalar(Scalar::Size(7890)));
-		assert_eq!(Value::from(12 as u8), Value::Scalar(Scalar::Uint(12)));
-		assert_eq!(Value::from(345 as u16), Value::Scalar(Scalar::Uint(345)));
-		assert_eq!(Value::from(678 as u32), Value::Scalar(Scalar::Uint(678)));
-		assert_eq!(Value::from(9012 as u64), Value::Scalar(Scalar::Uint(9012)));
-		assert_eq!(Value::from(3456 as u128), Value::Scalar(Scalar::LongUint(3456)));
-		assert_eq!(Value::from(7890 as usize), Value::Scalar(Scalar::Usize(7890)));
+		assert_eq!(Value::from(-12_i8), Value::Scalar(Scalar::Int(-12)));
+		assert_eq!(Value::from(345_i16), Value::Scalar(Scalar::Int(345)));
+		assert_eq!(Value::from(-678_i32), Value::Scalar(Scalar::Int(-678)));
+		assert_eq!(Value::from(9012_i64), Value::Scalar(Scalar::Int(9012)));
+		assert_eq!(Value::from(-3456_i128), Value::Scalar(Scalar::LongInt(-3456)));
+		assert_eq!(Value::from(7890_isize), Value::Scalar(Scalar::Size(7890)));
+		assert_eq!(Value::from(12_u8), Value::Scalar(Scalar::Uint(12)));
+		assert_eq!(Value::from(345_u16), Value::Scalar(Scalar::Uint(345)));
+		assert_eq!(Value::from(678_u32), Value::Scalar(Scalar::Uint(678)));
+		assert_eq!(Value::from(9012_u64), Value::Scalar(Scalar::Uint(9012)));
+		assert_eq!(Value::from(3456_u128), Value::Scalar(Scalar::LongUint(3456)));
+		assert_eq!(Value::from(7890_usize), Value::Scalar(Scalar::Usize(7890)));
 		// yaay precision!
-		assert_eq!(Value::from(-123.456 as f32), Value::Scalar(Scalar::Float(-123.45600128173828)));
-		assert_eq!(Value::from(789.012 as f64), Value::Scalar(Scalar::Float(789.012)));
+		assert_eq!(Value::from(-123.456_f32), Value::Scalar(Scalar::Float(-123.45600128173828)));
+		assert_eq!(Value::from(789.012_f64), Value::Scalar(Scalar::Float(789.012)));
 		assert_eq!(Value::from(Duration::from_millis(12345)), Value::Scalar(Scalar::Uint(12)));
 		assert_eq!(Value::from(&Duration::from_millis(67890)), Value::Scalar(Scalar::Uint(67)));
 		assert_eq!(Value::from(Timestamp::from_millis(12345)), Value::Scalar(Scalar::Uint(12)));

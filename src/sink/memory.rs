@@ -93,7 +93,7 @@ impl Memory {
 
 		Self {
 			name: format!("{} log string", conf.type_str),
-			formatter: formatter,
+			formatter,
 			out: Arc::new(Mutex::new(Vec::with_capacity(DEFAULT_CAPACITY))),
 			frozen_now: if conf.mock_time {
 				// 2026-03-04 15:10:15 GMT
@@ -129,7 +129,7 @@ impl sink::Sink for Memory {
 		self.name.as_str()
 	}
 
-	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		let mut out = self.out.lock().unwrap();
 
 		let entry = if self.has_mocks() {
@@ -137,8 +137,8 @@ impl sink::Sink for Memory {
 			update.copy_attributes_into(&mut self.mock_attributes);
 
 			let when = match &mut self.frozen_now {
-				Some(t) => t.clone(),
-				None => update.when().clone(),
+				Some(t) => *t,
+				None => *update.when(),
 			};
 
 			if let Some(filename) = self.frozen_trace_filename {

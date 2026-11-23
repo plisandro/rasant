@@ -30,7 +30,7 @@ pub fn default_format_config() -> FormatterConfig {
 // Serializes a null into a CBOR stream.
 fn write_null<T: io::Write>(out: &mut T) -> io::Result<()> {
 	// tiny field type 7 (special), value 22 (null)
-	out.write(&[((7 << 5) + 22) as u8])?;
+	out.write_all(&[((7 << 5) + 22) as u8])?;
 
 	Ok(())
 }
@@ -42,7 +42,7 @@ fn write_bool<T: io::Write>(out: &mut T, b: bool) -> io::Result<()> {
 		false => 20,
 		true => 21,
 	};
-	out.write(&[(7 << 5) as u8 + val])?;
+	out.write_all(&[(7 << 5) as u8 + val])?;
 
 	Ok(())
 }
@@ -51,21 +51,21 @@ fn write_bool<T: io::Write>(out: &mut T, b: bool) -> io::Result<()> {
 fn write_u64_with_major<T: io::Write>(out: &mut T, u: u64, major_mask: u8) -> io::Result<()> {
 	match u {
 		// tiny field
-		0..24 => _ = out.write(&[major_mask | (u as u8)])?,
+		0..24 => out.write_all(&[major_mask | (u as u8)])?,
 		// short field
-		24..MAX_8_BITS => _ = out.write(&[major_mask | 24 as u8, u as u8])?,
+		24..MAX_8_BITS => out.write_all(&[major_mask | 24_u8, u as u8])?,
 		MAX_8_BITS..MAX_16_BITS => {
-			_ = out.write(&[major_mask | 25 as u8])?;
-			_ = out.write((u as u16).to_be_bytes().as_slice())?;
+			out.write_all(&[major_mask | 25_u8])?;
+			out.write_all((u as u16).to_be_bytes().as_slice())?;
 		}
 		// long fields
 		MAX_16_BITS..MAX_32_BITS => {
-			_ = out.write(&[major_mask | 26 as u8])?;
-			_ = out.write((u as u32).to_be_bytes().as_slice())?;
+			out.write_all(&[major_mask | 26_u8])?;
+			out.write_all((u as u32).to_be_bytes().as_slice())?;
 		}
 		MAX_32_BITS.. => {
-			_ = out.write(&[major_mask | 27 as u8])?;
-			_ = out.write((u as u64).to_be_bytes().as_slice())?;
+			out.write_all(&[major_mask | 27_u8])?;
+			out.write_all(u.to_be_bytes().as_slice())?;
 		}
 	};
 
@@ -78,8 +78,8 @@ fn write_u128_with_major<T: io::Write>(out: &mut T, u: u128, major_mask: u8) -> 
 		0..MAX_64_BITS => write_u64_with_major(out, u as u64, major_mask)?,
 		// bignum (tag 2 extension)
 		MAX_64_BITS.. => {
-			_ = out.write(&[((6 << 5) + 2) as u8, ((2 << 5) + 8) as u8])?;
-			_ = out.write(u.to_be_bytes().as_slice())?;
+			out.write_all(&[((6 << 5) + 2) as u8, ((2 << 5) + 8) as u8])?;
+			out.write_all(u.to_be_bytes().as_slice())?;
 		}
 	};
 
@@ -119,7 +119,7 @@ fn write_i128<T: io::Write>(out: &mut T, i: i128) -> io::Result<()> {
 // Serializes a string (as bytes) into a CBOR stream.
 fn write_string_bytes<T: io::Write>(out: &mut T, s: &[u8]) -> io::Result<()> {
 	write_u64_with_major(out, s.len() as u64, 3 << 5)?;
-	_ = out.write(s)?;
+	out.write_all(s)?;
 
 	Ok(())
 }
@@ -136,13 +136,13 @@ fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
 	match (sf as f64) == f {
 		true => {
 			// type 7, single precision float
-			_ = out.write(&[((7 << 5) + 26) as u8])?;
-			_ = out.write(sf.to_be_bytes().as_slice());
+			out.write_all(&[((7 << 5) + 26) as u8])?;
+			out.write_all(sf.to_be_bytes().as_slice())?;
 		}
 		false => {
 			// type 7, double precision float
-			_ = out.write(&[((7 << 5) + 27) as u8])?;
-			_ = out.write(f.to_be_bytes().as_slice());
+			out.write_all(&[((7 << 5) + 27) as u8])?;
+			out.write_all(f.to_be_bytes().as_slice())?;
 		}
 	};
 
@@ -153,7 +153,7 @@ fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
 fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, f: &Format) -> io::Result<()> {
 	if matches!(f, Format::Rfc3339(_, _)) {
 		// major type 6, tag 0 (date/time string)
-		_ = out.write(&[((6 << 5) + 0) as u8])?;
+		out.write_all(&[(6 << 5) as u8])?;
 		buf.clear();
 		_ = f.write(buf, t);
 		return write_string_bytes(out, buf);
@@ -196,7 +196,7 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 /// Serializes a [`Value`] for [`OutputFormat::Cbor`] into a [`io::Write`].
 pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, update, &s)?,
+		Value::Scalar(s) => write_scalar(out, update, s)?,
 		Value::List(ss) => {
 			// major type 4 (array)
 			write_u64_with_major(out, ss.len() as u64, 4 << 5)?;
@@ -223,16 +223,16 @@ pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: 
 	write_u64_with_major(out, (update.attributes_len() + 2) as u64, 5 << 5)?;
 
 	// time / timestamp
-	_ = write_string(out, time_key)?;
-	write_timestamp(out, work_buffer, &update.when(), time_format)?;
+	write_string(out, time_key)?;
+	write_timestamp(out, work_buffer, update.when(), time_format)?;
 
 	// message
-	_ = write_string(out, ATTRIBUTE_KEY_MESSAGE)?;
-	_ = write_string(out, &update.message())?;
+	write_string(out, ATTRIBUTE_KEY_MESSAGE)?;
+	write_string(out, update.message())?;
 
 	// attributes
 	for (key, val) in update.attribute_iter() {
-		_ = write_string(out, key)?;
+		write_string(out, key)?;
 		write_value(out, update, &val)?;
 	}
 
@@ -273,10 +273,10 @@ mod tests {
 			// 4-bytes integer
 			(Scalar::from(0x00010000), [0x1a, 0x00, 0x01, 0x00, 0x00].as_slice()),
 			(Scalar::from(0x1234abcd), [0x1a, 0x12, 0x34, 0xab, 0xcd].as_slice()),
-			(Scalar::from(0xffffffff as u64), [0x1a, 0xff, 0xff, 0xff, 0xff].as_slice()),
+			(Scalar::from(0xffffffff_u64), [0x1a, 0xff, 0xff, 0xff, 0xff].as_slice()),
 			// 8-bytes long integer
-			(Scalar::from(0x0000000100000000 as u128), [0x1b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00].as_slice()),
-			(Scalar::from(0x1234567890abcdef as u128), [0x1b, 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef].as_slice()),
+			(Scalar::from(0x0000000100000000_u128), [0x1b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00].as_slice()),
+			(Scalar::from(0x1234567890abcdef_u128), [0x1b, 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef].as_slice()),
 			// negatives
 			(Scalar::from(-0x01), [0x20].as_slice()),
 			(Scalar::from(-0x18), [0x37].as_slice()),
@@ -289,9 +289,9 @@ mod tests {
 			(Scalar::from(-0x00010000), [0x39, 0xff, 0xff].as_slice()),
 			(Scalar::from(-0x00010001), [0x3a, 0x00, 0x01, 0x00, 0x00].as_slice()),
 			(Scalar::from(-0x1234abcd), [0x3a, 0x12, 0x34, 0xab, 0xcc].as_slice()),
-			(Scalar::from(-0xffffff as i64), [0x3a, 0x00, 0xff, 0xff, 0xfe].as_slice()),
-			(Scalar::from(-0x000000100000000 as i128), [0x3a, 0xff, 0xff, 0xff, 0xff].as_slice()),
-			(Scalar::from(-0x234567890abcdef as i128), [0x3b, 0x02, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xee].as_slice()),
+			(Scalar::from(-0xffffff_i64), [0x3a, 0x00, 0xff, 0xff, 0xfe].as_slice()),
+			(Scalar::from(-0x000000100000000_i128), [0x3a, 0xff, 0xff, 0xff, 0xff].as_slice()),
+			(Scalar::from(-0x234567890abcdef_i128), [0x3b, 0x02, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xee].as_slice()),
 			// strings
 			(Scalar::from(""), [0x60].as_slice()),
 			(Scalar::from("abcd 1234"), [0x69, 0x61, 0x62, 0x63, 0x64, 0x20, 0x31, 0x32, 0x33, 0x34].as_slice()),
@@ -301,7 +301,7 @@ mod tests {
 			),
 			// floats
 			(Scalar::from(2.666015625), [0xfa, 0x40, 0x2a, 0xa0, 0x00].as_slice()),
-			(Scalar::from(3.1415926535897), [0xfb, 0x40, 0x09, 0x21, 0xfb, 0x54, 0x44, 0x2c, 0x46].as_slice()),
+			(Scalar::from(5.1415926535897), [0xfb, 0x40, 0x14, 0x90, 0xfd, 0xaa, 0x22, 0x16, 0x23].as_slice()),
 		] {
 			let (s, want): (Scalar, &[u8]) = tc;
 			let mut out = Vec::new();
@@ -311,13 +311,13 @@ mod tests {
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
-			assert_eq!(out.as_slice(), want);
+			assert_eq!(out.as_slice(), want, "{}", s);
 		}
 	}
 
 	#[test]
 	fn serialize_timestamp() {
-		let ts = Timestamp::try_from((2026, 05, 07, 16, 04, 34, 123, 456)).unwrap();
+		let ts = Timestamp::try_from((2026, 5, 7, 16, 4, 34, 123, 456)).unwrap();
 		for tc in [
 			// 1778169874; second timestamps get CBOR tag 1
 			(Format::Timestamp(Precision::Seconds), [0xc1, 0x1a, 0x69, 0xfc, 0xb8, 0x12].as_slice()),
@@ -357,14 +357,14 @@ mod tests {
 			(Value::from("lalala"), [0x66, 0x6c, 0x61, 0x6c, 0x61, 0x6c, 0x61].as_slice()),
 			(Value::from(-1234), [0x39, 0x04, 0xd1].as_slice()),
 			(Value::from(true), [0xf5].as_slice()),
-			(Value::from(89801234567890123 as usize), [0x1b, 0x01, 0x3f, 0x09, 0xbf, 0x3e, 0xcf, 0x84, 0xcb].as_slice()),
+			(Value::from(89801234567890123_usize), [0x1b, 0x01, 0x3f, 0x09, 0xbf, 0x3e, 0xcf, 0x84, 0xcb].as_slice()),
 			(
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(None::<bool>),
 					Scalar::from(123),
-					Scalar::from(-89801234567890123 as isize),
+					Scalar::from(-89801234567890123_isize),
 					Scalar::from(5678901.2345),
 				]),
 				[
@@ -400,13 +400,13 @@ mod tests {
 	#[test]
 	fn serialize_single() {
 		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update", &attrs));
 
 		let time_key: &str = "timestamp";
@@ -436,10 +436,10 @@ mod tests {
 
 		// update #1
 		attrs.clear();
-		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert("a_float", Value::from(-456.789));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update #1", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
@@ -447,9 +447,9 @@ mod tests {
 		// update #2
 		attrs.clear();
 		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 789, 012)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 789, 12)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Info, 0, "test CBOR update #2", &attrs));
 
 		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());

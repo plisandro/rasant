@@ -18,11 +18,10 @@ fn init_logger() -> Logger {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..black_hole::BlackHoleConfig::default()
 	}))
 	.set_all_levels();
 
-	r::set!(log, a_string = "hello there!", an_int = 12345, a_float = 6789.0123 as f32);
+	r::set!(log, a_string = "hello there!", an_int = 12345, a_float = 6789.012_f32);
 
 	log
 }

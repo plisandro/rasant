@@ -30,6 +30,12 @@ pub struct Logger {
 	common_attributes: attributes::Map,
 }
 
+impl Default for Logger {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<'i> Logger {
 	/// Creates a brand new [`Logger`] instance, with a default level of [`Level::Warning`]
 	/// and no associated sinks.
@@ -66,7 +72,7 @@ impl<'i> Logger {
 
 	/// Returns `true` if this is a root [`Logger`] instance - i.e. it has no parents.
 	pub fn is_root(&self) -> bool {
-		return self.depth == 0;
+		self.depth == 0
 	}
 
 	fn has_sinks(&self) -> bool {
@@ -75,7 +81,7 @@ impl<'i> Logger {
 
 	/// Returns the log [`Level`] for this [`Logger`] instance.
 	pub fn level(&self) -> &Level {
-		return &self.level;
+		&self.level
 	}
 
 	/// Sets log [`Level`] for this [`Logger`] instance. Log updates below the
@@ -207,8 +213,8 @@ impl<'i> Logger {
 				// straight up copying and extending ephemeral attributes is the most efficient
 				// way to deal with potential collisions. trust me, i've tried everything else.
 				self.common_attributes.copy_from(&self.attributes);
-				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
-				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, &v));
+				attrs_1.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, v));
+				attrs_2.iter().for_each(|(k, v)| self.common_attributes.insert_ref_ephemeral(k, v));
 
 				if level == Level::Trace {
 					self.common_attributes.insert_ephemeral(ATTRIBUTE_KEY_TRACE_FILENAME, Value::from(loc.file()));
@@ -238,7 +244,7 @@ impl<'i> Logger {
 		for asink in self.sinks.iter() {
 			let res = match self.is_async {
 				true => {
-					queue::log(&asink, &update);
+					queue::log(asink, &update);
 					Ok(())
 				}
 				false => asink.lock().unwrap().log(&update),
@@ -253,10 +259,10 @@ impl<'i> Logger {
 			}
 		}
 
-		if panic_msg.is_some() {
+		if let Some(msg) = panic_msg {
 			// oh no :( log as best we can, then bail out
 			self.flush();
-			panic!("{}", panic_msg.unwrap());
+			panic!("{}", msg);
 		}
 
 		self
@@ -387,7 +393,7 @@ impl<'i> Logger {
 			//let name = asink.lock().unwrap().as_mut().name();
 			let res = match self.is_async {
 				true => {
-					queue::flush(&asink);
+					queue::flush(asink);
 					Ok(())
 				}
 				false => asink.lock().unwrap().flush(),
@@ -547,8 +553,8 @@ mod attribute_handling {
 		log.set("scalar", 12345);
 		log.set("value_scalar", "hello!");
 		log.set("casted_value_scalar", Value::from("hello!"));
-		log.set("value_list", &[Scalar::from(12345 as u32), Scalar::from("hello!")]);
-		log.set("value_map", (&[Scalar::from("key_a"), Scalar::from("key_b")], &[Scalar::from(12345 as u32), Scalar::from("hello!")]));
+		log.set("value_list", &[Scalar::from(12345_u32), Scalar::from("hello!")]);
+		log.set("value_map", (&[Scalar::from("key_a"), Scalar::from("key_b")], &[Scalar::from(12345_u32), Scalar::from("hello!")]));
 	}
 
 	#[test]
@@ -586,11 +592,9 @@ mod attribute_handling {
 
 #[cfg(test)]
 mod formatting {
-	use crate::FormatterConfig;
 	use crate::console;
 
 	use super::*;
-	use ntime;
 	use std::io::{Error, ErrorKind};
 
 	#[test]
@@ -682,7 +686,6 @@ mod formatting {
 						format: tc.out_format,
 						time_format: tc.time_format,
 						delimiter: vec![b'\n'],
-						..FormatterConfig::default()
 					},
 					..sink::memory::MemoryConfig::default()
 				});

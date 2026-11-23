@@ -42,11 +42,11 @@ pub struct LogUpdate<'s> {
 impl<'i> From<(&'i Timestamp, &'i attributes::Map)> for LogUpdate<'i> {
 	fn from((when, attrs): (&'i Timestamp, &'i attributes::Map)) -> Self {
 		Self {
-			when: when,
+			when,
 			level: level::Level::Trace,
 			depth: 1,
 			msg: "no message",
-			attrs: attrs,
+			attrs,
 		}
 	}
 }
@@ -56,10 +56,10 @@ impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
 	fn from((other, attrs): (&'i LogUpdate, &'i attributes::Map)) -> Self {
 		Self {
 			when: other.when,
-			level: other.level.clone(),
+			level: other.level,
 			depth: other.depth,
 			msg: other.msg,
-			attrs: attrs,
+			attrs,
 		}
 	}
 }
@@ -67,13 +67,7 @@ impl<'i> From<(&'i LogUpdate<'i>, &'i attributes::Map)> for LogUpdate<'i> {
 /// Initializes a [`LogUpdate`] from a full set of details.
 impl<'i> From<(&'i Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)> for LogUpdate<'i> {
 	fn from((when, level, depth, msg, attrs): (&'i Timestamp, level::Level, LogDepth, &'i str, &'i attributes::Map)) -> Self {
-		Self {
-			when: when,
-			level: level,
-			depth: depth,
-			msg: msg,
-			attrs: attrs,
-		}
+		Self { when, level, depth, msg, attrs }
 	}
 }
 
@@ -163,7 +157,7 @@ pub trait Sink {
 	/// Returns a [`&str`] name for the sink.
 	fn name(&self) -> &str;
 	/// Write a [`LogUpdate`] to this sink, with associated attributes.
-	fn log<'f>(&mut self, update: &'f LogUpdate) -> std_io::Result<()>;
+	fn log(&mut self, update: &LogUpdate) -> std_io::Result<()>;
 	/// Flushes any pending writes for the sink.
 	fn flush(&mut self) -> std_io::Result<()>;
 }

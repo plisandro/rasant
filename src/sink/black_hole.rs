@@ -14,7 +14,7 @@ pub struct BlackHoleConfig {
 	pub formatter_cfg: format::FormatterConfig,
 }
 
-impl<'i> Default for BlackHoleConfig {
+impl Default for BlackHoleConfig {
 	fn default() -> Self {
 		Self {
 			formatter_cfg: format::FormatterConfig {

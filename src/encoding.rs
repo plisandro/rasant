@@ -41,7 +41,7 @@ pub fn char_needs_escaping(c: char) -> bool {
 
 /// Evaluates whether a [`&str`] needs string escaping.
 pub fn str_needs_escaping(s: &str) -> bool {
-	s.chars().any(|c| char_needs_escaping(c))
+	s.chars().any(char_needs_escaping)
 	/*
 	let mut escaped_iter = s.escape_default();
 	for c in s.chars() {
@@ -90,7 +90,7 @@ pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
 pub fn char_write<T: io::Write>(out: &mut T, c: char, mode: &Mode) -> io::Result<()> {
 	let mut buf: [u8; CHAR_ESCAPE_BUFFER_SIZE] = [0; CHAR_ESCAPE_BUFFER_SIZE];
 
-	out.write(char_encode(&mut buf, c, mode))?;
+	out.write_all(char_encode(&mut buf, c, mode))?;
 	Ok(())
 }
 
@@ -98,19 +98,19 @@ pub fn str_write<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<
 	match mode {
 		Mode::Utf8 => {
 			// `&str`s are UTF-8 encoded \o/
-			out.write(s.as_bytes())?;
+			out.write_all(s.as_bytes())?;
 		}
 		Mode::Utf8Bom => {
 			// UTF-8 encoded strings with a byte order mark
-			out.write(UTF8_BOM.as_slice())?;
-			out.write(s.as_bytes())?;
+			out.write_all(UTF8_BOM.as_slice())?;
+			out.write_all(s.as_bytes())?;
 		}
 		Mode::Utf8JournalDataValue => {
 			// Journald values are RLE; see https://systemd.io/JOURNAL_NATIVE_PROTOCOL for details.
 			// "\n{string length as little-endian u64}{utf8}"
-			out.write("\n".as_bytes())?;
-			out.write((s.len() as u64).to_le_bytes().as_slice())?;
-			out.write(s.as_bytes())?;
+			out.write_all(b"\n")?;
+			out.write_all((s.len() as u64).to_le_bytes().as_slice())?;
+			out.write_all(s.as_bytes())?;
 		}
 		_ => {
 			for c in s.chars() {
@@ -123,9 +123,9 @@ pub fn str_write<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<
 }
 
 pub fn write_quoted_str<T: io::Write>(out: &mut T, s: &str, mode: &Mode) -> io::Result<()> {
-	out.write(&[b'"'])?;
+	out.write_all(b"\"")?;
 	str_write(out, s, mode)?;
-	out.write(&[b'"'])?;
+	out.write_all(b"\"")?;
 
 	Ok(())
 }
@@ -138,10 +138,10 @@ mod tests {
 
 	#[test]
 	fn str_escaping() {
-		assert_eq!(str_needs_escaping(""), false);
-		assert_eq!(str_needs_escaping("abcd 1234"), false);
-		assert_eq!(str_needs_escaping("declaró\nen\tcontra"), true);
-		assert_eq!(str_needs_escaping("so pretty ❤"), true);
+		assert!(!str_needs_escaping(""));
+		assert!(!str_needs_escaping("abcd 1234"));
+		assert!(str_needs_escaping("declaró\nen\tcontra"));
+		assert!(str_needs_escaping("so pretty ❤"));
 	}
 
 	#[test]

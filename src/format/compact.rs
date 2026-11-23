@@ -53,7 +53,7 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 /// Serializes a [`Value`]s for [`OutputFormat::Compact`] into a [`io::Write`].
 pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, update, &s),
+		Value::Scalar(s) => write_scalar(out, update, s),
 		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
@@ -113,11 +113,11 @@ mod tests {
 			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
 			(Scalar::from("quizás\n\"lala\""), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
 			(Scalar::from(-123), "-123"),
-			(Scalar::from(-12345678901234567 as i128), "-0x2bdc545d6b4b87"),
-			(Scalar::from(89801234567890123 as isize), "0x13f09bf3ecf84cb"),
+			(Scalar::from(-12345678901234567_i128), "-0x2bdc545d6b4b87"),
+			(Scalar::from(89801234567890123_isize), "0x13f09bf3ecf84cb"),
 			(Scalar::from(123456), "123456"),
-			(Scalar::from(12345678901234567 as u128), "0x2bdc545d6b4b87"),
-			(Scalar::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
+			(Scalar::from(12345678901234567_u128), "0x2bdc545d6b4b87"),
+			(Scalar::from(89801234567890123_usize), "0x13f09bf3ecf84cb"),
 			(Scalar::from(-1.2345), "-1.2345"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
@@ -137,14 +137,14 @@ mod tests {
 		for tc in [
 			(Value::from(Scalar::None), "<none>"),
 			(Value::from(true), "true"),
-			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
+			(Value::from(89801234567890123_usize), "0x13f09bf3ecf84cb"),
 			(
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(-123),
 					Scalar::from(None::<bool>),
-					Scalar::from(89801234567890123 as usize),
+					Scalar::from(89801234567890123_usize),
 					Scalar::from(5678901.2345),
 				]),
 				"[false, \"abcd 1234\", -123, <none>, 0x13f09bf3ecf84cb, 5678901.2345]",
@@ -176,10 +176,10 @@ mod tests {
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("nothing", Value::from(None::<f32>));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 2, "test compact update ❤️", &attrs));
 
 		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);

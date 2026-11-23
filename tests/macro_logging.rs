@@ -19,7 +19,7 @@ fn macro_logging() {
 		r::info!(log, "root test, info without args");
 		r::info!(log, "root test, info with args", first = 1234, second = "lala");
 		r::warn!(log, "root test, warn");
-		r::debug!(log, "root test, debug", a_float = 3.1415926);
+		r::debug!(log, "root test, debug", a_float = 7.1415926);
 
 		let mut nlog = log.clone();
 		r::set!(nlog, number = 1);
@@ -35,7 +35,7 @@ fn macro_logging() {
 	            2026-03-04 15:10:16.234 [INF] root test, info without args\n\
 				2026-03-04 15:10:17.468 [INF] root test, info with args first=1234 second=\"lala\"\n\
 				2026-03-04 15:10:18.702 [WRN] root test, warn\n\
-				2026-03-04 15:10:19.936 [DBG] root test, debug a_float=3.1415926\n\
+				2026-03-04 15:10:19.936 [DBG] root test, debug a_float=7.1415926\n\
 				2026-03-04 15:10:21.170 [INF] first test info number=1\n\
 				2026-03-04 15:10:22.404 [WRN] first test warn number=1 warning=\"fire!\"\n\
 				2026-03-04 15:10:23.638 [DBG] first test debug number=1\n\
@@ -47,6 +47,7 @@ fn macro_logging() {
 
 #[test]
 #[should_panic]
+#[allow(clippy::diverging_sub_expression)]
 fn panic_logging() {
 	let mut log = rasant::Logger::new();
 	log.add_sink(sink::stdout::default()).set_level(rasant::Level::Info);

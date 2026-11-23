@@ -24,7 +24,7 @@ pub enum MetadataField {
 /// Attribute metadata implementation.
 pub trait MetadataImpl {
 	/// Resolves base [`Metadata`] for a given attribute key, as [`&str].
-	fn from_key<'f>(key: &'f str) -> Self;
+	fn from_key(key: &str) -> Self;
 	/// Evaluates whether a [`MetadataField`] is set or not.
 	fn get(&self, field: MetadataField) -> bool;
 	/// Sets/unsets a [`MetadataField`].
@@ -36,15 +36,15 @@ pub trait MetadataImpl {
 pub type Metadata = usize;
 
 impl MetadataImpl for Metadata {
-	fn from_key<'f>(key: &'f str) -> Self {
+	fn from_key(key: &str) -> Self {
 		let mut res: Metadata = 0;
 
-		if ATTRIBUTE_KEYS_RESTRICTED.iter().any(|&r| key == r) {
+		if ATTRIBUTE_KEYS_RESTRICTED.contains(&key) {
 			// don't bother resolving the rest of metadata for restricted keys
 			return MetadataField::Restricted as Metadata;
 		}
 
-		if ATTRIBUTE_KEYS_PRIORITY.iter().any(|&p| key == p) {
+		if ATTRIBUTE_KEYS_PRIORITY.contains(&key) {
 			res |= MetadataField::Priority as Metadata;
 		}
 
@@ -52,7 +52,7 @@ impl MetadataImpl for Metadata {
 			res |= MetadataField::Error as Metadata;
 		}
 
-		return res;
+		res
 	}
 
 	fn get(&self, field: MetadataField) -> bool {
@@ -81,6 +81,12 @@ pub struct Map {
 	/// Indexes for 1st and 2nd set of Scalar's associated with each key, as [1_start, end), [2_start, 2_end)
 	/// (0.0) indicates no 2nd set present.
 	scalar_idxs: Vec<(usize, usize, usize, usize)>,
+}
+
+impl Default for Map {
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl Map {
@@ -267,7 +273,7 @@ impl Map {
 		let idx = self.scalar_pool.len();
 
 		for s in ss {
-			let ns = self.scalar_convert_to_pooled(&s);
+			let ns = self.scalar_convert_to_pooled(s);
 			self.scalar_pool.push(ns);
 		}
 
@@ -295,11 +301,9 @@ impl Map {
 	fn scalar_pool_overwrite(&mut self, start: usize, ss: &[Scalar]) {
 		self.scalar_pool_delete_strings(start, start + ss.len());
 
-		let mut i = start;
-		for s in ss {
-			let ns = self.scalar_convert_to_pooled(&s);
-			self.scalar_pool[i] = ns;
-			i += 1;
+		for (i, s) in ss.iter().enumerate() {
+			let ns = self.scalar_convert_to_pooled(s);
+			self.scalar_pool[start + i] = ns;
 		}
 	}
 
@@ -307,7 +311,7 @@ impl Map {
 		let start_1 = self.scalar_pool_extend(ss_1);
 		let end_1 = start_1 + ss_1.len();
 
-		let (mut start_2, mut end_2) = (0 as usize, 0 as usize);
+		let (mut start_2, mut end_2) = (0_usize, 0_usize);
 		if !ss_2.is_empty() {
 			start_2 = self.scalar_pool_extend(ss_2);
 			end_2 = start_2 + ss_2.len();
@@ -373,10 +377,7 @@ impl Map {
 
 	/// Returns a [`Map`] [`Value`], by key.
 	pub fn get_value(&self, key: &str) -> Option<Value<'_>> {
-		match self.idx_by_key(key) {
-			Some(i) => Some(self.value_by_idx(i)),
-			None => None,
-		}
+		self.idx_by_key(key).map(|i| self.value_by_idx(i))
 	}
 
 	fn set(&mut self, key: &str, val: &Value, ephemeral: bool) {
@@ -406,7 +407,7 @@ impl Map {
 					for j in i + 1..keys.len() {
 						let key_j = &keys[j];
 						if key_i == key_j {
-							panic!("Duplicate key for Map {{{key_i} -> {val_i}}} vs {{{key_j} -> {val_j}}}", val_i = &vals[i], val_j = &vals[j]);
+							panic!("Duplicate key for Map {{{key_i} -> {val_i}}} vs {{{key_j} -> {val_j}}}", val_i = vals[i], val_j = vals[j]);
 						}
 					}
 				}
@@ -482,7 +483,7 @@ pub struct MapIter<'s> {
 impl<'i> MapIter<'i> {
 	/// Initializes an attribute map {key, [`Value`]} iterator.
 	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
+		Self { map, idx: 0 }
 	}
 }
 
@@ -512,7 +513,7 @@ pub struct MapKeyIter<'s> {
 impl<'i> MapKeyIter<'i> {
 	/// Initializes an attribute map key iterator.
 	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
+		Self { map, idx: 0 }
 	}
 }
 
@@ -536,7 +537,7 @@ pub struct MapFullIter<'s> {
 impl<'i> MapFullIter<'i> {
 	/// Initializes an attribute map key -> {key, [`Value`], [`Metadata`]} iterator.
 	pub fn new(map: &'i Map) -> Self {
-		Self { map: map, idx: 0 }
+		Self { map, idx: 0 }
 	}
 }
 
@@ -618,7 +619,7 @@ mod map {
 		// overwrite existing key
 		attr.set("d", &Value::from(7890.1234), true);
 		attr.set("error", &Value::from("first!"), false);
-		attr.set("e", &Value::from(&[Scalar::from(7788 as usize), Scalar::from(9900)]), true);
+		attr.set("e", &Value::from(&[Scalar::from(7788_usize), Scalar::from(9900)]), true);
 		attr.set("a", &Value::Scalar(Scalar::from("lalala")), false);
 		assert_eq!(attr.len(), 6);
 		assert_eq!(attr.store_size(), 7);
@@ -715,12 +716,12 @@ mod map {
 			"key_a",
 			Value::from((
 				&[Scalar::from(String::from("new sub key 1")), Scalar::from(String::from("with sub key 2"))],
-				&[Scalar::from(3.14159), Scalar::from("i'm static!")],
+				&[Scalar::from(2.14159), Scalar::from("i'm static!")],
 			)),
 		);
 		assert_eq!(
 			attr.to_string(),
-			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i\\'m static!\"} key_b={\"sub key 1\": \"lala\", \"sub key #2\": \"lelele\", \"and sub key 3\": \"lolololo\"} key_c=\"static_string\" key_d=\"heap string\""
+			"key_a={\"new sub key 1\": 2.14159, \"with sub key 2\": \"i\\'m static!\"} key_b={\"sub key 1\": \"lala\", \"sub key #2\": \"lelele\", \"and sub key 3\": \"lolololo\"} key_c=\"static_string\" key_d=\"heap string\""
 		);
 		assert_eq!(
 			attr.string_pool,
@@ -731,7 +732,7 @@ mod map {
 		attr.insert("key_b", Value::from(&[Scalar::from(String::from("new string")), Scalar::from(12345)]));
 		assert_eq!(
 			attr.to_string(),
-			"key_a={\"new sub key 1\": 3.14159, \"with sub key 2\": \"i\\'m static!\"} key_b=[\"new string\", 12345] key_c=\"static_string\" key_d=\"heap string\""
+			"key_a={\"new sub key 1\": 2.14159, \"with sub key 2\": \"i\\'m static!\"} key_b=[\"new string\", 12345] key_c=\"static_string\" key_d=\"heap string\""
 		);
 		assert_eq!(attr.string_pool, "key_akey_bkey_ckey_dheap stringnew sub key 1with sub key 2new string");
 
@@ -844,7 +845,7 @@ mod map {
 		attrs.insert("key_b", Value::from(&[Scalar::from(456), Scalar::from(true)]));
 		attrs.insert("error", Value::from("first error"));
 		attrs.insert("key_c", Value::from(&[Scalar::from(789), Scalar::from(false)]));
-		attrs.insert("key_d", Value::from(3.14159));
+		attrs.insert("key_d", Value::from(std::f32::consts::PI));
 
 		let mut got_keys: Vec<&str> = Vec::new();
 		for key in attrs.iter_key() {

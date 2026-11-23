@@ -8,6 +8,7 @@
 //! attribute value of every log update received.
 
 use std::cmp;
+use std::slice;
 use std::string;
 
 use crate::attributes;
@@ -55,7 +56,7 @@ impl Filter for Message {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, update: &sink::LogUpdate) -> bool {
 		match self.match_all {
 			true => {
 				if !self.has.iter().all(|x| update.message().contains((*x).as_str())) {
@@ -120,7 +121,7 @@ impl Filter for AttributeKey {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, update: &sink::LogUpdate) -> bool {
 		let mut has_matches: usize = 0;
 		let mut has_not_matches: usize = 0;
 
@@ -195,7 +196,7 @@ impl Filter for AttributeValue {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, update: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, update: &sink::LogUpdate) -> bool {
 		let Some((val, _)) = update.attribute_get(self.key.as_str()) else {
 			return false;
 		};
@@ -211,7 +212,7 @@ impl Filter for AttributeValue {
 			let mut found_has_not: bool = false;
 
 			let ss = match val {
-				attributes::Value::Scalar(ref s) => &[s.clone()],
+				attributes::Value::Scalar(ref s) => slice::from_ref(s),
 				attributes::Value::List(ss) => ss,
 				attributes::Value::Map(_, ss) => ss,
 			};
@@ -460,7 +461,7 @@ mod tests {
 			let mut attrs = attributes::Map::new();
 			attrs.insert("a_string", Value::from("hello there!"));
 			attrs.insert("an_int", Value::from(12345));
-			attrs.insert("a_float", Value::from(6789.0123 as f32));
+			attrs.insert("a_float", Value::from(6_789.012_f32));
 
 			let update = sink::LogUpdate::from((&when, Level::Info, 0, "unused update :(", &attrs));
 
@@ -575,7 +576,7 @@ mod tests {
 			let mut attrs = attributes::Map::new();
 			attrs.insert("a_string", Value::from("hello there!"));
 			attrs.insert("an_int", Value::from(12345));
-			attrs.insert("a_float", Value::from(6789.0123 as f32));
+			attrs.insert("a_float", Value::from(6_789.012_f32));
 
 			let update = sink::LogUpdate::from((&when, Level::Info, 0, "unused update :(", &attrs));
 

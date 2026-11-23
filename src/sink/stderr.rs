@@ -16,7 +16,7 @@ pub struct StderrConfig {
 	pub flush_on_write: bool,
 }
 
-impl<'i> Default for StderrConfig {
+impl Default for StderrConfig {
 	fn default() -> Self {
 		Self {
 			name: String::from("STDERR"),

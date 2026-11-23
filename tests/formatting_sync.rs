@@ -114,7 +114,6 @@ fn sync_output() {
 					format: tc.out_format,
 					time_format: tc.time_format,
 					delimiter: vec![b'\n'],
-					..FormatterConfig::default()
 				},
 				..sink::memory::MemoryConfig::default()
 			});

@@ -27,19 +27,16 @@ pub struct Random {
 impl Random {
 	/// Initializes a new [`Random`] sampling log [`Filter`], from a given [`RandomConfig`].
 	pub fn new(conf: RandomConfig) -> Self {
-		let threshold: u64;
-		if conf.probability <= 0_f32 {
-			threshold = 0;
-		} else if conf.probability >= 1_f32 {
-			threshold = u64::MAX;
-		} else {
-			threshold = (u64::MAX / 1000000) * (1000000_f32 * conf.probability) as u64;
-		}
+		let threshold = match conf.probability {
+			..0_f32 => 0_u64,
+			1_f32.. => u64::MAX,
+			_ => (u64::MAX / 1000000) * (1000000_f32 * conf.probability) as u64,
+		};
 
 		Self {
 			name: format!("random sample filter ({prob:.02}%)", prob = 100_f32 * conf.probability),
 			rand: Rand::new(),
-			threshold: threshold,
+			threshold,
 		}
 	}
 
@@ -58,7 +55,7 @@ impl Filter for Random {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, _: &sink::LogUpdate) -> bool {
 		self.rand.next() <= self.threshold
 	}
 }
@@ -92,7 +89,7 @@ impl Filter for Step {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, _: &sink::LogUpdate) -> bool {
 		if self.step == 0 {
 			return true;
 		}
@@ -149,7 +146,7 @@ impl Filter for RandomStep {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, _: &sink::LogUpdate) -> bool {
 		if self.step == 0 {
 			return true;
 		}
@@ -162,7 +159,7 @@ impl Filter for RandomStep {
 			self.count += 1;
 		}
 
-		return res;
+		res
 	}
 }
 
@@ -201,7 +198,7 @@ impl Filter for Burst {
 		self.name.as_str()
 	}
 
-	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, _: &sink::LogUpdate) -> bool {
 		if self.period == Duration::from_millis(0) {
 			return true;
 		}

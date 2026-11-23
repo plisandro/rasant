@@ -56,7 +56,7 @@ fn sample_log() {
 
 		let mut plog = rlog.clone();
 		r::set!(plog, request_id = 329);
-		r::debug!(plog, "wrote item to data store", store_id = 23995 as usize, status = 200);
+		r::debug!(plog, "wrote item to data store", store_id = 23995_usize, status = 200);
 		sleep_millis(23);
 		r::info!(plog, "processed write", name = "new", time_ms = 187);
 		sleep_millis(199);

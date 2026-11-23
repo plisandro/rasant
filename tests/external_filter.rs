@@ -18,7 +18,7 @@ impl filter::Filter for DummyFilter {
 		"a dumb test filter"
 	}
 
-	fn pass<'f>(&mut self, _: &'f sink::LogUpdate) -> bool {
+	fn pass(&mut self, _: &sink::LogUpdate) -> bool {
 		self.count += 1;
 		self.count % 2 == 0
 	}

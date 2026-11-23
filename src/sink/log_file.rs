@@ -30,7 +30,7 @@ pub struct LogFileConfig {
 	pub append: bool,
 }
 
-impl<'i> Default for LogFileConfig {
+impl Default for LogFileConfig {
 	fn default() -> Self {
 		Self {
 			log_directory: env::temp_dir(),

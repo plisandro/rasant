@@ -44,7 +44,7 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 /// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
 pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
-		Value::Scalar(s) => write_scalar(out, update, &s),
+		Value::Scalar(s) => write_scalar(out, update, s),
 		Value::List(ss) => {
 			write!(out, "[")?;
 			for i in 0..ss.len() {
@@ -73,7 +73,7 @@ pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Json`] into a [`io::Write`].
 pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// build output header
-	match time_format.to_integer_for(&update.when()) {
+	match time_format.to_integer_for(update.when()) {
 		Some(timestamp_int) => write!(
 			out,
 			"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":\"{msg}\"",
@@ -123,13 +123,13 @@ mod tests {
 			(Scalar::from("abcd 1234"), "\"abcd 1234\""),
 			(Scalar::from("quizás\n\"lala\""), "\"quiz\\u{e1}s\\n\\\"lala\\\"\""),
 			(Scalar::from(-123), "-123"),
-			(Scalar::from(-12345678901234567 as i128), "-12345678901234567"),
-			(Scalar::from(89801234567890123 as i128), "89801234567890123"),
-			(Scalar::from(-12345678901234567 as isize), "-12345678901234567"),
-			(Scalar::from(89801234567890123 as isize), "89801234567890123"),
+			(Scalar::from(-12345678901234567_i128), "-12345678901234567"),
+			(Scalar::from(89801234567890123_i128), "89801234567890123"),
+			(Scalar::from(-12345678901234567_isize), "-12345678901234567"),
+			(Scalar::from(89801234567890123_isize), "89801234567890123"),
 			(Scalar::from(123456), "123456"),
-			(Scalar::from(12345678901234567 as u128), "12345678901234567"),
-			(Scalar::from(89801234567890123 as usize), "89801234567890123"),
+			(Scalar::from(12345678901234567_u128), "12345678901234567"),
+			(Scalar::from(89801234567890123_usize), "89801234567890123"),
 			(Scalar::from(-1234.56789012345), "-1.23456789012345e3"),
 			(Scalar::from(5678901.2345), "5.6789012345e6"),
 		] {
@@ -150,13 +150,13 @@ mod tests {
 		for tc in [
 			(Value::from(None::<i32>), "null"),
 			(Value::from(true), "true"),
-			(Value::from(89801234567890123 as usize), "89801234567890123"),
+			(Value::from(89801234567890123_usize), "89801234567890123"),
 			(
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(123),
-					Scalar::from(-89801234567890123 as isize),
+					Scalar::from(-89801234567890123_isize),
 					Scalar::from(5678901.2345),
 				]),
 				"[false,\"abcd 1234\",123,-89801234567890123,5.6789012345e6]",
@@ -184,14 +184,14 @@ mod tests {
 	#[test]
 	fn serialize() {
 		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
 		attrs.insert("nothing", Value::from(None::<f64>));
-		attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 		attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 3, "test JSON update ❤️", &attrs));
 
 		let time_key: &str = "timestamp";

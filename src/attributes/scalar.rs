@@ -455,61 +455,61 @@ mod tests {
 		assert_eq!(Scalar::from(&true), Scalar::Bool(true));
 
 		assert_eq!(Scalar::from(None::<i8>), Scalar::None);
-		assert_eq!(Scalar::from(-12 as i8), Scalar::Int(-12));
-		assert_eq!(Scalar::from(&(-12 as i8)), Scalar::Int(-12));
+		assert_eq!(Scalar::from(-12_i8), Scalar::Int(-12));
+		assert_eq!(Scalar::from(&(-12_i8)), Scalar::Int(-12));
 
 		assert_eq!(Scalar::from(None::<i16>), Scalar::None);
-		assert_eq!(Scalar::from(345 as i16), Scalar::Int(345));
-		assert_eq!(Scalar::from(&(345 as i16)), Scalar::Int(345));
+		assert_eq!(Scalar::from(345_i16), Scalar::Int(345));
+		assert_eq!(Scalar::from(&(345_i16)), Scalar::Int(345));
 
 		assert_eq!(Scalar::from(None::<i32>), Scalar::None);
-		assert_eq!(Scalar::from(-678 as i32), Scalar::Int(-678));
-		assert_eq!(Scalar::from(&(-678 as i32)), Scalar::Int(-678));
+		assert_eq!(Scalar::from(-678_i32), Scalar::Int(-678));
+		assert_eq!(Scalar::from(&(-678_i32)), Scalar::Int(-678));
 
 		assert_eq!(Scalar::from(None::<i64>), Scalar::None);
-		assert_eq!(Scalar::from(9012 as i64), Scalar::Int(9012));
-		assert_eq!(Scalar::from(&(9012 as i64)), Scalar::Int(9012));
+		assert_eq!(Scalar::from(9012_i64), Scalar::Int(9012));
+		assert_eq!(Scalar::from(&(9012_i64)), Scalar::Int(9012));
 
 		assert_eq!(Scalar::from(None::<i128>), Scalar::None);
-		assert_eq!(Scalar::from(-3456 as i128), Scalar::LongInt(-3456));
-		assert_eq!(Scalar::from(&(-3456 as i128)), Scalar::LongInt(-3456));
+		assert_eq!(Scalar::from(-3456_i128), Scalar::LongInt(-3456));
+		assert_eq!(Scalar::from(&(-3456_i128)), Scalar::LongInt(-3456));
 
 		assert_eq!(Scalar::from(None::<isize>), Scalar::None);
-		assert_eq!(Scalar::from(7890 as isize), Scalar::Size(7890));
-		assert_eq!(Scalar::from(&(7890 as isize)), Scalar::Size(7890));
+		assert_eq!(Scalar::from(7890_isize), Scalar::Size(7890));
+		assert_eq!(Scalar::from(&(7890_isize)), Scalar::Size(7890));
 
 		assert_eq!(Scalar::from(None::<u8>), Scalar::None);
-		assert_eq!(Scalar::from(12 as u8), Scalar::Uint(12));
-		assert_eq!(Scalar::from(&(12 as u8)), Scalar::Uint(12));
+		assert_eq!(Scalar::from(12_u8), Scalar::Uint(12));
+		assert_eq!(Scalar::from(&(12_u8)), Scalar::Uint(12));
 
 		assert_eq!(Scalar::from(None::<u16>), Scalar::None);
-		assert_eq!(Scalar::from(345 as u16), Scalar::Uint(345));
-		assert_eq!(Scalar::from(&(345 as u16)), Scalar::Uint(345));
+		assert_eq!(Scalar::from(345_u16), Scalar::Uint(345));
+		assert_eq!(Scalar::from(&(345_u16)), Scalar::Uint(345));
 
 		assert_eq!(Scalar::from(None::<u32>), Scalar::None);
-		assert_eq!(Scalar::from(678 as u32), Scalar::Uint(678));
-		assert_eq!(Scalar::from(&(678 as u32)), Scalar::Uint(678));
+		assert_eq!(Scalar::from(678_u32), Scalar::Uint(678));
+		assert_eq!(Scalar::from(&(678_u32)), Scalar::Uint(678));
 
 		assert_eq!(Scalar::from(None::<u64>), Scalar::None);
-		assert_eq!(Scalar::from(9012 as u64), Scalar::Uint(9012));
-		assert_eq!(Scalar::from(&(9012 as u64)), Scalar::Uint(9012));
+		assert_eq!(Scalar::from(9012_u64), Scalar::Uint(9012));
+		assert_eq!(Scalar::from(&(9012_u64)), Scalar::Uint(9012));
 
 		assert_eq!(Scalar::from(None::<u128>), Scalar::None);
-		assert_eq!(Scalar::from(3456 as u128), Scalar::LongUint(3456));
-		assert_eq!(Scalar::from(&(3456 as u128)), Scalar::LongUint(3456));
+		assert_eq!(Scalar::from(3456_u128), Scalar::LongUint(3456));
+		assert_eq!(Scalar::from(&(3456_u128)), Scalar::LongUint(3456));
 
 		assert_eq!(Scalar::from(None::<usize>), Scalar::None);
-		assert_eq!(Scalar::from(7890 as usize), Scalar::Usize(7890));
-		assert_eq!(Scalar::from(&(7890 as usize)), Scalar::Usize(7890));
+		assert_eq!(Scalar::from(7890_usize), Scalar::Usize(7890));
+		assert_eq!(Scalar::from(&(7890_usize)), Scalar::Usize(7890));
 
 		assert_eq!(Scalar::from(None::<f32>), Scalar::None);
 		// yaay precision!
-		assert_eq!(Scalar::from(-123.456 as f32), Scalar::Float(-123.45600128173828));
-		assert_eq!(Scalar::from(&(-123.456 as f32)), Scalar::Float(-123.45600128173828));
+		assert_eq!(Scalar::from(-123.456_f32), Scalar::Float(-123.45600128173828));
+		assert_eq!(Scalar::from(&(-123.456_f32)), Scalar::Float(-123.45600128173828));
 
 		assert_eq!(Scalar::from(None::<f64>), Scalar::None);
-		assert_eq!(Scalar::from(789.012 as f64), Scalar::Float(789.012));
-		assert_eq!(Scalar::from(&(789.012 as f64)), Scalar::Float(789.012));
+		assert_eq!(Scalar::from(789.012_f64), Scalar::Float(789.012));
+		assert_eq!(Scalar::from(&(789.012_f64)), Scalar::Float(789.012));
 
 		assert_eq!(Scalar::from(None::<char>), Scalar::None);
 		assert_eq!(Scalar::from('💯'), Scalar::String(String::from("💯"), true));

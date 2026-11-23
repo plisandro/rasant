@@ -14,10 +14,10 @@ pub trait Filter {
 	/// Returns a [`&str`] name for the filter.
 	fn name(&self) -> &str;
 	/// Verifies whether a [`LogUpdate`] with attributes should be logged.
-	fn pass<'f>(&mut self, update: &'f LogUpdate) -> bool;
+	fn pass(&mut self, update: &LogUpdate) -> bool;
 
 	/// Verifies whether a [`LogUpdate`] with attributes should be skipped.
-	fn skip<'f>(&mut self, update: &LogUpdate) -> bool {
+	fn skip(&mut self, update: &LogUpdate) -> bool {
 		!self.pass(update)
 	}
 }

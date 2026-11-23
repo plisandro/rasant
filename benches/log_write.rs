@@ -18,7 +18,6 @@ fn init_logger() -> Logger {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..black_hole::BlackHoleConfig::default()
 	}))
 	.set_all_levels();
 

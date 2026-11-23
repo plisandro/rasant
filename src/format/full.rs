@@ -42,7 +42,7 @@ fn depth_spacer_len(depth: LogDepth) -> usize {
 		return depth as usize * FORMAT_FULL_DEPTH_SEPARATOR_LENGTH;
 	}
 
-	return FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH + (FORMAT_FULL_MAX_DEPTH - 1) as usize * FORMAT_FULL_DEPTH_SEPARATOR_LENGTH;
+	FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH + (FORMAT_FULL_MAX_DEPTH - 1) as usize * FORMAT_FULL_DEPTH_SEPARATOR_LENGTH
 }
 
 // Write a spacer based on the [`LogDepth`] for a [`LogUpdate`].
@@ -89,7 +89,7 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 		}
 	}
 	if wrote {
-		out.write(delimiter.as_slice())?;
+		out.write_all(delimiter.as_slice())?;
 		write!(out, "{:header_len$}", "")?;
 	}
 
@@ -103,7 +103,7 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 		}
 	}
 	if wrote {
-		out.write(delimiter.as_slice())?;
+		out.write_all(delimiter.as_slice())?;
 		write!(out, "{:header_len$}", "")?;
 	}
 
@@ -128,13 +128,13 @@ mod tests {
 		for tc in [
 			(Value::from(Scalar::None), "<none>"),
 			(Value::from(true), "true"),
-			(Value::from(89801234567890123 as usize), "0x13f09bf3ecf84cb"),
+			(Value::from(89801234567890123_usize), "0x13f09bf3ecf84cb"),
 			(
 				Value::from(&[
 					Scalar::from(false),
 					Scalar::from("abcd 1234"),
 					Scalar::from(-123),
-					Scalar::from(89801234567890123 as usize),
+					Scalar::from(89801234567890123_usize),
 					Scalar::from(5678901.2345),
 				]),
 				"[false, \"abcd 1234\", -123, 0x13f09bf3ecf84cb, 5678901.2345]",
@@ -162,13 +162,13 @@ mod tests {
 	#[test]
 	fn serialize() {
 		let mut attrs = Map::new();
-		attrs.insert("an_int", Value::from(123 as i32));
+		attrs.insert("an_int", Value::from(123_i32));
 		attrs.insert_ephemeral("a_float", Value::from(-456.789));
 		attrs.insert("some_string", Value::from("hi there!"));
-		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+		attrs.insert_ephemeral("a_set", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 		attrs.insert("nothing", Value::from(None::<bool>));
 
-		let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		for tc in [
 			(
 				LogUpdate::from((&when, Level::Warning, 0, "test full, no depth", &attrs)),
@@ -192,7 +192,7 @@ mod tests {
 			let (pupdate, want) = tc;
 
 			let mut out = Vec::new();
-			let delimiter: Vec<u8> = [b'\n'].to_vec();
+			let delimiter: Vec<u8> = b"\n".to_vec();
 
 			let update = LogUpdate::from((&pupdate, &attrs));
 			let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);

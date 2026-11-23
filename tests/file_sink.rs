@@ -3,7 +3,6 @@ use std::fs;
 
 use std::path::PathBuf;
 
-use ntime;
 use rasant as r;
 use rasant::sink;
 use rasant::{FormatterConfig, Level, TimeFormat, TimePrecision, TimeTimezone};
@@ -12,13 +11,14 @@ fn test_filename() -> PathBuf {
 	let mut path = env::temp_dir();
 	let now = ntime::Timestamp::now();
 	path.push(format!("file_sink_test_{ts}.log", ts = now.as_nanos()));
-	return path;
+
+	path
 }
 
 fn read_file(path: &PathBuf) -> String {
 	let content = fs::read_to_string(path).expect("failed to read test file");
 	// read_line() insists on adding newlines even when they're not there >:(
-	return content.trim().into();
+	content.trim().into()
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn append() {
 
 		want.push_str(&string_out.as_string());
 		// Account for file sinks adding a delimiter on append.
-		want.push_str("\n");
+		want.push('\n');
 	}
 
 	{

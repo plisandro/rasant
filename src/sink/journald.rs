@@ -114,21 +114,21 @@ impl Journald {
 			Value::Scalar(s) => {
 				encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
 				self.write_buf_scalar(container, s)?;
-				self.output_buf.write("\n".as_bytes())?;
+				self.output_buf.write_all(b"\n")?;
 			}
 			// lists are represented as a repeated set of keys
 			Value::List(ss) => {
 				for s in *ss {
 					encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
 					self.write_buf_scalar(container, s)?;
-					self.output_buf.write("\n".as_bytes())?;
+					self.output_buf.write_all(b"\n")?;
 				}
 			}
 			// maps are represented as a repeated set of keys with JSON content
 			Value::Map(mkeys, mvals) => {
 				for i in 0..mkeys.len() {
 					encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8Uppercase)?;
-					write!(&mut self.output_buf, "={{{key}: {val}}}\n", key = &mkeys[i], val = &mvals[i])?;
+					writeln!(&mut self.output_buf, "={{{key}: {val}}}", key = mkeys[i], val = mvals[i])?;
 				}
 			}
 		}
@@ -184,22 +184,21 @@ MESSAGE\n",
 		// journald protocol.
 		//
 		let msg_start = self.output_buf.len();
-		self.output_buf.write(update.message().as_bytes())?;
+		self.output_buf.write_all(update.message().as_bytes())?;
 		if self.message_format == MessageFormat::WithAttributes {
 			self.write_buf_attributes_text(update)?;
 		}
 
 		// the final LF doesn't count against the message size
 		let msg_len = self.output_buf.len() - msg_start;
-		self.output_buf.write(&[b'\n'])?;
+		self.output_buf.write_all(b"\n")?;
 		self.output_buf.splice(msg_start..msg_start, (msg_len as u64).to_le_bytes());
 
 		self.write_buf_attribute_fields(update)?;
 
-		match &self.datagram {
-			Some(dg) => _ = dg.send(self.output_buf.as_slice())?,
-			None => (),
-		};
+		if let Some(dg) = &self.datagram {
+			dg.send(self.output_buf.as_slice())?;
+		}
 
 		Ok(())
 	}
@@ -265,21 +264,21 @@ A_MAP={\"key #2\": \"weee \\u{1f494}\"}
 			let (message_format, want) = tc;
 
 			let mut attrs = Map::new();
-			attrs.insert("an_int", Value::from(123 as i32));
+			attrs.insert("an_int", Value::from(123_i32));
 			attrs.insert("a_float", Value::from(-456.789));
 			attrs.insert("some_string", Value::from("hi there! ❤"));
-			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+			attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 			attrs.insert("nothing", Value::from(None::<bool>));
 			attrs.insert(
 				"a_map",
 				Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee 💔")])),
 			);
 
-			let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+			let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 			let update = LogUpdate::from((&when, Level::Warning, 1, "test Syslog message update", &attrs));
 
 			let mut sink = Journald::black_hole(JournaldConfig {
-				message_format: message_format,
+				message_format,
 				..JournaldConfig::default()
 			});
 			sink.process_id = 12345;

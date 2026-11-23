@@ -1,4 +1,6 @@
 //! Logging levels module for Rasant.
+use std::fmt;
+
 use crate::console::Color;
 
 /// Log level definition.
@@ -111,9 +113,9 @@ impl Level {
 	}
 }
 
-impl ToString for Level {
-	fn to_string(&self) -> String {
-		self.as_str().into()
+impl fmt::Display for Level {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.as_str())
 	}
 }
 
@@ -148,7 +150,7 @@ impl TryFrom<u8> for Level {
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
-mod level {
+mod tests {
 	use super::*;
 
 	use crate::constant::{LEVEL_LONG_NAME_MAX_LENGTH, LEVEL_SHORT_NAME_LENGTH};
@@ -160,11 +162,6 @@ mod level {
 			assert!(level.as_long_str().len() <= LEVEL_LONG_NAME_MAX_LENGTH);
 		}
 	}
-}
-
-#[cfg(test)]
-mod from {
-	use super::*;
 
 	#[test]
 	fn name() {

@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt;
 use std::io;
 use std::sync::LazyLock;
 
@@ -129,9 +130,9 @@ impl Color {
 	}
 }
 
-impl ToString for Color {
-	fn to_string(&self) -> String {
-		self.to_str().into()
+impl fmt::Display for Color {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.to_str())
 	}
 }
 
@@ -158,7 +159,7 @@ pub mod mocks {
 			Err(_) => panic!("COLORTERM_OK mock is poisoned"),
 			Ok(_) => {
 				*COLORTERM_OK_OVERRIDE.write().unwrap() = Some(mock_colorterm_ok);
-				res = panic::catch_unwind(panic::AssertUnwindSafe(|| test_fn()));
+				res = panic::catch_unwind(panic::AssertUnwindSafe(test_fn));
 				*COLORTERM_OK_OVERRIDE.write().unwrap() = None;
 			}
 		}

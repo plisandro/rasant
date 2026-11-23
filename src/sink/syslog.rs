@@ -7,10 +7,10 @@
 //!   - Unix datagram: [`SyslogSocket::Local`] and [`SyslogSocket::LocalPath`]. Only
 //!     available for *NIX builds.
 //!   - UDP, implementing [RFC 5426](https://datatracker.ietf.org/doc/html/rfc5426):
-//!     [`SyslogSocket::UDP`].
+//!     [`SyslogSocket::Udp`].
 //!   - TCP, implementing [RFC 6587](https://datatracker.ietf.org/doc/html/rfc6587)
-//!     and supporting two modes: framed ([`SyslogSocket::TCP`]) and "non-transparent
-//!     framing" ([`SyslogSocket::TCPTransparent`]). Framed TCP should be favored
+//!     and supporting two modes: framed ([`SyslogSocket::Tcp`]) and "non-transparent
+//!     framing" ([`SyslogSocket::TcpTransparent`]). Framed TCP should be favored
 //!     whenever possible.
 //!
 //! Multiple syslog formats are supported:
@@ -97,13 +97,13 @@ pub enum SyslogSocket<'e> {
 	LocalPath(&'e str),
 	/// Syslog connection over TCP with octet-counting framing
 	/// ([RFC 6587](https://datatracker.ietf.org/doc/html/rfc6587) for a given address.
-	TCP(&'e str),
+	Tcp(&'e str),
 	/// Syslog connection over TCP with transparent (i.e no) framing, for a given address. This is
 	/// supported in [RFC 6587](https://datatracker.ietf.org/doc/html/rfc6587), but can cause issues
 	/// with ASCII line feeds on log messages.
-	TCPTransparent(&'e str),
+	TcpTransparent(&'e str),
 	/// Syslog connection over UDP for a given address.
-	UDP(&'e str),
+	Udp(&'e str),
 	/// Dummy syslog connection, for testing.
 	BlackHole(),
 }
@@ -125,7 +125,7 @@ impl<'i> Default for SyslogConfig<'i> {
 	fn default() -> Self {
 		Self {
 			name: String::from("default Syslog"),
-			server: SyslogSocket::TCP(""),
+			server: SyslogSocket::Tcp(""),
 			format: SyslogFormat::Rfc5424Full,
 			facility: 1, // user-level messages
 		}
@@ -149,7 +149,7 @@ impl<'i> SyslogConfig<'i> {
 	pub fn default_udp() -> Self {
 		Self {
 			name: String::from("default UDP Syslog"),
-			server: SyslogSocket::UDP("127.0.0.1:541"),
+			server: SyslogSocket::Udp("127.0.0.1:541"),
 			..SyslogConfig::default()
 		}
 	}
@@ -159,7 +159,7 @@ impl<'i> SyslogConfig<'i> {
 	pub fn default_tcp() -> Self {
 		Self {
 			name: String::from("default TCP Syslog"),
-			server: SyslogSocket::TCP("127.0.0.1:601"),
+			server: SyslogSocket::Tcp("127.0.0.1:601"),
 			..SyslogConfig::default()
 		}
 	}
@@ -179,9 +179,9 @@ impl<'i> SyslogConfig<'i> {
 enum SyslogWriter {
 	#[cfg(unix)]
 	Datagram(UnixDatagram),
-	UDP(UdpSocket, SocketAddr),
-	TCPTransparent(BufWriter<TcpStream>),
-	TCPFramed(BufWriter<TcpStream>),
+	Udp(UdpSocket, SocketAddr),
+	TcpTransparent(BufWriter<TcpStream>),
+	TcpFramed(BufWriter<TcpStream>),
 	BlackHole(),
 }
 
@@ -190,13 +190,13 @@ impl io::Write for SyslogWriter {
 		match self {
 			#[cfg(unix)]
 			SyslogWriter::Datagram(d) => d.send(buf),
-			SyslogWriter::UDP(us, addr) => us.send_to(buf, *addr),
-			SyslogWriter::TCPTransparent(ts) => {
+			SyslogWriter::Udp(us, addr) => us.send_to(buf, *addr),
+			SyslogWriter::TcpTransparent(ts) => {
 				ts.write_all(buf)?;
-				ts.write("\n".as_bytes())?;
+				ts.write_all(b"\n")?;
 				Ok(buf.len())
 			}
-			SyslogWriter::TCPFramed(ts) => {
+			SyslogWriter::TcpFramed(ts) => {
 				write!(ts, "{} ", buf.len())?;
 				ts.write_all(buf)?;
 				Ok(buf.len())
@@ -209,9 +209,9 @@ impl io::Write for SyslogWriter {
 		match self {
 			#[cfg(unix)]
 			SyslogWriter::Datagram(_) => Ok(()),
-			SyslogWriter::UDP(_, _) => Ok(()),
-			SyslogWriter::TCPTransparent(ts) => ts.flush(),
-			SyslogWriter::TCPFramed(ts) => ts.flush(),
+			SyslogWriter::Udp(_, _) => Ok(()),
+			SyslogWriter::TcpTransparent(ts) => ts.flush(),
+			SyslogWriter::TcpFramed(ts) => ts.flush(),
 			SyslogWriter::BlackHole() => Ok(()),
 		}
 	}
@@ -233,7 +233,7 @@ impl Syslog {
 	/// Initializes a new [`Syslog`] log [`sink`], from a given [`SyslogConfig`].
 	pub fn new(conf: SyslogConfig<'_>) -> Self {
 		let hostname = HOSTNAME.clone();
-		let process_name = PROCESS_NAME.clone();
+		let process_name = PROCESS_NAME.to_string();
 		let process_id = *PROCESS_ID;
 		let facility_mask = (conf.facility as u16) << 3;
 		let output_buf: Vec<u8> = Vec::with_capacity(DEFAULT_CAPACITY);
@@ -253,34 +253,34 @@ impl Syslog {
 					Err(_) => panic!("failed to open a local Syslog socket: {errs}"),
 					Ok(_) => Self {
 						name: conf.name,
-						hostname: hostname,
-						process_name: process_name,
-						process_id: process_id,
-						facility_mask: facility_mask,
+						hostname,
+						process_name,
+						process_id,
+						facility_mask,
 						writer: SyslogWriter::Datagram(dg),
 						format: conf.format,
-						output_buf: output_buf,
+						output_buf,
 					},
 				}
 			}
 			#[cfg(unix)]
 			SyslogSocket::LocalPath(path) => {
 				let dg = UnixDatagram::unbound().expect("failed to initialize Unix datagram socket for syslog");
-				match dg.connect(&path) {
+				match dg.connect(path) {
 					Err(e) => panic!("failed to open local Syslog socket \"{path}\": {e}"),
 					Ok(_) => Self {
 						name: conf.name,
-						hostname: hostname,
-						process_name: process_name,
-						process_id: process_id,
-						facility_mask: facility_mask,
+						hostname,
+						process_name,
+						process_id,
+						facility_mask,
 						writer: SyslogWriter::Datagram(dg),
 						format: conf.format,
-						output_buf: output_buf,
+						output_buf,
 					},
 				}
 			}
-			SyslogSocket::UDP(addr) => {
+			SyslogSocket::Udp(addr) => {
 				let addr: SocketAddr = addr.parse().expect("invalid UDP address \"{addr}\"");
 				let sock = match UdpSocket::bind("127.0.0.1:0") {
 					Ok(s) => s,
@@ -289,16 +289,16 @@ impl Syslog {
 				sock.set_write_timeout(Some(NETWORK_TIMEOUT)).expect("failed to set Syslog UDP socket timeout");
 				Self {
 					name: conf.name,
-					hostname: hostname,
-					process_name: process_name,
-					process_id: process_id,
-					facility_mask: facility_mask,
-					writer: SyslogWriter::UDP(sock, addr),
+					hostname,
+					process_name,
+					process_id,
+					facility_mask,
+					writer: SyslogWriter::Udp(sock, addr),
 					format: conf.format,
-					output_buf: output_buf,
+					output_buf,
 				}
 			}
-			SyslogSocket::TCP(addr) => {
+			SyslogSocket::Tcp(addr) => {
 				let addr: SocketAddr = addr.parse().expect("invalid TCP address \"{addr}\"");
 				let stream = match TcpStream::connect(addr) {
 					Ok(s) => s,
@@ -308,16 +308,16 @@ impl Syslog {
 				stream.set_write_timeout(Some(NETWORK_TIMEOUT)).expect("failed to set framed Syslog TCP socket timeout");
 				Self {
 					name: conf.name,
-					hostname: hostname,
-					process_name: process_name,
-					process_id: process_id,
-					facility_mask: facility_mask,
-					writer: SyslogWriter::TCPFramed(BufWriter::new(stream)),
+					hostname,
+					process_name,
+					process_id,
+					facility_mask,
+					writer: SyslogWriter::TcpFramed(BufWriter::new(stream)),
 					format: conf.format,
-					output_buf: output_buf,
+					output_buf,
 				}
 			}
-			SyslogSocket::TCPTransparent(addr) => {
+			SyslogSocket::TcpTransparent(addr) => {
 				let addr: SocketAddr = addr.parse().expect("invalid TCP address \"{addr}\"");
 				let stream = match TcpStream::connect(addr) {
 					Ok(s) => s,
@@ -327,24 +327,24 @@ impl Syslog {
 				stream.set_write_timeout(Some(NETWORK_TIMEOUT)).expect("failed to set Syslog TCP socket timeout");
 				Self {
 					name: conf.name,
-					hostname: hostname,
-					process_name: process_name,
-					process_id: process_id,
-					facility_mask: facility_mask,
-					writer: SyslogWriter::TCPTransparent(BufWriter::new(stream)),
+					hostname,
+					process_name,
+					process_id,
+					facility_mask,
+					writer: SyslogWriter::TcpTransparent(BufWriter::new(stream)),
 					format: conf.format,
-					output_buf: output_buf,
+					output_buf,
 				}
 			}
 			SyslogSocket::BlackHole() => Self {
 				name: conf.name,
-				hostname: hostname,
-				process_name: process_name,
-				process_id: process_id,
-				facility_mask: facility_mask,
+				hostname,
+				process_name,
+				process_id,
+				facility_mask,
 				writer: SyslogWriter::BlackHole(),
 				format: conf.format,
-				output_buf: output_buf,
+				output_buf,
 			},
 		}
 	}
@@ -374,38 +374,38 @@ impl Syslog {
 		match v {
 			Value::Scalar(s) => {
 				// scalars are always encoded as strings: "scalar_value"
-				self.output_buf.write("\"".as_bytes())?;
+				self.output_buf.write_all(b"\"")?;
 				self.write_buf_scalar_5424(container, s)?;
-				self.output_buf.write("\"".as_bytes())?;
+				self.output_buf.write_all(b"\"")?;
 			}
 			Value::List(ss) => {
 				// lists are encoded as a single string: "[\"val_1\", \"val_2\", ... \]".
 				// note the escaping on the final bracket!
-				self.output_buf.write("\"[".as_bytes())?;
+				self.output_buf.write_all(b"\"[")?;
 				for i in 0..ss.len() {
 					if i != 0 {
-						self.output_buf.write(", ".as_bytes())?;
+						self.output_buf.write_all(b", ")?;
 					}
-					self.output_buf.write("\\\"".as_bytes())?;
+					self.output_buf.write_all(b"\\\"")?;
 					self.write_buf_scalar_5424(container, &ss[i])?;
-					self.output_buf.write("\\\"".as_bytes())?;
+					self.output_buf.write_all(b"\\\"")?;
 				}
-				self.output_buf.write("\\]\"".as_bytes())?;
+				self.output_buf.write_all(b"\\]\"")?;
 			}
 			Value::Map(mkeys, mvals) => {
 				// maps are encoded as a single string: "{\"key_1\": \"val_1\", ... }"
-				self.output_buf.write("\"{".as_bytes())?;
+				self.output_buf.write_all(b"\"{")?;
 				for i in 0..mkeys.len() {
 					if i != 0 {
-						self.output_buf.write(", ".as_bytes())?;
+						self.output_buf.write_all(b", ")?;
 					}
-					self.output_buf.write("\\\"".as_bytes())?;
+					self.output_buf.write_all(b"\\\"")?;
 					self.write_buf_scalar_5424(container, &mkeys[i])?;
-					self.output_buf.write("\\\": \\\"".as_bytes())?;
+					self.output_buf.write_all(b"\\\": \\\"")?;
 					self.write_buf_scalar_5424(container, &mvals[i])?;
-					self.output_buf.write("\\\"".as_bytes())?;
+					self.output_buf.write_all(b"\\\"")?;
 				}
-				self.output_buf.write("}\"".as_bytes())?;
+				self.output_buf.write_all(b"}\"")?;
 			}
 		}
 
@@ -415,19 +415,17 @@ impl Syslog {
 	// Serializes all attributes into the write buffer for RFC 5424 messages.
 	fn write_buf_attributes_5424(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		if update.no_attributes() {
-			self.output_buf.write("-".as_bytes())?;
+			self.output_buf.write_all(b"-")?;
 			return Ok(());
 		}
 
 		// "[rasant@0 error=\"timeout reading from socket\" items=1120213 done=3493 extra=\"\\[1, 2, 3, 4, 5\\]\" more_extra=\"{{\\\"lala\\\": 1, \\\"lele\\\": 2}}\"]"
-		let mut i: usize = 0;
-		for (key, val) in update.attribute_iter() {
+		for (i, (key, val)) in update.attribute_iter().enumerate() {
 			write!(&mut self.output_buf, "[rasant@{i} ")?;
 			encoding::str_write(&mut self.output_buf, key, &encoding::Mode::Utf8)?;
-			self.output_buf.write("=".as_bytes())?;
+			self.output_buf.write_all(b"=")?;
 			self.write_buf_value_5424(update, &val)?;
-			self.output_buf.write("]".as_bytes())?;
-			i += 1
+			self.output_buf.write_all(b"]")?;
 		}
 
 		Ok(())
@@ -451,7 +449,7 @@ impl sink::Sink for Syslog {
 		self.name.as_str()
 	}
 
-	fn log<'f>(&mut self, update: &'f sink::LogUpdate) -> io::Result<()> {
+	fn log(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
 		self.output_buf.clear();
 		match self.format {
 			SyslogFormat::Rfc5424 | SyslogFormat::Rfc5424Full => {
@@ -467,7 +465,7 @@ impl sink::Sink for Syslog {
 					process_id = self.process_id
 				)?;
 				self.write_buf_attributes_5424(update)?;
-				self.output_buf.write(&[b' '])?;
+				self.output_buf.write_all(b" ")?;
 				encoding::str_write(&mut self.output_buf, update.message(), &encoding::Mode::Utf8Bom)?;
 				if self.format == SyslogFormat::Rfc5424Full {
 					self.write_buf_attributes_text(update)?;
@@ -487,7 +485,7 @@ impl sink::Sink for Syslog {
 			}
 		}
 
-		self.writer.write(&self.output_buf)?;
+		self.writer.write_all(&self.output_buf)?;
 		Ok(())
 	}
 
@@ -499,7 +497,7 @@ impl sink::Sink for Syslog {
 impl Drop for Syslog {
 	fn drop(&mut self) {
 		if let Err(e) = self.writer.flush() {
-			panic!("failed to flush sink {name} on drop(): {e}", name = &self.name);
+			panic!("failed to flush sink {name} on drop(): {e}", name = self.name);
 		}
 	}
 }
@@ -557,19 +555,19 @@ mod tests {
 			let (format, want) = tc;
 
 			let mut attrs = Map::new();
-			attrs.insert("an_int", Value::from(123 as i32));
+			attrs.insert("an_int", Value::from(123_i32));
 			attrs.insert("a_float", Value::from(-456.789));
 			attrs.insert("some_string", Value::from("hi there!"));
 			attrs.insert("nothing", Value::from(None::<i32>));
-			attrs.insert("a_list", Value::from(&[Scalar::from(349834934 as usize), Scalar::from(true)]));
+			attrs.insert("a_list", Value::from(&[Scalar::from(349834934_usize), Scalar::from(true)]));
 			attrs.insert("a_map", Value::from((&[Scalar::from("key #1"), Scalar::from("key #2")], &[Scalar::from(false), Scalar::from("weee")])));
 
-			let when = Timestamp::try_from((2026, 04, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
+			let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 			let update = LogUpdate::from((&when, Level::Warning, 0, "test Syslog message update ❤️", &attrs));
 
 			let mut sink = Syslog::new(SyslogConfig {
 				server: SyslogSocket::BlackHole(),
-				format: format,
+				format,
 				..SyslogConfig::default()
 			});
 			sink.process_name = "test_process".into();

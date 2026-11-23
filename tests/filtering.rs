@@ -1,7 +1,6 @@
 use std::thread;
 use std::time;
 
-use ntime;
 use rasant as r;
 use rasant::Level;
 use rasant::filter;

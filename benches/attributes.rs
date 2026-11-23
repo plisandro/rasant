@@ -17,7 +17,6 @@ fn init_logger() -> Logger {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		..black_hole::BlackHoleConfig::default()
 	}))
 	.set_all_levels();
 
@@ -62,6 +61,8 @@ fn in_update<const N: usize>(bencher: Bencher) {
 	let log = init_logger();
 	let attrs = build_attrs(N);
 	let attrs = attrs.iter().map(|x| (x.0.as_str(), x.1.clone())).collect::<Vec<(&str, Value)>>();
+	// TODO: Fix me! as_array() is not compatible with the current MSRV 1.85.0
+	#[allow(clippy::incompatible_msrv)]
 	let attrs = attrs.as_array::<N>().unwrap();
 
 	bencher.with_inputs(|| (log.clone(), attrs.clone())).bench_local_values(|(mut log, attrs)| {

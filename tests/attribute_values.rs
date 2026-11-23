@@ -16,7 +16,7 @@ fn methods() {
 	{
 		let mut log = rasant::Logger::new();
 		log.set_level(Level::Info).add_sink(mem_sink);
-		log.info_with("single value", [("result", Value::from(1234 as u32))]);
+		log.info_with("single value", [("result", Value::from(1234_u32))]);
 		log.info_with("list from array", [("result", Value::from(&test_values))]);
 		log.info_with("list from slice", [("result", Value::from(test_values.as_slice()))]);
 		log.info_with("map from arrays #1", [("map", Value::from([&test_keys, &test_values]))]);
