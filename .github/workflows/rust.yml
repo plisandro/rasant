@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+      - name: Run Clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets -- -D warnings
       - name: Build
         run: cargo build --verbose
       - name: Run tests
