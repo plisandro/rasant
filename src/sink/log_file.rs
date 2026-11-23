@@ -45,7 +45,7 @@ impl Default for LogFileConfig {
 }
 
 /// Initializes a [`IO`] log file [sink][`crate::sink`] from a [`LogFileConfig`].
-pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
+pub fn new(conf: LogFileConfig) -> IO {
 	let current_exe = env::current_exe();
 	let process_name = match &current_exe {
 		Ok(ce) => ce.file_name().and_then(|n| n.to_str()).unwrap_or("process_invalid_name"),
@@ -77,12 +77,12 @@ pub fn new<'f>(conf: LogFileConfig) -> IO<'f> {
 }
 
 /// Returns an initialized log file [sink][`crate::sink`] for text, with default values.
-pub fn default<'f>() -> IO<'f> {
+pub fn default() -> IO {
 	new(LogFileConfig::default())
 }
 
 /// Returns an initialized log file [sink][`crate::sink`] for JSON, with default values.
-pub fn default_json<'f>() -> IO<'f> {
+pub fn default_json() -> IO {
 	new(LogFileConfig {
 		formatter_cfg: format::FormatterConfig {
 			format: format::OutputFormat::Json,

@@ -103,3 +103,11 @@ pub const FORMAT_FULL_DEPTH_SEPARATOR_LENGTH: usize = 3;
 pub const FORMAT_FULL_DEPTH_ELLIPSIS: &str = "...";
 /// [`Format::Full`][crate::format::Format::Full] and [`Format::ColorFull`][crate::format::Format::ColorFull] log depth ellipsis length.
 pub const FORMAT_FULL_DEPTH_ELLIPSIS_LENGTH: usize = 3;
+
+// Minimum buffer size for [`write::IoWriter`]. Should be big enough to contain decimal/hex representations
+// for all types, and small enough so the buffer is flushed roughly per log operation.
+pub const IO_WRITER_MIN_BUFFER_SIZE: usize = 64;
+// Default [`write::IoWriter`] buffer size, intended to minimize I/O operations while logging.
+// Matches the default for [`std::io::BufWriter`].
+// TODO: use this field
+pub const IO_WRITER_DEFAULT_BUFFER_SIZE: usize = 8192;

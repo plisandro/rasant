@@ -9,8 +9,9 @@ mod json;
 use std::io;
 
 use crate::TimeFormat;
-use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP, DEFAULT_CAPACITY};
+use crate::constant::{ATTRIBUTE_KEY_TIME, ATTRIBUTE_KEY_TIMESTAMP};
 use crate::sink::LogUpdate;
+use crate::write::IoWriter;
 
 /// Supported log output format for all [`sink`][crate::sink]s.
 #[derive(Clone, Debug, PartialEq)]
@@ -169,7 +170,8 @@ impl Formatter {
 	}
 
 	/// Writes a formatted [`LogUpdate`] into a [`io::Write`].
-	pub fn write<T: io::Write>(&mut self, out: &mut T, update: &LogUpdate) -> io::Result<()> {
+	#[inline]
+	pub fn write(&mut self, out: &mut IoWriter, update: &LogUpdate) -> io::Result<()> {
 		match self.format {
 			OutputFormat::Compact => compact::write(out, &self.time_format, update),
 			OutputFormat::ColorCompact => color_compact::write(out, &self.time_format, update),
@@ -182,21 +184,21 @@ impl Formatter {
 
 	/// Serializes a formatted [`LogUpdate`] into a [`u8`] [`Vec`]
 	pub fn as_bytes(&mut self, update: &LogUpdate) -> Vec<u8> {
-		let mut out: Vec<u8> = Vec::with_capacity(DEFAULT_CAPACITY);
+		let mut out = IoWriter::new_bytes();
 
-		match self.write(&mut out, update) {
-			Ok(_) => out,
-			Err(e) => panic!("failed to convert log update {update:?} to bytes buffer: {e}"),
+		match self.write(&mut out, update).and_then(|_| out.into_bytes()) {
+			Ok(bytes) => bytes,
+			Err(e) => panic!("failed to convert log update {update:?} to bytes: {e}"),
 		}
 	}
 
 	/// Serializes a formatted [`LogUpdate`] into a [`String`].
 	pub fn as_string(&mut self, update: &LogUpdate) -> String {
-		let bytes = self.as_bytes(update);
+		let mut out = IoWriter::new_bytes();
 
-		match String::from_utf8(bytes) {
+		match self.write(&mut out, update).and_then(|_| out.into_string()) {
 			Ok(s) => s,
-			Err(e) => panic!("failed to convert log update {update:?} to UTF8: {e}"),
+			Err(e) => panic!("failed to convert log update {update:?} to String: {e}"),
 		}
 	}
 

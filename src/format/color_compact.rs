@@ -14,6 +14,7 @@ use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::level::Level;
 use crate::sink::LogUpdate;
+use crate::write::IoWriter;
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::ColorCompact`].
 pub fn default_format_config() -> FormatterConfig {
@@ -25,7 +26,7 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a [`Value`] for [`OutputFormat::ColorCompact`] into a [`io::Write`].
-fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
+fn write_value(out: &mut IoWriter, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	compact::write_value(out, update, val)
 }
 
@@ -59,31 +60,29 @@ pub fn val_color(meta: Metadata) -> Color {
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorCompact`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
-	out.write_all(Color::White.to_escape_str().as_bytes())?;
-	update.when().write(out, time_format)?;
-	write!(
-		out,
-		" {level_color}{level} {msg_color}{msg}",
-		level_color = update.level().color().to_escape_str(),
-		level = update.level().as_short_str(),
-		msg_color = message_color(update).to_escape_str(),
-		msg = update.message(),
-	)?;
+pub fn write(mut out: &mut IoWriter, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
+	// build output header: "timestamp level message"
+	out.str(Color::White.to_escape_str())?;
+	update.when().write(&mut out, time_format)?;
+	out.space()?;
+	out.str(update.level().color().to_escape_str())?;
+	out.str(update.level().as_short_str())?;
+	out.space()?;
+	out.str(message_color(update).to_escape_str())?;
+	out.str(update.message())?;
 
-	// append fields
+	// append fields: " key=value"
 	for (key, val, meta) in update.attribute_full_iter() {
-		write!(
-			out,
-			" {key_color}{key}={val_color}",
-			key_color = key_color(meta).to_escape_str(),
-			// error attributes are highlighted in red
-			val_color = val_color(meta).to_escape_str(),
-		)?;
+		out.space()?;
+		out.str(key_color(meta).to_escape_str())?;
+		out.str(key)?;
+		out.u8(b'=')?;
+		out.str(val_color(meta).to_escape_str())?;
 		write_value(out, update, &val)?;
 	}
 
-	write!(out, "{color_close}", color_close = Color::Default.to_escape_str())?;
+	// reset console color at the end
+	out.str(Color::Default.to_escape_str())?;
 
 	Ok(())
 }
@@ -123,14 +122,14 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), want);
+			assert_eq!(out.into_string().unwrap(), want);
 		}
 	}
 
@@ -160,10 +159,10 @@ mod tests {
 			let (enable, want) = tc;
 
 			console::mocks::with_colorterm(enable, || {
-				let mut out = Vec::new();
+				let mut out = IoWriter::new_bytes();
 
 				assert!(write(&mut out, time_format, &update).is_ok());
-				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+				assert_eq!(out.into_string().unwrap(), String::from(want));
 			})
 		}
 	}

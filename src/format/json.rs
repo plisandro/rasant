@@ -5,12 +5,14 @@
 
 use ntime::Format;
 use std::io;
+use std::io::Write;
 
 use crate::attributes::{Scalar, StringIndexContainer, Value};
 use crate::constant::{ATTRIBUTE_KEY_MESSAGE, DEFAULT_LOG_DELIMITER_STRING};
 use crate::encoding;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
+use crate::write::IoWriter;
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::Json`].
 pub fn default_format_config() -> FormatterConfig {
@@ -22,19 +24,20 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar(out: &mut IoWriter, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
 	match s {
-		Scalar::None => write!(out, "null"),
-		Scalar::Bool(b) => write!(out, "{}", b),
+		Scalar::None => out.str("null"),
+		Scalar::Bool(b) => out.bool(b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
 		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, update.str_by_idx(*idx), if *escape { &encoding::Mode::Rfc8259 } else { &encoding::Mode::Utf8 }),
-		Scalar::Int(i) => write!(out, "{}", i),
-		Scalar::LongInt(i) => write!(out, "{}", i),
-		Scalar::Size(s) => write!(out, "{}", s),
-		Scalar::Uint(i) => write!(out, "{}", i),
-		Scalar::LongUint(u) => write!(out, "{}", u),
-		Scalar::Usize(s) => write!(out, "{}", s),
+		Scalar::Int(i) => out.dec_i64(i),
+		Scalar::LongInt(i) => out.dec_i128(i),
+		Scalar::Size(s) => out.dec_isize(s),
+		Scalar::Uint(u) => out.dec_u64(u),
+		Scalar::LongUint(u) => out.dec_u128(u),
+		Scalar::Usize(s) => out.dec_usize(s),
+		// TODO: fix me!
 		Scalar::Float(f) => write!(out, "{0:e}", f),
 	}?;
 
@@ -42,63 +45,68 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
+pub fn write_value(out: &mut IoWriter, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
 		Value::Scalar(s) => write_scalar(out, update, s),
 		Value::List(ss) => {
-			write!(out, "[")?;
+			out.u8(b'[')?;
 			for i in 0..ss.len() {
 				if i != 0 {
-					write!(out, ",")?;
+					out.u8(b',')?;
 				}
 				write_scalar(out, update, &ss[i])?;
 			}
-			write!(out, "]")
+			out.u8(b']')
 		}
 		Value::Map(keys, ss) => {
-			write!(out, "{{")?;
+			out.u8(b'{')?;
 			for i in 0..keys.len() {
 				if i != 0 {
-					write!(out, ",")?;
+					out.u8(b',')?;
 				}
 				write_scalar(out, update, &keys[i])?;
-				write!(out, ":")?;
+				out.u8(b':')?;
 				write_scalar(out, update, &ss[i])?;
 			}
-			write!(out, "}}")
+			out.u8(b'}')
 		}
 	}
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Json`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
-	// build output header
+pub fn write(mut out: &mut IoWriter, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	match time_format.to_integer_for(update.when()) {
-		Some(timestamp_int) => write!(
-			out,
-			"{{\"{time_key}\":{timestamp_int},\"level\":\"{level}\",\"{msg_key}\":",
-			level = update.level().as_str(),
-			msg_key = ATTRIBUTE_KEY_MESSAGE,
-		)?,
+		Some(timestamp_int) => {
+			out.str("{\"")?;
+			out.str(time_key)?;
+			out.str("\":")?;
+			out.dec_u128(&timestamp_int)?;
+			out.str(",\"level\":\"")?;
+		}
 		None => {
-			write!(out, "{{\"{time_key}\":\"")?;
-			update.when().write(out, time_format)?;
-			write!(out, "\",\"level\":\"{level}\",\"{msg_key}\":", level = update.level().as_str(), msg_key = ATTRIBUTE_KEY_MESSAGE,)?;
+			out.str("{\"")?;
+			out.str(time_key)?;
+			out.str("\":\"")?;
+			update.when().write(&mut out, time_format)?;
+			out.str("\",\"level\":\"")?;
 		}
 	}
-
-	encoding::write_quoted_str(out, update.message(), &encoding::Mode::Rfc8259)?;
+	out.str(update.level().as_str())?;
+	out.str("\",\"")?;
+	out.str(ATTRIBUTE_KEY_MESSAGE)?;
+	out.str("\":")?;
+	encoding::write_quoted_str(&mut out, update.message(), &encoding::Mode::Rfc8259)?;
 
 	// append fields
 	for (key, val) in update.attribute_iter() {
-		write!(out, ",\"{key}\":")?;
+		out.str(",\"")?;
+		out.str(key)?;
+		out.str("\":")?;
 		write_value(out, update, &val)?;
 	}
-	write!(out, "}}")?;
 
-	Ok(())
+	out.u8(b'}')
 }
-
 /* ----------------------- Tests ----------------------- */
 
 #[cfg(test)]
@@ -129,14 +137,14 @@ mod tests {
 			(Scalar::from(5678901.2345), "5.6789012345e6"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new(Vec::<u8>::new());
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want), "{}", s);
+			assert_eq!(out.into_string().unwrap(), String::from(want));
 		}
 	}
 
@@ -165,14 +173,14 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), want);
+			assert_eq!(out.into_string().unwrap(), want);
 		}
 	}
 
@@ -193,8 +201,10 @@ mod tests {
 		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 
 		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there! \\u005co\\u002f\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
-		let mut out = Vec::new();
+		let mut out = IoWriter::new_bytes();
+
 		assert!(write(&mut out, time_format, time_key, &update).is_ok());
-		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+		assert!(out.flush().is_ok());
+		assert_eq!(out.into_string().unwrap(), String::from(want));
 	}
 }

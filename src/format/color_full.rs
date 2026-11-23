@@ -24,6 +24,7 @@ use crate::format::color_compact;
 use crate::format::compact;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::{LogDepth, LogUpdate};
+use crate::write::IoWriter;
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::ColorFull`].
 pub fn default_format_config() -> FormatterConfig {
@@ -35,21 +36,18 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a [`Value`] for [`OutputFormat::ColorFull`] into a [`io::Write`].
-fn write_value<T: io::Write>(out: &mut T, update: &LogUpdate, val: &Value) -> io::Result<()> {
+fn write_value(out: &mut IoWriter, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	compact::write_value(out, update, val)
 }
 
 // Serializes a key:[`Value`] attribute for [`OutputFormat::ColorFull] into a [`io::Write`].
-fn write_attribute<T: io::Write>(out: &mut T, update: &LogUpdate, key: &str, val: &Value, meta: AttributeMetadata) -> io::Result<()> {
-	write!(
-		out,
-		" {key_color}{key}={val_color}",
-		key_color = color_compact::key_color(meta).to_escape_str(),
-		val_color = color_compact::val_color(meta).to_escape_str(),
-	)?;
-	write_value(out, update, val)?;
-
-	Ok(())
+fn write_attribute(out: &mut IoWriter, update: &LogUpdate, key: &str, val: &Value, meta: AttributeMetadata) -> io::Result<()> {
+	out.space()?;
+	out.str(color_compact::key_color(meta).to_escape_str())?;
+	out.str(key)?;
+	out.u8(b'=')?;
+	out.str(color_compact::val_color(meta).to_escape_str())?;
+	write_value(out, update, val)
 }
 
 // Compute spacer length based on the [`LogDepth`] for a [`LogUpdate`].
@@ -62,10 +60,10 @@ fn depth_spacer_len(depth: LogDepth) -> usize {
 }
 
 // Write a spacer based on the [`LogDepth`] for a [`LogUpdate`].
-fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<()> {
+fn write_depth_spacer(out: &mut IoWriter, depth: LogDepth) -> io::Result<()> {
 	if depth <= FORMAT_FULL_MAX_DEPTH {
 		for _ in 0..depth {
-			write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
+			out.str(FORMAT_FULL_DEPTH_SEPARATOR)?;
 		}
 
 		return Ok(());
@@ -74,32 +72,29 @@ fn write_depth_spacer<T: io::Write>(out: &mut T, depth: LogDepth) -> io::Result<
 	let half: LogDepth = FORMAT_FULL_MAX_DEPTH / 2;
 
 	for _ in 0..half {
-		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
+		out.str(FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
-	write!(out, "{spacer_color}{FORMAT_FULL_DEPTH_ELLIPSIS}", spacer_color = Color::BrightBlack.to_escape_str(),)?;
+	out.str(Color::BrightBlack.to_escape_str())?;
+	out.str(FORMAT_FULL_DEPTH_ELLIPSIS)?;
 	for _ in 0..FORMAT_FULL_MAX_DEPTH - half - 1 {
-		write!(out, "{}", FORMAT_FULL_DEPTH_SEPARATOR)?;
+		out.str(FORMAT_FULL_DEPTH_SEPARATOR)?;
 	}
 
 	Ok(())
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::ColorFull`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
+pub fn write(mut out: &mut IoWriter, delimiter: &Vec<u8>, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
 	// compute header length to properly align all log output lines
 	// "<time str> WARNING" + <depth spacer>
 	let header_len: usize = update.when().string_len_as(time_format) + 8 + depth_spacer_len(*update.depth());
 
 	// write header
-	write!(out, "{}", Color::White.to_escape_str())?;
-	update.when().write(out, time_format)?;
-
-	write!(
-		out,
-		" {level_color}{level:<LEVEL_LONG_NAME_MAX_LENGTH$}",
-		level_color = update.level().color().to_escape_str(),
-		level = update.level().as_long_str(),
-	)?;
+	out.str(Color::White.to_escape_str())?;
+	update.when().write(&mut out, time_format)?;
+	out.space()?;
+	out.str(update.level().color().to_escape_str())?;
+	out.str_right_padded(update.level().as_long_str(), b' ', LEVEL_LONG_NAME_MAX_LENGTH)?;
 	write_depth_spacer(out, *update.depth())?;
 
 	// output fixed attributes on the first line, if any...
@@ -111,8 +106,8 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 		}
 	}
 	if wrote {
-		out.write_all(delimiter.as_slice())?;
-		write!(out, "{:header_len$}", "")?;
+		out.bytes(delimiter.as_slice())?;
+		out.u8_repeated(b' ', header_len)?;
 	}
 
 	// ...ephemeral attributes on a second line, if any...
@@ -124,20 +119,15 @@ pub fn write<T: io::Write>(out: &mut T, delimiter: &Vec<u8>, time_format: &Forma
 		}
 	}
 	if wrote {
-		out.write_all(delimiter.as_slice())?;
-		write!(out, "{:header_len$}", "")?;
+		out.bytes(delimiter.as_slice())?;
+		out.u8_repeated(b' ', header_len)?;
 	}
 
 	// ...then the message body.
-	write!(
-		out,
-		" {msg_color}{msg}{msg_close}",
-		msg_color = color_compact::message_color(update).to_escape_str(),
-		msg = update.message(),
-		msg_close = Color::Default.to_escape_str(),
-	)?;
-
-	Ok(())
+	out.space()?;
+	out.str(color_compact::message_color(update).to_escape_str())?;
+	out.str(update.message())?;
+	out.str(Color::Default.to_escape_str())
 }
 
 /* ----------------------- Tests ----------------------- */
@@ -175,14 +165,14 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), want);
+			assert_eq!(out.into_string().unwrap(), want);
 		}
 	}
 
@@ -244,13 +234,12 @@ mod tests {
 			let (enable, update, want) = tc;
 
 			console::mocks::with_colorterm(enable, || {
-			    let mut out = Vec::new();
-
 				let delimiter: Vec<u8> = b"\n".to_vec();
 				let time_format = &Format::Timestamp(Precision::Nanoseconds);
+				let mut out = IoWriter::new_bytes();
 
 				assert!(write(&mut out, &delimiter, time_format, &update).is_ok());
-				assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+				assert_eq!(out.into_string().unwrap(), String::from(want));
 			});
 		}
 	}

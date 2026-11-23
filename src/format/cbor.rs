@@ -12,6 +12,7 @@ use crate::constant::ATTRIBUTE_KEY_MESSAGE;
 use crate::constant::DEFAULT_LOG_DELIMITER_BINARY;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
+use crate::write::IoWriter;
 
 const MAX_8_BITS: u64 = (u8::MAX as u64) + 1;
 const MAX_16_BITS: u64 = (u16::MAX as u64) + 1;
@@ -28,76 +29,80 @@ pub fn default_format_config() -> FormatterConfig {
 }
 
 // Serializes a null into a CBOR stream.
-fn write_null<T: io::Write>(out: &mut T) -> io::Result<()> {
+#[inline]
+fn write_null(out: &mut IoWriter) -> io::Result<()> {
 	// tiny field type 7 (special), value 22 (null)
-	out.write_all(&[((7 << 5) + 22) as u8])?;
-
-	Ok(())
+	out.u8(((7 << 5) + 22) as u8)
 }
 
 // Serializes a boolean into a CBOR stream.
-fn write_bool<T: io::Write>(out: &mut T, b: bool) -> io::Result<()> {
+#[inline]
+fn write_bool(out: &mut IoWriter, b: bool) -> io::Result<()> {
 	// tiny field type 7 (special), value 20 (false) / 21 (true).
 	let val: u8 = match b {
 		false => 20,
 		true => 21,
 	};
-	out.write_all(&[(7 << 5) as u8 + val])?;
 
-	Ok(())
+	out.u8((7 << 5) as u8 + val)
 }
 
 // Serializes a 64-bit unsigned integer into a CBOR stream, for a given major type.
-fn write_u64_with_major<T: io::Write>(out: &mut T, u: u64, major_mask: u8) -> io::Result<()> {
+#[inline]
+fn write_u64_with_major(out: &mut IoWriter, u: u64, major_mask: u8) -> io::Result<()> {
 	match u {
 		// tiny field
-		0..24 => out.write_all(&[major_mask | (u as u8)])?,
+		0..24 => out.u8(major_mask | (u as u8)),
 		// short field
-		24..MAX_8_BITS => out.write_all(&[major_mask | 24_u8, u as u8])?,
+		24..MAX_8_BITS => {
+			out.u8(major_mask | 24_u8)?;
+			out.u8(u as u8)
+		}
 		MAX_8_BITS..MAX_16_BITS => {
-			out.write_all(&[major_mask | 25_u8])?;
-			out.write_all((u as u16).to_be_bytes().as_slice())?;
+			out.u8(major_mask | 25_u8)?;
+			out.bytes((u as u16).to_be_bytes().as_slice())
 		}
 		// long fields
 		MAX_16_BITS..MAX_32_BITS => {
-			out.write_all(&[major_mask | 26_u8])?;
-			out.write_all((u as u32).to_be_bytes().as_slice())?;
+			out.u8(major_mask | 26_u8)?;
+			out.bytes((u as u32).to_be_bytes().as_slice())
 		}
 		MAX_32_BITS.. => {
-			out.write_all(&[major_mask | 27_u8])?;
-			out.write_all(u.to_be_bytes().as_slice())?;
+			out.u8(major_mask | 27_u8)?;
+			out.bytes(u.to_be_bytes().as_slice())
 		}
-	};
-
-	Ok(())
+	}
 }
 
 // Serializes a 128-bit unsigned integer into a CBOR stream, for a given major type.
-fn write_u128_with_major<T: io::Write>(out: &mut T, u: u128, major_mask: u8) -> io::Result<()> {
+#[inline]
+fn write_u128_with_major(out: &mut IoWriter, u: u128, major_mask: u8) -> io::Result<()> {
 	match u {
-		0..MAX_64_BITS => write_u64_with_major(out, u as u64, major_mask)?,
+		0..MAX_64_BITS => write_u64_with_major(out, u as u64, major_mask),
 		// bignum (tag 2 extension)
 		MAX_64_BITS.. => {
-			out.write_all(&[((6 << 5) + 2) as u8, ((2 << 5) + 8) as u8])?;
-			out.write_all(u.to_be_bytes().as_slice())?;
+			out.u8(((6 << 5) + 2) as u8)?;
+			out.u8(((2 << 5) + 8) as u8)?;
+			out.bytes(u.to_be_bytes().as_slice())
 		}
-	};
-
-	Ok(())
+	}
 }
 
 // Serializes a 64-bit unsigned integer into a CBOR stream.
-fn write_u64<T: io::Write>(out: &mut T, u: u64) -> io::Result<()> {
+#[inline]
+fn write_u64(out: &mut IoWriter, u: u64) -> io::Result<()> {
 	write_u64_with_major(out, u, 0)
 }
 
 // Serializes a 128-bit unsigned integer into a CBOR stream.
-fn write_u128<T: io::Write>(out: &mut T, u: u128) -> io::Result<()> {
+#[inline]
+fn write_u128(out: &mut IoWriter, u: u128) -> io::Result<()> {
 	write_u128_with_major(out, u, 0)
 }
 
 // Serializes a 64-bit signed integer into a CBOR stream.
-fn write_i64<T: io::Write>(out: &mut T, i: i64) -> io::Result<()> {
+#[inline]
+fn write_i64(out: &mut IoWriter, i: i64) -> io::Result<()> {
 	if i >= 0 {
 		return write_u64_with_major(out, i as u64, 0);
 	}
@@ -107,7 +112,8 @@ fn write_i64<T: io::Write>(out: &mut T, i: i64) -> io::Result<()> {
 }
 
 // Serializes a 128-bit signed integer into a CBOR stream.
-fn write_i128<T: io::Write>(out: &mut T, i: i128) -> io::Result<()> {
+#[inline]
+fn write_i128(out: &mut IoWriter, i: i128) -> io::Result<()> {
 	if i >= 0 {
 		return write_u128_with_major(out, i as u128, 0);
 	}
@@ -116,61 +122,55 @@ fn write_i128<T: io::Write>(out: &mut T, i: i128) -> io::Result<()> {
 	write_u128_with_major(out, n, 1 << 5)
 }
 
-// Serializes a string (as bytes) into a CBOR stream.
-fn write_string_bytes<T: io::Write>(out: &mut T, s: &[u8]) -> io::Result<()> {
-	write_u64_with_major(out, s.len() as u64, 3 << 5)?;
-	out.write_all(s)?;
-
-	Ok(())
-}
-
 // Serializes a string into a CBOR stream.
-fn write_string<T: io::Write>(out: &mut T, s: &str) -> io::Result<()> {
-	write_string_bytes(out, s.as_bytes())
+#[inline]
+fn write_string(out: &mut IoWriter, s: &str) -> io::Result<()> {
+	write_u64_with_major(out, s.len() as u64, 3 << 5)?;
+	out.bytes(s.as_bytes())
 }
 
 // Serializes a double precision float into a CBOR stream.
-fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
+#[inline]
+fn write_float(out: &mut IoWriter, f: f64) -> io::Result<()> {
 	// TODO: is this the best possible way to downcast?
 	let sf = f as f32;
 	match (sf as f64) == f {
 		true => {
 			// type 7, single precision float
-			out.write_all(&[((7 << 5) + 26) as u8])?;
-			out.write_all(sf.to_be_bytes().as_slice())?;
+			out.u8(((7 << 5) + 26) as u8)?;
+			out.bytes(sf.to_be_bytes().as_slice())
 		}
 		false => {
 			// type 7, double precision float
-			out.write_all(&[((7 << 5) + 27) as u8])?;
-			out.write_all(f.to_be_bytes().as_slice())?;
+			out.u8(((7 << 5) + 27) as u8)?;
+			out.bytes(f.to_be_bytes().as_slice())
 		}
-	};
-
-	Ok(())
+	}
 }
 
 // Serializes a timestamp into a CBOR stream; turns out there're dedicated types for second timestamps and RFC3339.
-fn write_timestamp<T: io::Write>(out: &mut T, t: &Timestamp, f: &Format) -> io::Result<()> {
+#[inline]
+fn write_timestamp(out: &mut IoWriter, t: &Timestamp, f: &Format) -> io::Result<()> {
 	if let Some(i) = t.to_integer_as(f) {
 		if *f == Format::Timestamp(Precision::Seconds) {
 			// major type 6, tag 1 (epoch timestamp in seconds)
-			_ = out.write(&[((6 << 5) + 1) as u8])?;
+			out.u8(((6 << 5) + 1) as u8)?;
 		}
 		return write_u128(out, i);
 	}
 
 	if matches!(f, Format::Rfc3339(_, _)) {
 		// major type 6, tag 0 (date/time string)
-		out.write_all(&[(6 << 5) as u8])?;
+		out.u8((6 << 5) as u8)?;
 	}
 
-	// write as string by default.
+	// write timestamp as string
 	write_u64_with_major(out, t.string_len_as(f) as u64, 3 << 5)?;
 	f.write(out, t)
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
+pub fn write_scalar(out: &mut IoWriter, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
 	match s {
 		Scalar::None => write_null(out),
 		Scalar::Bool(b) => write_bool(out, *b),
@@ -190,7 +190,7 @@ pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -
 }
 
 /// Serializes a [`Value`] for [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
+pub fn write_value(out: &mut IoWriter, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
 		Value::Scalar(s) => write_scalar(out, update, s)?,
 		Value::List(ss) => {
@@ -214,7 +214,7 @@ pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
+pub fn write(out: &mut IoWriter, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// write output as a map (major type 5)
 	write_u64_with_major(out, (update.attributes_len() + 2) as u64, 5 << 5)?;
 
@@ -300,14 +300,14 @@ mod tests {
 			(Scalar::from(5.1415926535897), [0xfb, 0x40, 0x14, 0x90, 0xfd, 0xaa, 0x22, 0x16, 0x23].as_slice()),
 		] {
 			let (s, want): (Scalar, &[u8]) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
-			assert_eq!(out.as_slice(), want, "{}", s);
+			assert_eq!(out.into_bytes().unwrap(), want, "{}", s);
 		}
 	}
 
@@ -338,10 +338,10 @@ mod tests {
 			),
 		] {
 			let (f, want): (Format, &[u8]) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			assert!(write_timestamp(&mut out, &ts, &f).is_ok());
-			assert_eq!(out.as_slice(), want);
+			assert_eq!(out.into_bytes().unwrap(), want);
 		}
 	}
 
@@ -381,14 +381,14 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &[u8]) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
-			assert_eq!(out.as_slice(), want);
+			assert_eq!(out.into_bytes().unwrap(), want);
 		}
 	}
 
@@ -415,9 +415,9 @@ mod tests {
 			0x65, 0x79, 0x20, 0x23, 0x32, 0x64, 0x77, 0x65, 0x65, 0x65,
 		];
 
-		let mut out = Vec::new();
+		let mut out = IoWriter::new_bytes();
 		assert!(write(&mut out, time_format, time_key, &update).is_ok());
-		assert_eq!(out, want);
+		assert_eq!(out.into_bytes().unwrap(), want);
 	}
 
 	#[test]
@@ -425,7 +425,7 @@ mod tests {
 		let time_key: &str = "timestamp";
 		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 		let mut attrs = Map::new();
-		let mut out = Vec::new();
+		let mut out = IoWriter::new_bytes();
 
 		// update #1
 		attrs.clear();
@@ -455,6 +455,6 @@ mod tests {
 			0x6f, 0x6d, 0x65, 0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x69, 0x68, 0x69, 0x20, 0x74, 0x68, 0x65, 0x72, 0x65, 0x21, 0x66, 0x61, 0x5f, 0x6c, 0x69, 0x73, 0x74, 0x82, 0x1a, 0x14, 0xda,
 			0x0e, 0xb6, 0xf5,
 		];
-		assert_eq!(out, want);
+		assert_eq!(out.into_bytes().unwrap(), want);
 	}
 }

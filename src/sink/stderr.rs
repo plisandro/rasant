@@ -28,7 +28,7 @@ impl Default for StderrConfig {
 }
 
 /// Initializes a `stderr` [sink][`crate::sink`] from a [`StderrConfig`].
-pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
+pub fn new(conf: StderrConfig) -> IO {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
@@ -41,6 +41,6 @@ pub fn new<'f>(conf: StderrConfig) -> IO<'f> {
 }
 
 /// Returns an initialized `IO` [sink][`crate::sink`] for `stderr`, with default values.
-pub fn default<'f>() -> IO<'f> {
+pub fn default() -> IO {
 	new(StderrConfig::default())
 }

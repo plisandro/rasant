@@ -5,9 +5,11 @@
 //! writes, flush-on-write, and buffering via [`std::io::BufWriter`].
 use std::io;
 
+use crate::constant::{IO_WRITER_DEFAULT_BUFFER_SIZE, IO_WRITER_MIN_BUFFER_SIZE};
 use crate::format;
 use crate::sink;
 use crate::sink::Sink;
+use crate::write::IoWriter;
 
 /// Configuration struct for an [`IO`] [`sink`].
 pub struct IOConfig<T: io::Write + Send> {
@@ -42,24 +44,24 @@ impl<W: io::Write + Send> Default for IOConfig<W> {
 }
 
 /// A [`sink`] for any implementation of [`std::io::Write`] supporting [`Send`].
-pub struct IO<'s> {
+pub struct IO {
 	name: String,
 	formatter: format::Formatter,
 	written_to: bool,
 	flush_on_write: bool,
 	initial_delimiter: bool,
 	delimiter_after_write: bool,
-	out: Box<dyn io::Write + Send + 's>,
+	out: IoWriter,
 }
 
-impl<'i> IO<'i> {
+impl IO {
 	/// Initializes a new [`IO`] [`sink`], from a given [`IOConfig`].
-	pub fn new<T: io::Write + Send + 'i>(conf: IOConfig<T>) -> Self {
+	pub fn new<T: io::Write + Send + 'static>(conf: IOConfig<T>) -> Self {
 		let cout = match conf.out {
 			Some(o) => o,
 			None => panic!("missing io::Write output for I/O sink"),
 		};
-		let out: Box<dyn io::Write + Send> = if conf.buffered { Box::new(io::BufWriter::new(cout)) } else { Box::new(cout) };
+		let buffer_size = if conf.buffered { IO_WRITER_DEFAULT_BUFFER_SIZE } else { IO_WRITER_MIN_BUFFER_SIZE };
 
 		Self {
 			name: conf.name,
@@ -68,12 +70,12 @@ impl<'i> IO<'i> {
 			initial_delimiter: conf.initial_delimiter,
 			delimiter_after_write: conf.delimiter_after_write,
 			flush_on_write: conf.flush_on_write,
-			out,
+			out: IoWriter::with_buffer_capacity(cout, buffer_size),
 		}
 	}
 }
 
-impl<'i> sink::Sink for IO<'i> {
+impl sink::Sink for IO {
 	fn name(&self) -> &str {
 		self.name.as_str()
 	}
@@ -100,7 +102,7 @@ impl<'i> sink::Sink for IO<'i> {
 	}
 }
 
-impl Drop for IO<'_> {
+impl Drop for IO {
 	fn drop(&mut self) {
 		if let Err(e) = self.flush() {
 			panic!("failed to flush sink {name} on drop(): {e}", name = self.name);

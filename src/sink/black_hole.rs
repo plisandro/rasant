@@ -9,6 +9,7 @@ use std::string;
 use crate::constant::DEFAULT_CAPACITY;
 use crate::format;
 use crate::sink;
+use crate::write::IoWriter;
 
 /// Configuration struct for an [`BlackHole`] [`sink`].
 pub struct BlackHoleConfig {
@@ -33,11 +34,33 @@ impl Default for BlackHoleConfig {
 	}
 }
 
+/// An `io::Empty` lookalike writing to a throwaway in-memory buffer.
+struct InMemoryEmpty(Vec<u8>);
+
+impl InMemoryEmpty {
+	fn new() -> Self {
+		Self(Vec::<u8>::with_capacity(DEFAULT_CAPACITY))
+	}
+}
+
+impl io::Write for InMemoryEmpty {
+	fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+		self.0.clear();
+		self.0.extend_from_slice(bytes);
+		hint::black_box(&mut self.0);
+		Ok(bytes.len())
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		Ok(())
+	}
+}
+
 /// A null log sink.
 pub struct BlackHole {
 	name: string::String,
 	formatter: format::Formatter,
-	buf: Option<Vec<u8>>,
+	out: IoWriter,
 }
 
 impl BlackHole {
@@ -46,16 +69,8 @@ impl BlackHole {
 		Self {
 			name: "black hole NULL logger".into(),
 			formatter: format::Formatter::new(conf.formatter_cfg),
-			buf: if conf.in_memory { Some(Vec::<u8>::with_capacity(DEFAULT_CAPACITY)) } else { None },
+			out: if conf.in_memory { IoWriter::new(InMemoryEmpty::new()) } else { IoWriter::new(io::empty()) },
 		}
-	}
-}
-
-impl BlackHole {
-	#[inline(always)]
-	fn do_log<T: io::Write>(out: &mut T, formatter: &mut format::Formatter, update: &sink::LogUpdate) -> io::Result<()> {
-		formatter.write(out, update)?;
-		formatter.write_delimiter(out)
 	}
 }
 
@@ -65,15 +80,8 @@ impl sink::Sink for BlackHole {
 	}
 
 	fn log<'f>(&mut self, update: &sink::LogUpdate) -> io::Result<()> {
-		match &mut self.buf {
-			Some(b) => {
-				b.clear();
-				Self::do_log(b, &mut self.formatter, update)?;
-				hint::black_box(&mut *b);
-				Ok(())
-			}
-			None => Self::do_log(&mut io::empty(), &mut self.formatter, update),
-		}
+		self.formatter.write(&mut self.out, update)?;
+		self.formatter.write_delimiter(&mut self.out)
 	}
 
 	fn flush(&mut self) -> io::Result<()> {

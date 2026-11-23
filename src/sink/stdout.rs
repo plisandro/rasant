@@ -31,7 +31,7 @@ impl Default for StdoutConfig {
 }
 
 /// Initializes a `stdout` [sink][`crate::sink`] from a [`StdoutConfig`].
-pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
+pub fn new(conf: StdoutConfig) -> IO {
 	IO::new(IOConfig {
 		name: conf.name,
 		formatter_cfg: conf.formatter_cfg,
@@ -44,6 +44,6 @@ pub fn new<'f>(conf: StdoutConfig) -> IO<'f> {
 }
 
 /// Returns an initialized `IO` [sink][`crate::sink`] for `stdout`, with default values.
-pub fn default<'f>() -> IO<'f> {
+pub fn default() -> IO {
 	new(StdoutConfig::default())
 }

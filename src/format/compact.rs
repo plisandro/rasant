@@ -10,6 +10,7 @@ use crate::constant::DEFAULT_LOG_DELIMITER_STRING;
 use crate::encoding;
 use crate::format::{FormatterConfig, OutputFormat};
 use crate::sink::LogUpdate;
+use crate::write::IoWriter;
 
 /// Returns a default [`FormatterConfig`] for [`OutputFormat::Compact`].
 pub fn default_format_config() -> FormatterConfig {
@@ -20,74 +21,67 @@ pub fn default_format_config() -> FormatterConfig {
 	}
 }
 
-/// Serializes a [`Scalar`] for [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write_scalar<W: io::Write>(out: &mut W, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
+/// Serializes a [`Scalar`] for [`OutputFormat::Compact`] into a [`write:IoWriter`].
+pub fn write_scalar(out: &mut IoWriter, update: &LogUpdate, s: &Scalar) -> io::Result<()> {
 	match s {
-		Scalar::None => write!(out, "<none>"),
-		Scalar::Bool(b) => write!(out, "{}", b),
+		Scalar::None => out.str("<none>"),
+		Scalar::Bool(b) => out.bool(b),
 		Scalar::String(s, escape) => encoding::write_quoted_str(out, s.as_str(), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringSlice(s, escape) => encoding::write_quoted_str(out, s, if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
 		Scalar::StringIndex(idx, escape) => encoding::write_quoted_str(out, update.str_by_idx(*idx), if *escape { &encoding::Mode::Utf8Escaped } else { &encoding::Mode::Utf8 }),
-		Scalar::Int(i) => write!(out, "{}", i),
-		Scalar::LongInt(i) => {
-			if *i < 1 {
-				write!(out, "-0x{:x}", -i)
-			} else {
-				write!(out, "0x{:x}", i)
-			}
-		}
-		Scalar::Size(s) => {
-			if *s < 1 {
-				write!(out, "-0x{:x}", -s)
-			} else {
-				write!(out, "0x{:x}", s)
-			}
-		}
-		Scalar::Uint(i) => write!(out, "{}", i),
-		Scalar::LongUint(u) => write!(out, "0x{:x}", u),
-		Scalar::Usize(u) => write!(out, "0x{:x}", u),
-		Scalar::Float(f) => write!(out, "{}", f),
+		Scalar::Int(i) => out.dec_i64(i),
+		Scalar::LongInt(i) => out.hex_i128(i),
+		Scalar::Size(s) => out.hex_isize(s),
+		Scalar::Uint(i) => out.dec_u64(i),
+		Scalar::LongUint(u) => out.hex_u128(u),
+		Scalar::Usize(u) => out.hex_usize(u),
+		Scalar::Float(f) => out.dec_f64(f),
 	}
 }
 
 /// Serializes a [`Value`]s for [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -> io::Result<()> {
+pub fn write_value(out: &mut IoWriter, update: &LogUpdate, val: &Value) -> io::Result<()> {
 	match val {
 		Value::Scalar(s) => write_scalar(out, update, s),
 		Value::List(ss) => {
-			write!(out, "[")?;
+			out.u8(b'[')?;
 			for i in 0..ss.len() {
 				if i != 0 {
-					write!(out, ", ")?;
+					out.str(", ")?;
 				}
 				write_scalar(out, update, &ss[i])?;
 			}
-			write!(out, "]")
+			out.u8(b']')
 		}
 		Value::Map(keys, ss) => {
-			write!(out, "{{")?;
+			out.u8(b'{')?;
 			for i in 0..keys.len() {
 				if i != 0 {
-					write!(out, ", ")?;
+					out.str(", ")?;
 				}
 				write_scalar(out, update, &keys[i])?;
-				write!(out, ": ")?;
+				out.str(": ")?;
 				write_scalar(out, update, &ss[i])?;
 			}
-			write!(out, "}}")
+			out.u8(b'}')
 		}
 	}
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Compact`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
-	// build output header
-	update.when().write(out, time_format)?;
-	write!(out, " [{level}] {msg}", level = update.level().as_short_str(), msg = update.message())?;
+pub fn write(mut out: &mut IoWriter, time_format: &Format, update: &LogUpdate) -> io::Result<()> {
+	// build output header: "timestamp [level] message"
+	update.when().write(&mut out, time_format)?;
+	out.str(" [")?;
+	out.str(update.level().as_short_str())?;
+	out.str("] ")?;
+	out.str(update.message())?;
 
-	// append fields
+	// append fields: " key=value"
 	for (key, val) in update.attribute_iter() {
-		write!(out, " {key}=")?;
+		out.space()?;
+		out.str(key)?;
+		out.u8(b'=')?;
 		write_value(out, update, &val)?;
 	}
 
@@ -121,14 +115,14 @@ mod tests {
 			(Scalar::from(-1.2345), "-1.2345"),
 		] {
 			let (s, want): (Scalar, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_scalar(&mut out, &update, &s).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+			assert_eq!(out.into_string().unwrap(), String::from(want));
 		}
 	}
 
@@ -158,14 +152,14 @@ mod tests {
 			),
 		] {
 			let (v, want): (Value, &str) = tc;
-			let mut out = Vec::new();
+			let mut out = IoWriter::new_bytes();
 
 			let when = Timestamp::now();
 			let attrs = Map::new();
 			let update = LogUpdate::from((&when, &attrs));
 
 			assert!(write_value(&mut out, &update, &v).is_ok());
-			assert_eq!(String::from_utf8(out).unwrap(), want);
+			assert_eq!(out.into_string().unwrap(), want);
 		}
 	}
 
@@ -185,8 +179,8 @@ mod tests {
 		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 		let want = "1776016599123000456 [WRN] test compact update ❤\u{fe0f} an_int=123 a_float=-456.789 some_string=\"hi there!\" nothing=<none> a_list=[0x14da0eb6, true] a_map={\"key #1\": false, \"key #2\": \"weee\"}";
 
-		let mut out = Vec::new();
+		let mut out = IoWriter::new_bytes();
 		assert!(write(&mut out, time_format, &update).is_ok());
-		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
+		assert_eq!(out.into_string().unwrap(), String::from(want));
 	}
 }

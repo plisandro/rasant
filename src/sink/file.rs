@@ -39,7 +39,7 @@ impl Default for FileConfig {
 }
 
 /// Initializes a file log [sink][`crate::sink`] from a [`FileConfig`].
-pub fn new<'f>(conf: FileConfig) -> IO<'f> {
+pub fn new(conf: FileConfig) -> IO {
 	let Some(path) = conf.path else {
 		panic!("missing path for logfile sink");
 	};
