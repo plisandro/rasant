@@ -27,39 +27,25 @@ pub enum Mode {
 	Rfc8259,
 }
 
-/// Evaluates whether a [`char`] needs string escaping.
-pub fn char_needs_escaping(c: char) -> bool {
-	// replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
-	// unfortunately, the std lib offers no methods to evaluate escaping for individual chars without iterators :'(
-	match c {
+/// Evaluates whether a [`&str`] needs string escaping.
+///
+/// Returns true if the string requires escaping in _any_ [`Mode`]. This means that
+/// some corner cases (f.ex. control characters in UTF-8*) may be flagged as requiring
+/// escaping, but the only impact will be a slightly slower serialization down the line.
+pub fn str_needs_escaping(s: &str) -> bool {
+	s.chars().any(|c| match c {
+		// check UTF-8 escaping. replicates the logic detailed in https://doc.rust-lang.org/std/primitive.char.html#method.escape_default.
+		// unfortunately, the std lib offers no methods to evaluate escaping for individual chars without iterators :'(
 		'\t' => true,
 		'\r' => true,
 		'\n' => true,
 		'\'' => true,
 		'"' => true,
-		_ => !c.is_ascii(),
-	}
-}
-
-/// Evaluates whether a [`&str`] needs string escaping.
-// TODO: This check is valid only for UTF8* encodings. Rework Scalars with string escaping annotations - or maybe just drop this?
-pub fn str_needs_escaping(s: &str) -> bool {
-	s.chars().any(char_needs_escaping)
-	/*
-	let mut escaped_iter = s.escape_default();
-	for c in s.chars() {
-		match escaped_iter.next() {
-			None => return true, // oops
-			Some(ec) => {
-				if c != ec {
-					return true;
-				}
-			}
-		}
-	}
-
-	false
-	*/
+		// JSON-specific.
+		'\\' => true,
+		// non-ASCII (UTF-8) and control (JSON) characters also need escaping.
+		_ => !c.is_ascii() || c.is_control(),
+	})
 }
 
 pub fn char_encode<'f>(buf: &'f mut [u8], c: char, mode: &'f Mode) -> &'f [u8] {
@@ -187,6 +173,7 @@ mod tests {
 		assert!(!str_needs_escaping("abcd 1234"));
 		assert!(str_needs_escaping("declaró\nen\tcontra"));
 		assert!(str_needs_escaping("so pretty ❤"));
+		assert!(str_needs_escaping("this shouldn'd\x08t break JSON"));
 	}
 
 	#[test]

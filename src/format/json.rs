@@ -192,7 +192,7 @@ mod tests {
 		let time_key: &str = "timestamp";
 		let time_format = &ntime::Format::Timestamp(ntime::Precision::Nanoseconds);
 
-		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there! \\o/\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
+		let want = "{\"timestamp\":1776016599123000456,\"level\":\"warning\",\"message\":\"test JSON update ❤\u{fe0f}\",\"an_int\":123,\"a_float\":-4.56789e2,\"some_string\":\"hi there! \\u005co\\u002f\",\"nothing\":null,\"a_list\":[349834934,true],\"a_map\":{\"key #1\":false,\"key #2\":\"weee\"}}";
 		let mut out = Vec::new();
 		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 		assert_eq!(String::from_utf8(out).unwrap(), String::from(want));
