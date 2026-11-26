@@ -150,15 +150,7 @@ fn write_float<T: io::Write>(out: &mut T, f: f64) -> io::Result<()> {
 }
 
 // Serializes a timestamp into a CBOR stream; turns out there're dedicated types for second timestamps and RFC3339.
-fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, f: &Format) -> io::Result<()> {
-	if matches!(f, Format::Rfc3339(_, _)) {
-		// major type 6, tag 0 (date/time string)
-		out.write_all(&[(6 << 5) as u8])?;
-		buf.clear();
-		_ = f.write(buf, t);
-		return write_string_bytes(out, buf);
-	}
-
+fn write_timestamp<T: io::Write>(out: &mut T, t: &Timestamp, f: &Format) -> io::Result<()> {
 	if let Some(i) = t.to_integer_as(f) {
 		if *f == Format::Timestamp(Precision::Seconds) {
 			// major type 6, tag 1 (epoch timestamp in seconds)
@@ -167,10 +159,14 @@ fn write_timestamp<T: io::Write>(out: &mut T, buf: &mut Vec<u8>, t: &Timestamp, 
 		return write_u128(out, i);
 	}
 
+	if matches!(f, Format::Rfc3339(_, _)) {
+		// major type 6, tag 0 (date/time string)
+		out.write_all(&[(6 << 5) as u8])?;
+	}
+
 	// write as string by default.
-	buf.clear();
-	_ = f.write(buf, t);
-	write_string_bytes(out, buf)
+	write_u64_with_major(out, t.string_len_as(f) as u64, 3 << 5)?;
+	f.write(out, t)
 }
 
 /// Serializes a [`Scalar`] for [`OutputFormat::Cbor`] into a [`io::Write`].
@@ -218,13 +214,13 @@ pub fn write_value<W: io::Write>(out: &mut W, update: &LogUpdate, val: &Value) -
 }
 
 /// Serializes a [`LogUpdate`] as [`OutputFormat::Cbor`] into a [`io::Write`].
-pub fn write<T: io::Write>(out: &mut T, work_buffer: &mut Vec<u8>, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
+pub fn write<T: io::Write>(out: &mut T, time_format: &Format, time_key: &str, update: &LogUpdate) -> io::Result<()> {
 	// write output as a map (major type 5)
 	write_u64_with_major(out, (update.attributes_len() + 2) as u64, 5 << 5)?;
 
 	// time / timestamp
 	write_string(out, time_key)?;
-	write_timestamp(out, work_buffer, update.when(), time_format)?;
+	write_timestamp(out, update.when(), time_format)?;
 
 	// message
 	write_string(out, ATTRIBUTE_KEY_MESSAGE)?;
@@ -342,10 +338,9 @@ mod tests {
 			),
 		] {
 			let (f, want): (Format, &[u8]) = tc;
-
-			let mut buffer = Vec::new();
 			let mut out = Vec::new();
-			assert!(write_timestamp(&mut out, &mut buffer, &ts, &f).is_ok());
+
+			assert!(write_timestamp(&mut out, &ts, &f).is_ok());
 			assert_eq!(out.as_slice(), want);
 		}
 	}
@@ -420,9 +415,8 @@ mod tests {
 			0x65, 0x79, 0x20, 0x23, 0x32, 0x64, 0x77, 0x65, 0x65, 0x65,
 		];
 
-		let mut buffer = Vec::new();
 		let mut out = Vec::new();
-		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
+		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 		assert_eq!(out, want);
 	}
 
@@ -431,7 +425,6 @@ mod tests {
 		let time_key: &str = "timestamp";
 		let time_format = &Format::Timestamp(Precision::Nanoseconds);
 		let mut attrs = Map::new();
-		let mut buffer = Vec::new();
 		let mut out = Vec::new();
 
 		// update #1
@@ -442,7 +435,7 @@ mod tests {
 		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 123, 456)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Warning, 0, "test CBOR update #1", &attrs));
 
-		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
+		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 
 		// update #2
 		attrs.clear();
@@ -452,7 +445,7 @@ mod tests {
 		let when = Timestamp::try_from((2026, 4, 12, 17, 56, 39, 789, 12)).expect("failed to initialize timestamp");
 		let update = LogUpdate::from((&when, Level::Info, 0, "test CBOR update #2", &attrs));
 
-		assert!(write(&mut out, &mut buffer, time_format, time_key, &update).is_ok());
+		assert!(write(&mut out, time_format, time_key, &update).is_ok());
 
 		let want = [
 			0xa4, 0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x1b, 0x18, 0xa5, 0xad, 0xaf, 0xe9, 0xec, 0x7c, 0x88, 0x67, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x74, 0x65,

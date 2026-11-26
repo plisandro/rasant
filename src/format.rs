@@ -152,9 +152,6 @@ pub struct Formatter {
 	time_key: String,
 	time_format: TimeFormat,
 	delimiter: Vec<u8>,
-
-	// a reusable buffer for formatting operations requiring intermediate storage
-	work_buffer: Vec<u8>,
 }
 
 impl Formatter {
@@ -168,7 +165,6 @@ impl Formatter {
 			},
 			time_format: conf.time_format,
 			delimiter: conf.delimiter,
-			work_buffer: Vec::with_capacity(DEFAULT_CAPACITY),
 		}
 	}
 
@@ -180,7 +176,7 @@ impl Formatter {
 			OutputFormat::Full => full::write(out, &self.delimiter, &self.time_format, update),
 			OutputFormat::ColorFull => color_full::write(out, &self.delimiter, &self.time_format, update),
 			OutputFormat::Json => json::write(out, &self.time_format, &self.time_key, update),
-			OutputFormat::Cbor => cbor::write(out, &mut self.work_buffer, &self.time_format, &self.time_key, update),
+			OutputFormat::Cbor => cbor::write(out, &self.time_format, &self.time_key, update),
 		}
 	}
 
