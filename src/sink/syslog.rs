@@ -55,7 +55,7 @@ use std::net::{Shutdown, SocketAddr, TcpStream, UdpSocket};
 use std::os::unix::net::UnixDatagram;
 
 /// Supported syslog formats.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SyslogFormat {
 	/// [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424).
 	Rfc5424,
@@ -87,7 +87,7 @@ impl SyslogFormat {
 }
 
 /// Supported connection types for [`Syslog`] [`sink`]s.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SyslogSocket<'e> {
 	/// A local syslog socket, on standard *NIX paths.
 	#[cfg(unix)]
