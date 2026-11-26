@@ -19,6 +19,7 @@ fn init_logger() -> r::Logger {
 			time_format: r::TimeFormat::Timestamp(r::TimePrecision::Nanoseconds),
 			..r::FormatterConfig::default()
 		},
+		in_memory: false,
 	}))
 	.set_all_levels()
 	.set_async(true);

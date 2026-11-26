@@ -14,6 +14,7 @@ fn init_logger() -> Logger {
 	let mut log = rasant::Logger::new();
 	log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 		formatter_cfg: r::FormatterConfig::default_compact(),
+		in_memory: false,
 	}))
 	.set_all_levels();
 

@@ -18,6 +18,7 @@ fn init_logger() -> Logger {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
+		in_memory: false,
 	}))
 	.set_all_levels();
 
