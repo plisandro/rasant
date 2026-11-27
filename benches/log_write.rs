@@ -1,3 +1,5 @@
+use std::fmt;
+
 use divan::{Bencher, counter};
 use rasant as r;
 use rasant::sink::black_hole;
@@ -5,12 +7,28 @@ use rasant::{FormatterConfig, Level, Logger, OutputFormat, TimeFormat, TimePreci
 
 const BENCHMARK_LOG_ITEMS: usize = 10000;
 const BENCHMARK_MAX_NESTING: usize = 50;
+const BLACKHOLE_MODES: &[BlackHoleMode] = &[BlackHoleMode::IoEmpty, BlackHoleMode::InMemory];
+
+#[derive(Copy, Clone)]
+enum BlackHoleMode {
+	IoEmpty,
+	InMemory,
+}
+
+impl fmt::Display for BlackHoleMode {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			BlackHoleMode::IoEmpty => write!(f, "io_empty"),
+			BlackHoleMode::InMemory => write!(f, "mem_buffer"),
+		}
+	}
+}
 
 fn main() {
 	divan::main();
 }
 
-fn init_logger() -> Logger {
+fn init_logger(mode: &BlackHoleMode) -> Logger {
 	let mut log = rasant::Logger::new();
 	log.add_sink(black_hole::BlackHole::new(black_hole::BlackHoleConfig {
 		formatter_cfg: FormatterConfig {
@@ -18,7 +36,7 @@ fn init_logger() -> Logger {
 			time_format: TimeFormat::Timestamp(TimePrecision::Nanoseconds),
 			..FormatterConfig::default()
 		},
-		in_memory: false,
+		in_memory: matches!(mode, BlackHoleMode::InMemory),
 	}))
 	.set_all_levels();
 
@@ -39,29 +57,29 @@ mod single {
 			});
 	}
 
-	#[divan::bench]
-	fn write(bencher: Bencher) {
-		let log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn write(bencher: Bencher, mode: &BlackHoleMode) {
+		let log = init_logger(mode);
 		run(bencher, log);
 	}
 
-	#[divan::bench]
-	fn async_write(bencher: Bencher) {
-		let mut log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn async_write(bencher: Bencher, mode: &BlackHoleMode) {
+		let mut log = init_logger(mode);
 		log.set_async(true);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_level(Level::Warning);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn async_skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_async(true).set_level(Level::Warning);
 		run(bencher, log);
 	}
@@ -88,29 +106,29 @@ mod nested {
 			});
 	}
 
-	#[divan::bench]
-	fn write(bencher: Bencher) {
-		let log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn write(bencher: Bencher, mode: &BlackHoleMode) {
+		let log = init_logger(mode);
 		run(bencher, log);
 	}
 
-	#[divan::bench]
-	fn async_write(bencher: Bencher) {
-		let mut log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn async_write(bencher: Bencher, mode: &BlackHoleMode) {
+		let mut log = init_logger(mode);
 		log.set_async(true);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_level(Level::Warning);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn async_skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_async(true).set_level(Level::Warning);
 		run(bencher, log);
 	}
@@ -138,29 +156,29 @@ mod nested_with_arguments {
 			});
 	}
 
-	#[divan::bench]
-	fn write(bencher: Bencher) {
-		let log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn write(bencher: Bencher, mode: &BlackHoleMode) {
+		let log = init_logger(mode);
 		run(bencher, log);
 	}
 
-	#[divan::bench]
-	fn async_write(bencher: Bencher) {
-		let mut log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn async_write(bencher: Bencher, mode: &BlackHoleMode) {
+		let mut log = init_logger(mode);
 		log.set_async(true);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_level(Level::Warning);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn async_skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_async(true).set_level(Level::Warning);
 		run(bencher, log);
 	}
@@ -193,29 +211,29 @@ mod threaded {
 			});
 	}
 
-	#[divan::bench]
-	fn write(bencher: Bencher) {
-		let log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn write(bencher: Bencher, mode: &BlackHoleMode) {
+		let log = init_logger(mode);
 		run(bencher, log);
 	}
 
-	#[divan::bench]
-	fn async_write(bencher: Bencher) {
-		let mut log = init_logger();
+	#[divan::bench(args=BLACKHOLE_MODES)]
+	fn async_write(bencher: Bencher, mode: &BlackHoleMode) {
+		let mut log = init_logger(mode);
 		log.set_async(true);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_level(Level::Warning);
 		run(bencher, log);
 	}
 
 	#[divan::bench]
 	fn async_skip(bencher: Bencher) {
-		let mut log = init_logger();
+		let mut log = init_logger(&BlackHoleMode::IoEmpty);
 		log.set_async(true).set_level(Level::Warning);
 		run(bencher, log);
 	}
